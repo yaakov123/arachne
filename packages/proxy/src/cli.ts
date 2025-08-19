@@ -4,6 +4,7 @@ import { CertificateAuthority } from './certs/ca.js'
 import { installRootCATrust } from './certs/trust.js'
 import { MitmProxyServer } from './proxy/server.js'
 import { createLoggerPlugin } from './plugins/logger.js'
+import { createDemoRewritePlugin } from './plugins/rewriter.js'
 
 const program = new Command()
 program
@@ -40,7 +41,8 @@ program
   .action(async (opts) => {
     const ca = new CertificateAuthority()
     await ca.ensureRootCA()
-    const proxy = new MitmProxyServer({ port: opts.port, host: opts.host, ca, plugins: [createLoggerPlugin()] })
+    const plugins = [createLoggerPlugin(), createDemoRewritePlugin()]
+    const proxy = new MitmProxyServer({ port: opts.port, host: opts.host, ca, plugins })
     const { host, port } = await proxy.start()
     console.log(`Arachne proxy listening on ${host}:${port}`)
     console.log('Ensure your browser/system is configured to use this HTTP proxy and that the Arachne Root CA is trusted.')
