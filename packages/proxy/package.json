@@ -1,0 +1,43 @@
+{
+  "name": "@arachne/proxy",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "arachne-proxy": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "pkgroll --watch --sourcemap",
+    "build": "pkgroll",
+    "lint": "eslint src --ext ts --report-unused-disable-directives --max-warnings 0",
+    "type-check": "tsc --noEmit",
+    "start": "node ./dist/cli.js start",
+    "dev:cli": "tsx src/cli.ts",
+    "start:dev": "tsx src/cli.ts start"
+  },
+  "dependencies": {
+    "node-forge": "^1.3.1",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "pkgroll": "^2.5.0",
+    "tsx": "^4.15.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
