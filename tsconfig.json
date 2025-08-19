@@ -21,6 +21,7 @@
     { "path": "./packages/shared" },
     { "path": "./packages/spec" },
     { "path": "./packages/app" },
-    { "path": "./packages/proxy" }
+    { "path": "./packages/proxy" },
+    { "path": "./packages/recorder" }
   ]
 }
