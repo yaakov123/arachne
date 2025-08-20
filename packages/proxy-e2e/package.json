@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "pretest": "npm run build -w @arachne/proxy",
-    "test": "ARACHNE_DISABLE_SYSTEM_PROXY=1 vitest run --reporter=verbose"
+    "test": "ARACHNE_DISABLE_SYSTEM_PROXY=1 vitest run --reporter=verbose",
+    "build": "echo 'no build'",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@arachne/proxy": "*"

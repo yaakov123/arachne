@@ -2,7 +2,6 @@
 import { Command } from 'commander'
 import { CertificateAuthority, MitmProxyServer, getDefaultCertStoreOptions } from '@arachne/proxy'
 import { createRecorderPlugin } from './plugin.js'
-import { InMemoryStorageAdapter } from './storage/memory.js'
 import { FileStorageAdapter } from './storage/file.js'
 import os from 'os'
 
@@ -27,9 +26,7 @@ program
     const ca = new CertificateAuthority()
     await ca.ensureRootCA()
 
-    const storage = (String(opts.storage) === 'file')
-      ? new FileStorageAdapter({ outDir: opts.out, normalizePaths: !!opts.normalizePaths, maxCaptureBytes: opts.maxBytes })
-      : new InMemoryStorageAdapter({ normalizePaths: !!opts.normalizePaths, maxCaptureBytes: opts.maxBytes })
+    const storage = new FileStorageAdapter({ outDir: opts.out, normalizePaths: !!opts.normalizePaths, maxCaptureBytes: opts.maxBytes })
 
     const { plugin } = createRecorderPlugin({
       storage,

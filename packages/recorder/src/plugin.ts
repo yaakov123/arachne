@@ -6,7 +6,7 @@ import type {
   ResponseBodyContext,
 } from '@arachne/proxy'
 import type { RecorderOptions, StorageAdapter } from './types.js'
-import { InMemoryStorageAdapter } from './storage/memory.js'
+import { FileStorageAdapter } from "./storage/file.js";
 
 export interface RecorderPluginResult {
   plugin: ProxyPlugin
@@ -18,7 +18,7 @@ const DEFAULT_MAX = 1024 * 1024 // 1MB
 export function createRecorderPlugin(opts: RecorderOptions = {}): RecorderPluginResult {
   const captureBodies = !!opts.captureBodies
   const maxCaptureBytes = typeof opts.maxCaptureBytes === 'number' ? opts.maxCaptureBytes : DEFAULT_MAX
-  const storage: StorageAdapter = opts.storage ?? new InMemoryStorageAdapter({
+  const storage: StorageAdapter = opts.storage ?? new FileStorageAdapter({
     normalizePaths: !!opts.normalizePaths,
     maxCaptureBytes,
   })
