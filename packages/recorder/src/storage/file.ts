@@ -72,6 +72,7 @@ export class FileStorageAdapter implements StorageAdapter {
     const host = ctx.url.hostname
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
+    if (method === 'OPTIONS') return
     const ep = this.getEndpoint(host, method, path)
     ep.hits += 1
     ep.lastSeen = now
@@ -89,6 +90,7 @@ export class FileStorageAdapter implements StorageAdapter {
     const host = ctx.url.hostname
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
+    if (method === 'OPTIONS') return
     const ep = this.getEndpoint(host, method, path)
     ep.statusCodes.add(ctx.statusCode || 0)
     for (const name of Object.keys(ctx.responseHeaders || {})) ep.responseHeaderNames.add(name.toLowerCase())
