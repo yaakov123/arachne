@@ -14,9 +14,20 @@ export interface RecorderOptions {
 }
 
 export interface InventoryTree {
-  hosts: Record<string, HostRecord>
+  domains: Record<string, DomainRecord>
 }
 
+export interface DomainRecord {
+  domain: string
+  subdomains: Record<string, SubdomainRecord>
+}
+
+export interface SubdomainRecord {
+  subdomain: string
+  endpoints: Record<string, EndpointRecord>
+}
+
+// Legacy interface for backward compatibility
 export interface HostRecord {
   host: string
   endpoints: Record<string, EndpointRecord>

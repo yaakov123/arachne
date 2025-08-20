@@ -4,7 +4,8 @@ import os from 'node:os'
 import type {
   StorageAdapter,
   InventoryTree,
-  HostRecord,
+  DomainRecord,
+  SubdomainRecord,
   EndpointRecord,
   RequestContext,
   ResponseContext,
@@ -36,13 +37,18 @@ interface MutableEndpointAggregate {
   sampleResponseBody?: string
 }
 
-interface MutableHostAggregate {
-  host: string
+interface MutableSubdomainAggregate {
+  subdomain: string
   endpoints: Map<EndpointKey, MutableEndpointAggregate>
 }
 
+interface MutableDomainAggregate {
+  domain: string
+  subdomains: Map<string, MutableSubdomainAggregate>
+}
+
 export class FileStorageAdapter implements StorageAdapter {
-  private hosts = new Map<string, MutableHostAggregate>()
+  private domains = new Map<string, MutableDomainAggregate>()
   private normalizePaths: boolean
   private maxCaptureBytes: number
   private outDir: string
@@ -56,23 +62,24 @@ export class FileStorageAdapter implements StorageAdapter {
   }
 
   reset(): void {
-    this.hosts.clear()
+    this.domains.clear()
   }
 
   snapshot(): InventoryTree {
-    const hostsObj: InventoryTree['hosts'] = {}
-    for (const [host, agg] of this.hosts) {
-      hostsObj[host] = this.serializeHostAggregate(agg)
+    const domainsObj: InventoryTree['domains'] = {}
+    for (const [domain, agg] of this.domains) {
+      domainsObj[domain] = this.serializeDomainAggregate(agg)
     }
-    return { hosts: hostsObj }
+    return { domains: domainsObj }
   }
 
   recordRequest(ctx: RequestContext): void {
     const now = Date.now()
     const host = ctx.url.hostname
+    const { domain, subdomain } = this.parseDomainInfo(host)
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
-    const ep = this.getEndpoint(host, method, path)
+    const ep = this.getEndpoint(domain, subdomain, method, path)
     ep.hits += 1
     ep.lastSeen = now
     if (ep.firstSeen === 0) ep.firstSeen = now
@@ -82,40 +89,43 @@ export class FileStorageAdapter implements StorageAdapter {
     const ct = headerToString((ctx.headers as any)?.['content-type'])
     if (ct) ep.requestContentTypes.add(ct.toLowerCase())
 
-    void this.enqueueWriteHost(host)
+    void this.enqueueWriteDomain(domain)
   }
 
   recordResponse(ctx: ResponseContext): void {
     const host = ctx.url.hostname
+    const { domain, subdomain } = this.parseDomainInfo(host)
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
-    const ep = this.getEndpoint(host, method, path)
+    const ep = this.getEndpoint(domain, subdomain, method, path)
     ep.statusCodes.add(ctx.statusCode || 0)
     for (const name of Object.keys(ctx.responseHeaders || {})) ep.responseHeaderNames.add(name.toLowerCase())
     const ct = headerToString((ctx.responseHeaders as any)?.['content-type'])
     if (ct) ep.responseContentTypes.add(ct.toLowerCase())
 
-    void this.enqueueWriteHost(host)
+    void this.enqueueWriteDomain(domain)
   }
 
   recordRequestBody(ctx: RequestBodyContext, sample: string): void {
     const host = ctx.url.hostname
+    const { domain, subdomain } = this.parseDomainInfo(host)
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
-    const ep = this.getEndpoint(host, method, path)
+    const ep = this.getEndpoint(domain, subdomain, method, path)
     if (ep.sampleRequestBody === undefined) ep.sampleRequestBody = this.limitSample(sample)
 
-    void this.enqueueWriteHost(host)
+    void this.enqueueWriteDomain(domain)
   }
 
   recordResponseBody(ctx: ResponseBodyContext, sample: string): void {
     const host = ctx.url.hostname
+    const { domain, subdomain } = this.parseDomainInfo(host)
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
-    const ep = this.getEndpoint(host, method, path)
+    const ep = this.getEndpoint(domain, subdomain, method, path)
     if (ep.sampleResponseBody === undefined) ep.sampleResponseBody = this.limitSample(sample)
 
-    void this.enqueueWriteHost(host)
+    void this.enqueueWriteDomain(domain)
   }
 
   private limitSample(s: string): string {
@@ -123,14 +133,36 @@ export class FileStorageAdapter implements StorageAdapter {
     return s.slice(0, this.maxCaptureBytes)
   }
 
-  private getEndpoint(host: string, method: string, path: string): MutableEndpointAggregate {
-    let hostAgg = this.hosts.get(host)
-    if (!hostAgg) {
-      hostAgg = { host, endpoints: new Map() }
-      this.hosts.set(host, hostAgg)
+  private parseDomainInfo(host: string): { domain: string; subdomain: string } {
+    const parts = host.split('.')
+    if (parts.length <= 2) {
+      // Direct domain like example.com or localhost
+      return { domain: host, subdomain: 'www' }
     }
+    
+    // For subdomains like api.example.com or dev.api.example.com
+    // Take the last two parts as the root domain
+    const domain = parts.slice(-2).join('.')
+    const subdomain = parts.slice(0, -2).join('.')
+    
+    return { domain, subdomain: subdomain || 'www' }
+  }
+
+  private getEndpoint(domain: string, subdomain: string, method: string, path: string): MutableEndpointAggregate {
+    let domainAgg = this.domains.get(domain)
+    if (!domainAgg) {
+      domainAgg = { domain, subdomains: new Map() }
+      this.domains.set(domain, domainAgg)
+    }
+    
+    let subdomainAgg = domainAgg.subdomains.get(subdomain)
+    if (!subdomainAgg) {
+      subdomainAgg = { subdomain, endpoints: new Map() }
+      domainAgg.subdomains.set(subdomain, subdomainAgg)
+    }
+    
     const key: EndpointKey = `${method} ${path}`
-    let ep = hostAgg.endpoints.get(key)
+    let ep = subdomainAgg.endpoints.get(key)
     if (!ep) {
       ep = {
         method,
@@ -145,13 +177,21 @@ export class FileStorageAdapter implements StorageAdapter {
         requestContentTypes: new Set(),
         responseContentTypes: new Set(),
       }
-      hostAgg.endpoints.set(key, ep)
+      subdomainAgg.endpoints.set(key, ep)
     }
     return ep
   }
 
-  private serializeHostAggregate(agg: MutableHostAggregate): HostRecord {
-    const endpointsObj: HostRecord['endpoints'] = {}
+  private serializeDomainAggregate(agg: MutableDomainAggregate): DomainRecord {
+    const subdomainsObj: DomainRecord['subdomains'] = {}
+    for (const [subdomain, subAgg] of agg.subdomains) {
+      subdomainsObj[subdomain] = this.serializeSubdomainAggregate(subAgg)
+    }
+    return { domain: agg.domain, subdomains: subdomainsObj }
+  }
+
+  private serializeSubdomainAggregate(agg: MutableSubdomainAggregate): SubdomainRecord {
+    const endpointsObj: SubdomainRecord['endpoints'] = {}
     for (const [key, ep] of agg.endpoints) {
       const rec: EndpointRecord = {
         method: ep.method,
@@ -170,21 +210,21 @@ export class FileStorageAdapter implements StorageAdapter {
       if (ep.sampleResponseBody !== undefined) rec.sampleResponseBody = ep.sampleResponseBody
       endpointsObj[key] = rec
     }
-    return { host: agg.host, endpoints: endpointsObj }
+    return { subdomain: agg.subdomain, endpoints: endpointsObj }
   }
 
-  private async enqueueWriteHost(host: string): Promise<void> {
-    const prev = this.writeChains.get(host) || Promise.resolve()
+  private async enqueueWriteDomain(domain: string): Promise<void> {
+    const prev = this.writeChains.get(domain) || Promise.resolve()
     const next = prev.then(async () => {
-      const agg = this.hosts.get(host)
+      const agg = this.domains.get(domain)
       if (!agg) return
-      const hostRecord = this.serializeHostAggregate(agg)
+      const domainRecord = this.serializeDomainAggregate(agg)
       const dir = this.outDir
-      const file = path.join(dir, sanitizeFilename(host) + '.json')
+      const file = path.join(dir, sanitizeFilename(domain) + '.json')
       await fs.mkdir(dir, { recursive: true })
-      await fs.writeFile(file, JSON.stringify(hostRecord, null, 2), 'utf8')
+      await fs.writeFile(file, JSON.stringify(domainRecord, null, 2), 'utf8')
     }).catch(() => { /* swallow to keep chain alive */ })
-    this.writeChains.set(host, next)
+    this.writeChains.set(domain, next)
     await next
   }
 }
