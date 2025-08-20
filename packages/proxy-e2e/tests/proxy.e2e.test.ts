@@ -1,127 +1,7 @@
-import http from 'node:http'
-import net from 'node:net'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { MitmProxyServer, type ProxyPlugin } from '@arachne/proxy'
+import type { ProxyPlugin } from '@arachne/proxy'
+import { startUpstream, stopUpstream, startProxy, requestViaProxy, type Upstream } from './utils'
 
-
-
-async function getFreePort(): Promise<number> {
-  return await new Promise((resolve) => {
-    const srv = net.createServer()
-    srv.listen(0, '127.0.0.1', () => {
-      const addr = srv.address()
-      const port = typeof addr === 'object' && addr ? addr.port : 0
-      srv.close(() => resolve(port))
-    })
-  })
-}
-
-function readBody(req: http.IncomingMessage): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = []
-    req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)))
-    req.on('end', () => resolve(Buffer.concat(chunks)))
-    req.on('error', reject)
-  })
-}
-
-type Upstream = { server: http.Server; host: string; port: number }
-
-async function startUpstream(): Promise<Upstream> {
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url || '/', 'http://localhost')
-    if (url.pathname === '/get') {
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'text/plain')
-      res.setHeader('X-Upstream', '1')
-      res.end('ok')
-      return
-    }
-    if (url.pathname === '/echo-headers') {
-      const headers: Record<string, string | string[]> = {}
-      for (const [k, v] of Object.entries(req.headers)) headers[k] = v as any
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ headers }))
-      return
-    }
-    if (url.pathname === '/echo-body') {
-      const body = await readBody(req)
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'text/plain')
-      res.setHeader('Content-Length', String(body.length))
-      res.end(body)
-      return
-    }
-    if (url.pathname === '/rewrite') {
-      const text = 'original'
-      const buf = Buffer.from(text)
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'text/plain')
-      res.setHeader('Content-Length', String(buf.length))
-      res.end(buf)
-      return
-    }
-    if (url.pathname === '/large') {
-      const size = 2 * 1024 * 1024 + 100 // > 2MB
-      const buf = Buffer.alloc(size, 0x61) // 'a'
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/octet-stream')
-      res.setHeader('Content-Length', String(buf.length))
-      res.end(buf)
-      return
-    }
-    res.statusCode = 404
-    res.end('not found')
-  })
-
-  const port = await getFreePort()
-  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve))
-  return { server, host: '127.0.0.1', port }
-}
-
-async function startProxy(plugins: ProxyPlugin[] = []) {
-  const port = await getFreePort()
-  const proxy = new MitmProxyServer({ host: '127.0.0.1', port, plugins })
-  await proxy.start()
-  // We explicitly choose the port, so we already know where it's listening
-  return { proxy, host: '127.0.0.1', port }
-}
-
-type RequestOptions = {
-  method?: string
-  headers?: Record<string, string>
-  body?: string | Buffer
-}
-
-async function requestViaProxy(proxyHost: string, proxyPort: number, target: string, opts: RequestOptions = {}) {
-  const url = new URL(target)
-  const method = opts.method || 'GET'
-  const headers: Record<string, string> = Object.assign({
-    Host: url.host,
-    Connection: 'close',
-  }, opts.headers || {})
-  const body = opts.body
-  if (body && !('content-length' in Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])))) {
-    headers['Content-Length'] = String(Buffer.isBuffer(body) ? body.length : Buffer.byteLength(body))
-  }
-  return await new Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }>((resolve, reject) => {
-    const req = http.request({
-      hostname: proxyHost,
-      port: proxyPort,
-      method,
-      path: url.toString(), // absolute-form; proxy will parse full URL
-      headers,
-    }, (res) => {
-      const chunks: Buffer[] = []
-      res.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)))
-      res.on('end', () => resolve({ status: res.statusCode || 0, headers: res.headers, body: Buffer.concat(chunks) }))
-    })
-    req.on('error', reject)
-    if (body) req.end(body)
-    else req.end()
-  })
-}
 
 describe('HTTP-only proxy e2e', () => {
   let upstream: Upstream
@@ -131,7 +11,7 @@ describe('HTTP-only proxy e2e', () => {
   })
 
   afterAll(async () => {
-    await new Promise<void>((resolve) => upstream.server.close(() => resolve()))
+    await stopUpstream(upstream)
   })
 
 

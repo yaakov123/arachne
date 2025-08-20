@@ -148,6 +148,7 @@ export class MitmProxyServer {
     } else {
       const hostHeader = h['host'] as string | undefined
       if (!hostHeader) {
+        try { console.warn('[Arachne:Proxy] Origin-form request missing Host header', { url: clientReq.url, headers: h }) } catch {}
         clientRes.writeHead(400, 'Bad Request: Missing Host header')
         clientRes.end()
         return
@@ -200,6 +201,7 @@ export class MitmProxyServer {
           contentEncoding: reqEnc,
           setBody: (b: Buffer | string) => {
             bodyBuf = Buffer.isBuffer(b) ? b : Buffer.from(b)
+            ;(reqBodyCtx as any).body = bodyBuf
           },
         })
         await this.runHook('onRequestBody', reqBodyCtx as any)
@@ -252,6 +254,7 @@ export class MitmProxyServer {
             contentEncoding: resContentEncoding,
             setBody: (b: Buffer | string) => {
               bodyBuf = Buffer.isBuffer(b) ? b : Buffer.from(b)
+              ;(resBodyCtx as any).body = bodyBuf
             },
           })
           await this.runHook('onResponseBody', resBodyCtx as any)
@@ -259,6 +262,7 @@ export class MitmProxyServer {
           // Prepare headers for uncompressed, rewritten body
           const headersOut = sanitizeHeaders(resCtx.responseHeaders as any)
           delete headersOut['content-encoding']
+          delete (headersOut as any)['transfer-encoding']
           headersOut['content-length'] = String(bodyBuf.length)
 
           clientRes.writeHead(statusCode, statusMessage, headersOut)
