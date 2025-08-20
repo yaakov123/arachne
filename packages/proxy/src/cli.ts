@@ -3,7 +3,7 @@ import { Command } from 'commander'
 import fs from 'node:fs'
 import { CertificateAuthority } from './certs/ca.js'
 import { installRootCATrust, uninstallRootCATrust } from './certs/trust.js'
-import { caBaseDir } from './certs/store.js'
+import { CertStore } from './certs/store.js'
 import { MitmProxyServer } from './proxy/server.js'
 import { createLoggerPlugin } from './plugins/logger.js'
 import { createDemoRewritePlugin } from './plugins/rewriter.js'
@@ -65,8 +65,9 @@ program
   .description('Start the proxy server')
   .option('-p, --port <port>', 'Port to listen on', (v) => parseInt(v, 10), 8899)
   .option('--host <host>', 'Host to bind to', '127.0.0.1')
+  .option('--store <path>', 'Path to the certificate store directory', CertStore.defaultBaseDir())
   .action(async (opts) => {
-    const ca = new CertificateAuthority()
+    const ca = new CertificateAuthority({ store: { baseDir: opts.store } })
     await ca.ensureRootCA()
     const plugins = [createLoggerPlugin(), createDemoRewritePlugin()]
     const proxy = new MitmProxyServer({ port: opts.port, host: opts.host, ca, plugins })
@@ -103,7 +104,8 @@ program
 program
   .command('rotate')
   .description('Rotate the root CA: untrust and remove the old CA, then generate a new one')
-  .action(async () => {
+  .option('--store <path>', 'Path to the certificate store directory', CertStore.defaultBaseDir())
+  .action(async (opts) => {
     // Ensure subsequent file operations run as the invoking user, not root
     dropPrivilegesForFileOps()
     console.log('Untrusting existing Arachne Root CA (if present)...')
@@ -113,18 +115,17 @@ program
       console.warn('Proceeding with rotation despite untrust failure/non-automation on this platform.')
     }
 
-    const base = caBaseDir()
-    console.log(`Removing CA directory: ${base}`)
+    console.log(`Removing CA directory: ${opts.store}`)
     try {
-      fs.rmSync(base, { recursive: true, force: true })
+      fs.rmSync(opts.store, { recursive: true, force: true })
     } catch (e) {
       console.error('Failed to remove CA directory:', e)
     }
 
     console.log('Generating a fresh Root CA...')
-    const ca = new CertificateAuthority()
+    const ca = new CertificateAuthority({ store: { baseDir: opts.store } })
     const { certPem } = await ca.ensureRootCA()
-    console.log('New Root CA generated at ~/.arachne/proxy/ca')
+    console.log('New Root CA generated at', opts.store)
     console.log(certPem)
     console.log('Trusting the new Root CA in the OS trust store (where supported)...')
     const trust = await installRootCATrust()

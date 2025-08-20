@@ -1,6 +1,6 @@
 import forge from 'node-forge'
 import * as tls from 'node:tls'
-import { readFileIfExists, writeFileAtomic, caCertPath, caKeyPath, hostCertPath, hostKeyPath } from './store.js'
+import { CertStore, type CertStoreOptions } from './store.js'
 
 export interface CAOptions {
   commonName?: string
@@ -9,6 +9,7 @@ export interface CAOptions {
   localityName?: string
   validityYears?: number
   keyBits?: number
+  store?: CertStoreOptions
 }
 
 export interface IssuedCert {
@@ -20,14 +21,17 @@ export class CertificateAuthority {
   private caCertPem?: string
   private caKeyPem?: string
   private secureContextCache = new Map<string, tls.SecureContext>()
+  private store: CertStore
 
-  constructor(private opts: CAOptions = {}) {}
+  constructor(private opts: CAOptions = {}) {
+    this.store = new CertStore(opts.store ?? {})
+  }
 
   get caCert(): string | undefined { return this.caCertPem }
 
   async ensureRootCA(): Promise<{ certPem: string; keyPem: string }> {
-    const existingCert = readFileIfExists(caCertPath())
-    const existingKey = readFileIfExists(caKeyPath())
+    const existingCert = this.store.readFileIfExists(this.store.caCertPath())
+    const existingKey = this.store.readFileIfExists(this.store.caKeyPath())
     if (existingCert && existingKey) {
       this.caCertPem = existingCert
       this.caKeyPem = existingKey
@@ -67,8 +71,8 @@ export class CertificateAuthority {
     const certPem = forge.pki.certificateToPem(cert)
     const keyPem = forge.pki.privateKeyToPem(keys.privateKey)
 
-    writeFileAtomic(caCertPath(), certPem)
-    writeFileAtomic(caKeyPath(), keyPem)
+    this.store.writeFileAtomic(this.store.caCertPath(), certPem)
+    this.store.writeFileAtomic(this.store.caKeyPath(), keyPem)
 
     this.caCertPem = certPem
     this.caKeyPem = keyPem
@@ -79,8 +83,8 @@ export class CertificateAuthority {
     if (!this.caCertPem || !this.caKeyPem) {
       await this.ensureRootCA()
     }
-    const existingCert = readFileIfExists(hostCertPath(hostname))
-    const existingKey = readFileIfExists(hostKeyPath(hostname))
+    const existingCert = this.store.readFileIfExists(this.store.hostCertPath(hostname))
+    const existingKey = this.store.readFileIfExists(this.store.hostKeyPath(hostname))
     if (existingCert && existingKey) {
       return { certPem: existingCert, keyPem: existingKey }
     }
@@ -130,8 +134,8 @@ export class CertificateAuthority {
     const certPem = forge.pki.certificateToPem(cert)
     const keyPem = forge.pki.privateKeyToPem(keys.privateKey)
 
-    writeFileAtomic(hostCertPath(hostname), certPem)
-    writeFileAtomic(hostKeyPath(hostname), keyPem)
+    this.store.writeFileAtomic(this.store.hostCertPath(hostname), certPem)
+    this.store.writeFileAtomic(this.store.hostKeyPath(hostname), keyPem)
 
     return { certPem, keyPem }
   }

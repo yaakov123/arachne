@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { caCertPath } from './store.js'
+import { CertStore } from './store.js'
 
 export type Platform = 'darwin' | 'win32' | 'linux'
 
@@ -15,8 +15,8 @@ export interface TrustResult {
   code?: number | null
 }
 
-export async function installRootCATrust(): Promise<TrustResult> {
-  const cert = caCertPath()
+export async function installRootCATrust(store: CertStore = new CertStore()): Promise<TrustResult> {
+  const cert = store.caCertPath()
   switch (platform()) {
     case 'darwin':
       return installOnMac(cert)

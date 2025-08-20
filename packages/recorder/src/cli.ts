@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
-import { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
+import { CertificateAuthority, MitmProxyServer, getDefaultCertStoreOptions } from '@arachne/proxy'
 import { createRecorderPlugin } from './plugin.js'
 import { InMemoryStorageAdapter } from './storage/memory.js'
 import { FileStorageAdapter } from './storage/file.js'
@@ -16,11 +16,12 @@ program
   .description('Start the recorder proxy and print the in-memory inventory JSON when it exits')
   .option('-p, --port <port>', 'Port to listen on', (v) => parseInt(v, 10), 8899)
   .option('--host <host>', 'Host to bind to', '127.0.0.1')
+  .option('--store <path>', 'Path to the certificate store directory', getDefaultCertStoreOptions().baseDir)
   .option('--capture-bodies', 'Capture small example request/response bodies (up to max bytes)', true)
   .option('--normalize-paths', 'Normalize likely ID segments in paths to {id}', true)
   .option('--max-bytes <n>', 'Max bytes to capture per body sample', (v) => parseInt(v, 10), 1024 * 1024)
-  .option('--storage <type>', 'Storage type: memory | file', 'memory')
-  .option('--out <dir>', 'Output directory for file storage (defaults to ~/.arachne/recorder)')
+  .option('--storage <type>', 'Storage type: memory | file', 'file' )
+  .option('--out <dir>', 'Output directory for file storage (defaults to ~/.arachne/recorder)', "~/.arachne/recorder")
   .action(async (opts) => {
     const ca = new CertificateAuthority()
     await ca.ensureRootCA()

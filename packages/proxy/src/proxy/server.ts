@@ -5,6 +5,7 @@ import tls from 'node:tls'
 import { URL } from 'node:url'
 import zlib from 'node:zlib'
 import { CertificateAuthority } from '../certs/ca.js'
+import type { CertStoreOptions } from '../certs/store.js'
 import { ProxyPlugin, RequestContext, ResponseContext, ConnectContext, RequestBodyContext, ResponseBodyContext } from '../plugins/types.js'
 import { genId, parseHostPort, sanitizeHeaders } from './utils.js'
 import { enableSystemProxy, disableSystemProxy } from '../os/system-proxy.js'
@@ -15,6 +16,7 @@ export interface ProxyOptions {
   host?: string
   port?: number
   ca?: CertificateAuthority
+  certStore?: CertStoreOptions
   plugins?: ProxyPlugin[]
 }
 
@@ -24,7 +26,7 @@ export class MitmProxyServer {
   private plugins: ProxyPlugin[]
 
   constructor(private opts: ProxyOptions = {}) {
-    this.ca = opts.ca ?? new CertificateAuthority()
+    this.ca = opts.ca ?? new CertificateAuthority({ store: opts.certStore })
     this.plugins = opts.plugins ?? []
 
     this.httpServer = http.createServer((req, res) => {
