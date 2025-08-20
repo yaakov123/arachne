@@ -93,7 +93,7 @@ const DEFAULT_MAX_BODY = 512 * 1024
 export function createTrafficRecorder(opts: TrafficRecorderOptions = {}): TrafficRecorder {
   const outFile = opts.outFile || path.join(os.homedir(), '.arachne', 'recorder', 'traffic.ndjson')
   const append = opts.append ?? true
-  const sampleBodies = opts.sampleBodies ?? false
+  const sampleBodies = opts.sampleBodies ?? true
   const maxBodyBytes = opts.maxBodyBytes ?? DEFAULT_MAX_BODY
   const redactHeaders = (opts.redactHeaders || DEFAULT_REDACT).map((h) => h.toLowerCase())
   const hostFilter = sanitizeHosts(opts.hosts)
