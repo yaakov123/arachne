@@ -104,7 +104,10 @@ export async function enableSystemProxy(host: string, port: number): Promise<voi
 export async function disableSystemProxy(): Promise<void> {
   if (platform() !== 'darwin') return
   const service = activeService || (await getDefaultService())
-  if (!service) return
+  if (!service) {
+    console.warn('[Arachne] No macOS network service found to disable proxy.')
+    return
+  }
 
   try {
     if (previousState && previousState.service === service) {

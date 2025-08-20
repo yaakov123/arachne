@@ -47,16 +47,26 @@ export class MitmProxyServer {
     const port = this.opts.port ?? 8899
     await new Promise<void>((resolve) => this.httpServer.listen(port, host, resolve))
     try {
+      console.log('[Arachne:Proxy] Enabling system proxy...')
       await enableSystemProxy(host, port)
-    } catch {}
+      console.log('[Arachne:Proxy] Enabled system proxy')
+    } catch {
+      console.warn('Failed to enable system proxy')
+    }
     return { host, port }
   }
 
   async stop(): Promise<void> {
+    console.log('[Arachne:Proxy] Stopping proxy server...')
     await new Promise<void>((resolve, reject) => this.httpServer.close((err) => (err ? reject(err) : resolve())))
+    console.log('[Arachne:Proxy] Stopped proxy server')
     try {
+      console.log('[Arachne:Proxy] Disabling system proxy...')
       await disableSystemProxy()
-    } catch {}
+      console.log('[Arachne:Proxy] Disabled system proxy')
+    } catch {
+      console.warn('Failed to disable system proxy')
+    }
   }
 
   addPlugin(p: ProxyPlugin) { this.plugins.push(p) }

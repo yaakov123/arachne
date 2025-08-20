@@ -63,11 +63,14 @@ async function installOnMac(certPath: string): Promise<TrustResult> {
   const args = ['add-trusted-cert', '-d', '-r', 'trustRoot', '-k', '/Library/Keychains/System.keychain', certPath]
   const res = await runSecurity(args)
   if (res.ok) return res
-  // If failed (likely due to permissions), suggest manual command
+  // Try elevating only this subcommand with sudo
+  const elevated = await runSecuritySudo(args)
+  if (elevated.ok) return { ok: true, message: 'Installed CA into System keychain.' }
+  // If failed (likely due to permissions or user cancelled), suggest manual command
   return {
     ok: false,
-    message: `Failed to add trusted cert to System keychain. Try running with sudo:\n  sudo security ${args.map(escapeArg).join(' ')}`,
-    code: res.code,
+    message: `Failed to add trusted cert to System keychain. You can try:\n  sudo security ${args.map(escapeArg).join(' ')}`,
+    code: elevated.code ?? res.code,
   }
 }
 
@@ -90,6 +93,18 @@ function runSecurity(args: string[]): Promise<TrustResult> {
   })
 }
 
+function runSecuritySudo(args: string[]): Promise<TrustResult> {
+  // Elevate just this subcommand; inherit stdio to allow password prompt
+  return new Promise((resolve) => {
+    const p = spawn('sudo', ['security', ...args], { stdio: 'inherit' })
+    p.on('close', (code) => {
+      const ok = code === 0
+      resolve({ ok, message: ok ? 'OK' : `security exited with code ${code}`, code })
+    })
+    p.on('error', (e) => resolve({ ok: false, message: String(e), code: null }))
+  })
+}
+
 async function uninstallOnMac(): Promise<TrustResult> {
   // Find all matching certs by common name in the System keychain and delete them.
   const list = await runSecurity(['find-certificate', '-a', '-Z', '-c', 'Arachne Proxy Root CA', '/Library/Keychains/System.keychain'])
@@ -106,7 +121,10 @@ async function uninstallOnMac(): Promise<TrustResult> {
 
   for (const h of hashes) {
     const del = await runSecurity(['delete-certificate', '-Z', h, '/Library/Keychains/System.keychain'])
-    if (!del.ok) return del
+    if (!del.ok) {
+      const elevated = await runSecuritySudo(['delete-certificate', '-Z', h, '/Library/Keychains/System.keychain'])
+      if (!elevated.ok) return elevated
+    }
   }
   return { ok: true, message: `Removed ${hashes.length} certificate(s) from System keychain.` }
 }

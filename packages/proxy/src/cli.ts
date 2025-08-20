@@ -14,6 +14,31 @@ program
   .description('Arachne MITM HTTPS proxy with plugin system')
   .version('0.1.0')
 
+// Only elevate specific subcommands (handled inside trust.ts). If the user ran this
+// entire CLI with sudo, drop privileges for file operations to avoid creating
+// root-owned files under ~/.arachne.
+function dropPrivilegesForFileOps() {
+  try {
+    const getEuid = (process as any).geteuid as (() => number) | undefined
+    if (!getEuid) return
+    if (getEuid() !== 0) return // not root
+    const sudoUid = process.env.SUDO_UID
+    const sudoGid = process.env.SUDO_GID
+    if (sudoGid) {
+      try { (process as any).setgid?.(Number(sudoGid)) } catch {}
+    }
+    if (sudoUid) {
+      try { (process as any).setuid?.(Number(sudoUid)) } catch {}
+    } else {
+      console.error('Refusing to run as root: re-run without sudo to avoid permission issues.');
+      process.exit(1)
+    }
+  } catch {
+    // Ignore inability to drop; proceed, but warn
+    console.warn('Warning: could not drop root privileges; this may create root-owned files.')
+  }
+}
+
 program
   .command('init-ca')
   .description('Generate a root CA for the proxy and save it to ~/.arachne/proxy/ca')
@@ -79,6 +104,8 @@ program
   .command('rotate')
   .description('Rotate the root CA: untrust and remove the old CA, then generate a new one')
   .action(async () => {
+    // Ensure subsequent file operations run as the invoking user, not root
+    dropPrivilegesForFileOps()
     console.log('Untrusting existing Arachne Root CA (if present)...')
     const untrust = await uninstallRootCATrust()
     console.log(untrust.message)

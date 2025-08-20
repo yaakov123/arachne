@@ -1,6 +1,0 @@
-#!/usr/bin/env node
-// This thin wrapper loads the compiled CLI. Run `npm run build -w @arachne/proxy` first.
-import('../dist/cli.js').catch((err) => {
-  console.error('[arachne-proxy] Failed to load CLI. Did you run the build?', err)
-  process.exit(1)
-})

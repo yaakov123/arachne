@@ -19,5 +19,6 @@
   "files": [],
   "references": [
     { "path": "./packages/proxy" },
+    { "path": "./packages/recorder" },
   ]
 }
