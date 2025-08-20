@@ -18,8 +18,6 @@
   },
   "files": [],
   "references": [
-    { "path": "./packages/shared" },
-    { "path": "./packages/app" },
     { "path": "./packages/proxy" },
     { "path": "./packages/recorder" }
   ]
