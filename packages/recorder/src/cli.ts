@@ -4,6 +4,7 @@ import { CertificateAuthority, MitmProxyServer, getDefaultCertStoreOptions } fro
 import { createRecorderPlugin } from './plugin.js'
 import { InMemoryStorageAdapter } from './storage/memory.js'
 import { FileStorageAdapter } from './storage/file.js'
+import os from 'os'
 
 const program = new Command()
 program
@@ -21,7 +22,7 @@ program
   .option('--normalize-paths', 'Normalize likely ID segments in paths to {id}', true)
   .option('--max-bytes <n>', 'Max bytes to capture per body sample', (v) => parseInt(v, 10), 1024 * 1024)
   .option('--storage <type>', 'Storage type: memory | file', 'file' )
-  .option('--out <dir>', 'Output directory for file storage (defaults to ~/.arachne/recorder)', "~/.arachne/recorder")
+  .option('--out <dir>', 'Output directory for file storage (defaults to ~/.arachne/recorder)', os.homedir() + '/.arachne/recorder')
   .action(async (opts) => {
     const ca = new CertificateAuthority()
     await ca.ensureRootCA()
