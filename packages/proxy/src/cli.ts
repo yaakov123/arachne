@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
+import fs from 'node:fs'
 import { CertificateAuthority } from './certs/ca.js'
-import { installRootCATrust } from './certs/trust.js'
+import { installRootCATrust, uninstallRootCATrust } from './certs/trust.js'
+import { caBaseDir } from './certs/store.js'
 import { MitmProxyServer } from './proxy/server.js'
 import { createLoggerPlugin } from './plugins/logger.js'
 import { createDemoRewritePlugin } from './plugins/rewriter.js'
@@ -71,6 +73,39 @@ program
       console.error('Unhandled rejection:', reason)
       await shutdown(1)
     })
+  })
+
+program
+  .command('rotate')
+  .description('Rotate the root CA: untrust and remove the old CA, then generate a new one')
+  .action(async () => {
+    console.log('Untrusting existing Arachne Root CA (if present)...')
+    const untrust = await uninstallRootCATrust()
+    console.log(untrust.message)
+    if (!untrust.ok) {
+      console.warn('Proceeding with rotation despite untrust failure/non-automation on this platform.')
+    }
+
+    const base = caBaseDir()
+    console.log(`Removing CA directory: ${base}`)
+    try {
+      fs.rmSync(base, { recursive: true, force: true })
+    } catch (e) {
+      console.error('Failed to remove CA directory:', e)
+    }
+
+    console.log('Generating a fresh Root CA...')
+    const ca = new CertificateAuthority()
+    const { certPem } = await ca.ensureRootCA()
+    console.log('New Root CA generated at ~/.arachne/proxy/ca')
+    console.log(certPem)
+    console.log('Trusting the new Root CA in the OS trust store (where supported)...')
+    const trust = await installRootCATrust()
+    console.log(trust.message)
+    if (!trust.ok) {
+      console.warn('The CA was generated but not automatically trusted. You may need to run with elevated privileges or follow the printed instructions.')
+      process.exitCode = 1
+    }
   })
 
 program.parseAsync(process.argv)

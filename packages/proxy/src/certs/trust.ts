@@ -27,6 +27,28 @@ export async function installRootCATrust(): Promise<TrustResult> {
   }
 }
 
+export async function uninstallRootCATrust(): Promise<TrustResult> {
+  switch (platform()) {
+    case 'darwin':
+      return uninstallOnMac()
+    case 'win32':
+      return {
+        ok: false,
+        message: 'Windows trust removal not implemented. Please remove the CA from the Trusted Root Certification Authorities store manually.',
+      }
+    case 'linux':
+      return {
+        ok: false,
+        message: [
+          'Linux trust removal is distro-dependent. Try one of the following:',
+          '- Debian/Ubuntu: remove /usr/local/share/ca-certificates/arachne-proxy.crt then run: sudo update-ca-certificates --fresh',
+          '- RHEL/CentOS/Fedora: remove /etc/pki/ca-trust/source/anchors/arachne-proxy.pem then run: sudo update-ca-trust',
+          'Then restart your browser.',
+        ].join('\n'),
+      }
+  }
+}
+
 function linuxInstructions(certPath: string): string {
   return [
     'Linux trust installation is distro-dependent. Try one of the following:',
@@ -66,4 +88,25 @@ function runSecurity(args: string[]): Promise<TrustResult> {
     })
     p.on('error', (e) => resolve({ ok: false, message: String(e), code: null }))
   })
+}
+
+async function uninstallOnMac(): Promise<TrustResult> {
+  // Find all matching certs by common name in the System keychain and delete them.
+  const list = await runSecurity(['find-certificate', '-a', '-Z', '-c', 'Arachne Proxy Root CA', '/Library/Keychains/System.keychain'])
+  if (!list.ok) return list
+
+  const hashes = list.message
+    .split('\n')
+    .map((l) => l.match(/SHA-1 hash: ([A-F0-9]+)/)?.[1])
+    .filter((h): h is string => !!h)
+
+  if (hashes.length === 0) {
+    return { ok: true, message: 'No matching Arachne Root CA found in System keychain.' }
+  }
+
+  for (const h of hashes) {
+    const del = await runSecurity(['delete-certificate', '-Z', h, '/Library/Keychains/System.keychain'])
+    if (!del.ok) return del
+  }
+  return { ok: true, message: `Removed ${hashes.length} certificate(s) from System keychain.` }
 }

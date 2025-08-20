@@ -31,6 +31,25 @@ sudo npm exec -w @arachne/proxy arachne-proxy install-ca
 
 Linux/Windows: follow instructions printed by `install-ca`.
 
+## Rotate the root CA
+
+Rotates (replaces) the existing root CA by:
+
+- Untrusting the old CA from the OS trust store (automated on macOS; guidance on others)
+- Deleting the CA directory at `~/.arachne/proxy/ca` (including issued certs)
+- Generating a brand new root CA and attempting to trust it
+
+```bash
+# May require sudo to modify the System keychain on macOS
+sudo npm exec -w @arachne/proxy arachne-proxy rotate
+```
+
+Notes:
+
+- On macOS, trusting/untrusting the System keychain typically requires sudo.
+- On Linux/Windows, the command will print instructions to manually trust/untrust.
+- After rotation, any previously issued per-host certs are removed and will be reissued automatically on first use.
+
 ## Start the proxy
 
 ```bash
@@ -86,5 +105,4 @@ export const myPlugin: ProxyPlugin = {
 ## Notes
 
 - The proxy forces ALPN to HTTP/1.1 for better compatibility and simpler interception.
-- Body rewriting is not implemented yet; hooks operate on metadata and headers. This can be extended later.
 - CA and issued certs are stored under `~/.arachne/proxy/ca`.
