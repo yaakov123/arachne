@@ -2,6 +2,8 @@
 import { Command } from 'commander'
 import { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
 import { createRecorderPlugin } from './plugin.js'
+import { InMemoryStorageAdapter } from './storage/memory.js'
+import { FileStorageAdapter } from './storage/file.js'
 
 const program = new Command()
 program
@@ -14,14 +16,21 @@ program
   .description('Start the recorder proxy and print the in-memory inventory JSON when it exits')
   .option('-p, --port <port>', 'Port to listen on', (v) => parseInt(v, 10), 8899)
   .option('--host <host>', 'Host to bind to', '127.0.0.1')
-  .option('--capture-bodies', 'Capture small example request/response bodies (up to max bytes)', false)
+  .option('--capture-bodies', 'Capture small example request/response bodies (up to max bytes)', true)
   .option('--normalize-paths', 'Normalize likely ID segments in paths to {id}', true)
   .option('--max-bytes <n>', 'Max bytes to capture per body sample', (v) => parseInt(v, 10), 1024 * 1024)
+  .option('--storage <type>', 'Storage type: memory | file', 'memory')
+  .option('--out <dir>', 'Output directory for file storage (defaults to ~/.arachne/recorder)')
   .action(async (opts) => {
     const ca = new CertificateAuthority()
     await ca.ensureRootCA()
 
-    const { plugin, storage } = createRecorderPlugin({
+    const storage = (String(opts.storage) === 'file')
+      ? new FileStorageAdapter({ outDir: opts.out, normalizePaths: !!opts.normalizePaths, maxCaptureBytes: opts.maxBytes })
+      : new InMemoryStorageAdapter({ normalizePaths: !!opts.normalizePaths, maxCaptureBytes: opts.maxBytes })
+
+    const { plugin } = createRecorderPlugin({
+      storage,
       captureBodies: !!opts.captureBodies,
       normalizePaths: !!opts.normalizePaths,
       maxCaptureBytes: opts.maxBytes,
@@ -44,11 +53,11 @@ program
         console.error('[Arachne:Recorder] Error during shutdown:', e)
       }
       try {
-        const snapshot = storage.snapshot()
-        console.log('\n=== Arachne Recorder Inventory JSON ===')
-        console.log(JSON.stringify(snapshot, null, 2))
+        // const snapshot = storage.snapshot()
+        // console.log('\n=== Arachne Recorder Inventory JSON ===')
+        // console.log(JSON.stringify(snapshot, null, 2))
       } catch (e) {
-        console.error('[Arachne:Recorder] Failed to output snapshot:', e)
+        // console.error('[Arachne:Recorder] Failed to output snapshot:', e)
       } finally {
         process.exit(code)
       }
