@@ -46,6 +46,31 @@ program
     const { host, port } = await proxy.start()
     console.log(`Arachne proxy listening on ${host}:${port}`)
     console.log('Ensure your browser/system is configured to use this HTTP proxy and that the Arachne Root CA is trusted.')
+
+    let stopping = false
+    const shutdown = async (code = 0) => {
+      console.log('[Arachne] Shutting down...')
+      if (stopping) return
+      stopping = true
+      try {
+        await proxy.stop()
+      } catch (e) {
+        console.error('Error during shutdown:', e)
+      } finally {
+        process.exit(code)
+      }
+    }
+
+    process.on('SIGINT', () => shutdown(0))
+    process.on('SIGTERM', () => shutdown(0))
+    process.on('uncaughtException', async (err) => {
+      console.error('Uncaught exception:', err)
+      await shutdown(1)
+    })
+    process.on('unhandledRejection', async (reason) => {
+      console.error('Unhandled rejection:', reason)
+      await shutdown(1)
+    })
   })
 
 program.parseAsync(process.argv)

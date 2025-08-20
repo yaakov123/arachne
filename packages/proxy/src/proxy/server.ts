@@ -7,6 +7,7 @@ import zlib from 'node:zlib'
 import { CertificateAuthority } from '../certs/ca.js'
 import { ProxyPlugin, RequestContext, ResponseContext, ConnectContext, RequestBodyContext, ResponseBodyContext } from '../plugins/types.js'
 import { genId, parseHostPort, sanitizeHeaders } from './utils.js'
+import { enableSystemProxy, disableSystemProxy } from '../os/system-proxy.js'
 
 const MAX_BODY_SIZE = 2 * 1024 * 1024 // 2MB safety limit
 
@@ -45,11 +46,17 @@ export class MitmProxyServer {
     const host = this.opts.host ?? '127.0.0.1'
     const port = this.opts.port ?? 8899
     await new Promise<void>((resolve) => this.httpServer.listen(port, host, resolve))
+    try {
+      await enableSystemProxy(host, port)
+    } catch {}
     return { host, port }
   }
 
   async stop(): Promise<void> {
     await new Promise<void>((resolve, reject) => this.httpServer.close((err) => (err ? reject(err) : resolve())))
+    try {
+      await disableSystemProxy()
+    } catch {}
   }
 
   addPlugin(p: ProxyPlugin) { this.plugins.push(p) }
