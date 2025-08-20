@@ -1,0 +1,21 @@
+{
+  "name": "@arachne/proxy-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pretest": "npm run build -w @arachne/proxy",
+    "test": "ARACHNE_DISABLE_SYSTEM_PROXY=1 vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "@arachne/proxy": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

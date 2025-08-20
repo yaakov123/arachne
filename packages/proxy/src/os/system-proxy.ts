@@ -10,6 +10,9 @@ interface ProxyState {
 let previousState: ProxyState | null = null
 let activeService: string | null = null
 
+// Allow tests/CI to disable any system proxy modifications
+const DISABLE_SYSTEM_PROXY = process.env.ARACHNE_DISABLE_SYSTEM_PROXY === '1'
+
 function run(cmd: string, args: string[]): Promise<{ ok: boolean; code: number | null; out: string; err: string }> {
   return new Promise((resolve) => {
     const p = spawn(cmd, args, { stdio: 'pipe' })
@@ -70,7 +73,14 @@ async function getSecureWebProxy(service: string) {
 }
 
 export async function enableSystemProxy(host: string, port: number): Promise<void> {
-  if (platform() !== 'darwin') return
+  if (DISABLE_SYSTEM_PROXY) {
+    console.warn('[Arachne] System proxy disabled by ARACHNE_DISABLE_SYSTEM_PROXY')
+    return
+  }
+  if (platform() !== 'darwin') {
+    console.warn('[Arachne] System proxy only supported on macOS')
+    return
+  }
   const service = (await getDefaultService())
   if (!service) {
     console.warn('[Arachne] No macOS network service found to enable proxy.')
@@ -102,7 +112,14 @@ export async function enableSystemProxy(host: string, port: number): Promise<voi
 }
 
 export async function disableSystemProxy(): Promise<void> {
-  if (platform() !== 'darwin') return
+  if (DISABLE_SYSTEM_PROXY) {
+    console.warn('[Arachne] System proxy disabled by ARACHNE_DISABLE_SYSTEM_PROXY')
+    return
+  }
+  if (platform() !== 'darwin') {
+    console.warn('[Arachne] System proxy only supported on macOS')
+    return
+  }
   const service = activeService || (await getDefaultService())
   if (!service) {
     console.warn('[Arachne] No macOS network service found to disable proxy.')
