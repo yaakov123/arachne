@@ -36,7 +36,7 @@
       "dependsOn": [
         "^cleanup"
       ],
-      "outputs": []
+      "cache": false
     }
   }
 }

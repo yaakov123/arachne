@@ -89,14 +89,14 @@ export class MitmProxyServer {
         try {
             srv.closeAllConnections?.()
         } catch {}
-        const closePromise = new Promise<void>((resolve, reject) =>
+        await new Promise<void>((resolve, reject) =>
             this.httpServer.close((err) => (err ? reject(err) : resolve()))
         )
         console.log('[Arachne:Proxy] Stopped proxy server')
         try {
-            console.log('[Arachne:Proxy] Disabling system proxy...')
-            const disablePromise = disableSystemProxy()
-            await Promise.all([closePromise, disablePromise])
+            // console.log('[Arachne:Proxy] Disabling system proxy...')
+            // const disablePromise = disableSystemProxy()
+            // await Promise.all([closePromise, disablePromise])
             console.log('[Arachne:Proxy] Disabled system proxy')
         } catch {
             console.warn('Failed to disable system proxy')
