@@ -9,8 +9,7 @@ export { createDemoRewritePlugin } from './plugins/rewriter.js'
 export { type CertStoreOptions } from './certs/store.js'
 
 export function getDefaultCertStoreOptions(): CertStoreOptions {
-  return {
-    baseDir: CertStore.defaultBaseDir(),
-  }
+    return {
+        baseDir: CertStore.defaultBaseDir(),
+    }
 }
-  

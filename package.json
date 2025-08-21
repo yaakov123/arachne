@@ -1,23 +1,24 @@
 {
-  "name": "arachne-monorepo",
-  "version": "1.0.0",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "dev": "npm run dev --workspaces",
-    "build": "npm run build --workspaces",
-    "lint": "npm run lint --workspaces",
-    "type-check": "npm run type-check --workspaces",
-    "pretest": "npm run build -w @arachne/proxy",
-    "test": "vitest",
-    "test:watch": "vitest --watch",
-    "test:ci": "npm run build -w @arachne/proxy && vitest --run"
-  },
-  "devDependencies": {
-    "@types/node-forge": "^1.3.13",
-    "typescript": "^5.0.0",
-    "vitest": "^3.2.4"
-  }
+    "name": "arachne-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "npm run dev --workspaces",
+        "build": "npm run build --workspaces",
+        "lint": "npm run lint --workspaces",
+        "type-check": "npm run type-check --workspaces",
+        "prettier": "npx prettier --write .",
+        "pretest": "npm run build -w @arachne/proxy",
+        "test": "vitest",
+        "test:watch": "vitest --watch",
+        "test:ci": "npm run build -w @arachne/proxy && vitest --run"
+    },
+    "devDependencies": {
+        "@types/node-forge": "^1.3.13",
+        "typescript": "^5.0.0",
+        "vitest": "^3.2.4"
+    }
 }

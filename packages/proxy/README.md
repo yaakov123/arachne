@@ -61,8 +61,8 @@ Note: The extra `--` after `start` ensures CLI options are passed through.
 ## Configure Chrome to use the proxy
 
 - macOS System Settings -> Network -> Your interface -> Details -> Proxies
-  - Enable "Web proxy (HTTP)" and "Secure Web Proxy (HTTPS)"
-  - Server: 127.0.0.1, Port: 8899
+    - Enable "Web proxy (HTTP)" and "Secure Web Proxy (HTTPS)"
+    - Server: 127.0.0.1, Port: 8899
 - Or via terminal:
 
 ```bash
@@ -88,17 +88,17 @@ Create your own plugin:
 import type { ProxyPlugin } from '@arachne/proxy'
 
 export const myPlugin: ProxyPlugin = {
-  name: 'my-plugin',
-  async onRequest(ctx) {
-    // mutate outgoing upstream request
-    ctx.requestOptions.headers['x-my-header'] = '1'
-  },
-  async onResponse(ctx) {
-    // inspect status, headers, url
-    if (ctx.statusCode >= 500) {
-      console.warn('Server error:', ctx.url.toString())
-    }
-  },
+    name: 'my-plugin',
+    async onRequest(ctx) {
+        // mutate outgoing upstream request
+        ctx.requestOptions.headers['x-my-header'] = '1'
+    },
+    async onResponse(ctx) {
+        // inspect status, headers, url
+        if (ctx.statusCode >= 500) {
+            console.warn('Server error:', ctx.url.toString())
+        }
+    },
 }
 ```
 

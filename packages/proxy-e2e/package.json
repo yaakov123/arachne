@@ -1,22 +1,22 @@
 {
-  "name": "@arachne/proxy-e2e",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "pretest": "npm run build -w @arachne/proxy",
-    "test": "ARACHNE_DISABLE_SYSTEM_PROXY=1 vitest run --reporter=verbose",
-    "build": "echo 'no build'",
-    "type-check": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@arachne/proxy": "*"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+    "name": "@arachne/proxy-e2e",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "pretest": "npm run build -w @arachne/proxy",
+        "test": "ARACHNE_DISABLE_SYSTEM_PROXY=1 vitest run --reporter=verbose",
+        "build": "echo 'no build'",
+        "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@arachne/proxy": "*"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
+    },
+    "engines": {
+        "node": ">=18"
+    }
 }
