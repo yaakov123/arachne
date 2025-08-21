@@ -1,0 +1,38 @@
+{
+  "name": "@arachne/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "pkgroll --watch --sourcemap",
+    "build": "pkgroll",
+    "start": "node ./dist/index.cjs",
+    "start:dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@arachne/proxy": "*",
+    "@arachne/recorder": "*",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/websocket": "^11.2.0",
+    "fastify": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "pkgroll": "^2.5.0",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  }
+}

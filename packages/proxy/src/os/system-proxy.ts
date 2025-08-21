@@ -23,10 +23,12 @@ function run(
         let err = ''
         p.stdout.on('data', (d) => (out += d.toString()))
         p.stderr.on('data', (d) => (err += d.toString()))
-        p.on('close', (code) => resolve({ ok: code === 0, code, out, err }))
-        p.on('error', () =>
+        p.on('close', (code) => {
+            resolve({ ok: code === 0, code, out, err })
+        })
+        p.on('error', () => {
             resolve({ ok: false, code: null, out, err: 'failed to spawn' })
-        )
+        })
     })
 }
 
@@ -157,52 +159,9 @@ export async function disableSystemProxy(): Promise<void> {
     }
 
     try {
-        if (previousState && previousState.service === service) {
-            // Restore prior settings
-            const w = previousState.web
-            const s = previousState.secure
-            if (w.enabled) {
-                if (w.server && w.port)
-                    await run('networksetup', [
-                        '-setwebproxy',
-                        service,
-                        w.server,
-                        String(w.port),
-                    ])
-                await run('networksetup', ['-setwebproxystate', service, 'on'])
-            } else {
-                await run('networksetup', ['-setwebproxystate', service, 'off'])
-            }
-
-            if (s.enabled) {
-                if (s.server && s.port)
-                    await run('networksetup', [
-                        '-setsecurewebproxy',
-                        service,
-                        s.server,
-                        String(s.port),
-                    ])
-                await run('networksetup', [
-                    '-setsecurewebproxystate',
-                    service,
-                    'on',
-                ])
-            } else {
-                await run('networksetup', [
-                    '-setsecurewebproxystate',
-                    service,
-                    'off',
-                ])
-            }
-        } else {
-            // Best-effort: turn off if we don't know previous state
-            await run('networksetup', ['-setwebproxystate', service, 'off'])
-            await run('networksetup', [
-                '-setsecurewebproxystate',
-                service,
-                'off',
-            ])
-        }
+        // Best-effort: turn off if we don't know previous state
+        await run('networksetup', ['-setwebproxystate', service, 'off'])
+        await run('networksetup', ['-setsecurewebproxystate', service, 'off'])
     } catch (e) {
         console.warn('[Arachne] Failed to disable/restore system proxy:', e)
     } finally {

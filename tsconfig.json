@@ -5,6 +5,7 @@
         "module": "ESNext",
         "skipLibCheck": true,
         "moduleResolution": "bundler",
+        "baseUrl": ".",
         "resolveJsonModule": true,
         "isolatedModules": true,
         "declaration": true,
@@ -14,11 +15,16 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
-        "composite": true
+        "composite": true,
+        "paths": {
+            "@arachne/proxy": ["./packages/proxy/src/index.ts"],
+            "@arachne/recorder": ["./packages/recorder/src/index.ts"]
+        }
     },
     "files": [],
     "references": [
         { "path": "./packages/proxy" },
-        { "path": "./packages/recorder" }
+        { "path": "./packages/recorder" },
+        { "path": "./packages/backend" }
     ]
 }
