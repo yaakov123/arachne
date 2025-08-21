@@ -60,15 +60,10 @@ program
 
         const storage = new FileStorageAdapter({
             outDir: opts.out,
-            normalizePaths: !!opts.normalizePaths,
-            maxCaptureBytes: opts.maxBytes,
         })
 
         const { plugin } = createRecorderPlugin({
             storage,
-            captureBodies: !!opts.captureBodies,
-            normalizePaths: !!opts.normalizePaths,
-            maxCaptureBytes: opts.maxBytes,
         })
 
         const proxy = new MitmProxyServer({
