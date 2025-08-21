@@ -31,6 +31,12 @@
         "^test"
       ],
       "outputs": []
+    },
+    "cleanup": {
+      "dependsOn": [
+        "^cleanup"
+      ],
+      "outputs": []
     }
   }
 }

@@ -13,6 +13,7 @@
         "lint": "turbo lint",
         "type-check": "turbo type-check",
         "test": "turbo test",
+        "cleanup": "turbo run cleanup",
         "prettier": "npx prettier --write .",
         "test:watch": "vitest --watch",
         "test:ci": "turbo build --filter=@arachne/proxy && vitest --run"
