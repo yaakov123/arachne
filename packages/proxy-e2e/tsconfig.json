@@ -4,7 +4,11 @@
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "types": ["vitest/globals", "node"]
+        "types": ["vitest/globals", "node"],
+        "composite": false
     },
-    "include": ["tests/**/*.ts"]
+    "include": ["tests/**/*.ts"],
+    "references": [
+        { "path": "../proxy" }
+    ]
 }

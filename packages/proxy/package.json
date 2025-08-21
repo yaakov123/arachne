@@ -21,7 +21,7 @@
     "scripts": {
         "dev": "pkgroll --watch --sourcemap",
         "build": "pkgroll",
-        "lint": "eslint src --ext ts --report-unused-disable-directives --max-warnings 0",
+        "lint": "eslint src --max-warnings 0",
         "type-check": "tsc --noEmit",
         "start": "node ./dist/cli.js start",
         "dev:cli": "tsx src/cli.ts",

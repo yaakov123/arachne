@@ -19,6 +19,8 @@
   "scripts": {
     "dev": "pkgroll --watch --sourcemap",
     "build": "pkgroll",
+    "lint": "eslint src --max-warnings 0",
+    "type-check": "tsc --noEmit",
     "start": "node ./dist/index.cjs",
     "start:dev": "tsx watch src/index.ts"
   },

@@ -93,7 +93,7 @@ program
                 // const snapshot = storage.snapshot()
                 // console.log('\n=== Arachne Recorder Inventory JSON ===')
                 // console.log(JSON.stringify(snapshot, null, 2))
-            } catch (e) {
+            } catch {
                 // console.error('[Arachne:Recorder] Failed to output snapshot:', e)
             } finally {
                 process.exit(code)
