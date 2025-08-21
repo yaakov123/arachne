@@ -22,21 +22,33 @@ export interface HostRecord {
   endpoints: Record<string, EndpointRecord>
 }
 
+export interface KeyValue {
+  key: string
+  value: string
+}
+
+export interface InteractionRecord {
+  id: string
+  timestamp: string // ISO
+  request: {
+    query: KeyValue[]
+    headers: KeyValue[]
+    body?: string
+  }
+  response?: {
+    statusCode?: number
+    headers: KeyValue[]
+    body?: string
+  }
+}
+
 export interface EndpointRecord {
   method: string
   path: string
   hits: number
   firstSeen: string // ISO
   lastSeen: string // ISO
-  queryKeys: string[]
-  requestHeaderNames: string[]
-  responseHeaderNames: string[]
-  statusCodes: number[]
-  requestContentTypes: string[]
-  responseContentTypes: string[]
-  // Optional, present only if bodies were captured
-  sampleRequestBody?: string
-  sampleResponseBody?: string
+  interactions: InteractionRecord[]
 }
 
 export interface StorageAdapter {

@@ -20,20 +20,29 @@ export interface FileAdapterOptions {
 
 type EndpointKey = string // `${method} ${path}`
 
+interface MutableInteraction {
+  id: string
+  timestamp: number
+  request: {
+    query: { key: string; value: string }[]
+    headers: { key: string; value: string }[]
+    body?: string
+  }
+  response?: {
+    statusCode?: number
+    headers: { key: string; value: string }[]
+    body?: string
+  }
+}
+
 interface MutableEndpointAggregate {
   method: string
   path: string
   hits: number
   firstSeen: number
   lastSeen: number
-  queryKeys: Set<string>
-  requestHeaderNames: Set<string>
-  responseHeaderNames: Set<string>
-  statusCodes: Set<number>
-  requestContentTypes: Set<string>
-  responseContentTypes: Set<string>
-  sampleRequestBody?: string
-  sampleResponseBody?: string
+  // Per-request interactions
+  interactions: Map<string, MutableInteraction>
 }
 
 interface MutableHostAggregate {
@@ -78,10 +87,10 @@ export class FileStorageAdapter implements StorageAdapter {
     ep.lastSeen = now
     if (ep.firstSeen === 0) ep.firstSeen = now
 
-    for (const key of ctx.url.searchParams.keys()) ep.queryKeys.add(key)
-    for (const name of Object.keys(ctx.headers || {})) ep.requestHeaderNames.add(name.toLowerCase())
-    const ct = headerToString((ctx.headers as any)?.['content-type'])
-    if (ct) ep.requestContentTypes.add(ct.toLowerCase())
+    // Create/ensure interaction and capture per-request metadata
+    const interaction = this.ensureInteraction(ep, ctx, now)
+    if (interaction.request.query.length === 0) interaction.request.query = this.searchParamsToPairs(ctx.url.searchParams)
+    if (interaction.request.headers.length === 0) interaction.request.headers = this.headersToPairs(ctx.headers || {})
 
     void this.enqueueWriteHost(host)
   }
@@ -92,10 +101,12 @@ export class FileStorageAdapter implements StorageAdapter {
     const method = (ctx.method || 'GET').toUpperCase()
     if (method === 'OPTIONS') return
     const ep = this.getEndpoint(host, method, path)
-    ep.statusCodes.add(ctx.statusCode || 0)
-    for (const name of Object.keys(ctx.responseHeaders || {})) ep.responseHeaderNames.add(name.toLowerCase())
-    const ct = headerToString((ctx.responseHeaders as any)?.['content-type'])
-    if (ct) ep.responseContentTypes.add(ct.toLowerCase())
+
+    // Update interaction with response metadata
+    const interaction = this.ensureInteraction(ep, ctx, Date.now())
+    interaction.response = interaction.response || { headers: [] }
+    interaction.response.statusCode = ctx.statusCode
+    interaction.response.headers = this.headersToPairs(ctx.responseHeaders || {})
 
     void this.enqueueWriteHost(host)
   }
@@ -105,7 +116,9 @@ export class FileStorageAdapter implements StorageAdapter {
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
     const ep = this.getEndpoint(host, method, path)
-    if (ep.sampleRequestBody === undefined) ep.sampleRequestBody = this.limitSample(sample)
+    // Attach body to the corresponding interaction
+    const interaction = this.ensureInteraction(ep, ctx, Date.now())
+    interaction.request.body = this.limitSample(sample)
 
     void this.enqueueWriteHost(host)
   }
@@ -115,10 +128,51 @@ export class FileStorageAdapter implements StorageAdapter {
     const path = this.normalizePaths ? normalizePath(ctx.url.pathname) : ctx.url.pathname
     const method = (ctx.method || 'GET').toUpperCase()
     const ep = this.getEndpoint(host, method, path)
-    if (ep.sampleResponseBody === undefined) ep.sampleResponseBody = this.limitSample(sample)
+    // Attach body to the corresponding interaction
+    const interaction = this.ensureInteraction(ep, ctx, Date.now())
+    interaction.response = interaction.response || { headers: [] }
+    interaction.response.body = this.limitSample(sample)
 
     void this.enqueueWriteHost(host)
   }
+
+  // Ensure a MutableInteraction exists for this endpoint and context id
+  private ensureInteraction(ep: MutableEndpointAggregate, ctx: RequestContext, now: number): MutableInteraction {
+    let it = ep.interactions.get(ctx.id)
+    if (!it) {
+      it = {
+        id: ctx.id,
+        timestamp: now,
+        request: {
+          query: this.searchParamsToPairs(ctx.url.searchParams),
+          headers: this.headersToPairs(ctx.headers || {}),
+        },
+      }
+      ep.interactions.set(ctx.id, it)
+    }
+    return it
+  }
+
+  private headersToPairs(headers: Record<string, string | string[]>): { key: string; value: string }[] {
+    const pairs: { key: string; value: string }[] = []
+    for (const [name, raw] of Object.entries(headers || {})) {
+      const lname = name.toLowerCase()
+      if (Array.isArray(raw)) {
+        for (const v of raw) pairs.push({ key: lname, value: String(v) })
+      } else if (raw !== undefined) {
+        pairs.push({ key: lname, value: String(raw) })
+      }
+    }
+    return pairs
+  }
+
+  private searchParamsToPairs(sp: URLSearchParams): { key: string; value: string }[] {
+    const pairs: { key: string; value: string }[] = []
+    for (const [k, v] of sp.entries()) pairs.push({ key: k, value: String(v) })
+    return pairs
+  }
+
+  // (aggregated key-value maps removed)
 
   private limitSample(s: string): string {
     if (s.length <= this.maxCaptureBytes) return s
@@ -134,19 +188,7 @@ export class FileStorageAdapter implements StorageAdapter {
     const key: EndpointKey = `${method} ${path}`
     let ep = hostAgg.endpoints.get(key)
     if (!ep) {
-      ep = {
-        method,
-        path,
-        hits: 0,
-        firstSeen: 0,
-        lastSeen: 0,
-        queryKeys: new Set(),
-        requestHeaderNames: new Set(),
-        responseHeaderNames: new Set(),
-        statusCodes: new Set(),
-        requestContentTypes: new Set(),
-        responseContentTypes: new Set(),
-      }
+      ep = { method, path, hits: 0, firstSeen: 0, lastSeen: 0, interactions: new Map() }
       hostAgg.endpoints.set(key, ep)
     }
     return ep
@@ -161,15 +203,15 @@ export class FileStorageAdapter implements StorageAdapter {
         hits: ep.hits,
         firstSeen: new Date(ep.firstSeen).toISOString(),
         lastSeen: new Date(ep.lastSeen).toISOString(),
-        queryKeys: [...ep.queryKeys].sort(),
-        requestHeaderNames: [...ep.requestHeaderNames].sort(),
-        responseHeaderNames: [...ep.responseHeaderNames].sort(),
-        statusCodes: [...ep.statusCodes].sort((a, b) => a - b),
-        requestContentTypes: [...ep.requestContentTypes].sort(),
-        responseContentTypes: [...ep.responseContentTypes].sort(),
+        interactions: [...ep.interactions.values()]
+          .sort((a, b) => a.timestamp - b.timestamp)
+          .map((i) => ({
+            id: i.id,
+            timestamp: new Date(i.timestamp).toISOString(),
+            request: { ...i.request },
+            response: i.response ? { ...i.response } : undefined,
+          })),
       }
-      if (ep.sampleRequestBody !== undefined) rec.sampleRequestBody = ep.sampleRequestBody
-      if (ep.sampleResponseBody !== undefined) rec.sampleResponseBody = ep.sampleResponseBody
       endpointsObj[key] = rec
     }
     return { host: agg.host, endpoints: endpointsObj }
@@ -189,12 +231,6 @@ export class FileStorageAdapter implements StorageAdapter {
     this.writeChains.set(host, next)
     await next
   }
-}
-
-function headerToString(h: string | string[] | undefined): string | undefined {
-  if (typeof h === 'string') return h
-  if (Array.isArray(h)) return h[0]
-  return undefined
 }
 
 // Very lightweight path normalizer: numeric, UUIDv4, 24-hex -> {id}
