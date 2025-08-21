@@ -10,7 +10,6 @@
         "isolatedModules": true,
         "declaration": true,
         "declarationMap": true,
-        "jsx": "react-jsx",
         "strict": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
@@ -21,6 +20,7 @@
     "references": [
         { "path": "./packages/proxy" },
         { "path": "./packages/recorder" },
-        { "path": "./packages/backend" }
+        { "path": "./apps/backend" },
+        { "path": "./apps/frontend" }
     ]
 }
