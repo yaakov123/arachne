@@ -7,9 +7,9 @@ import {
     getDefaultCertStoreOptions,
 } from '@arachne/proxy'
 import { createRecorderPlugin, FileStorageAdapter } from '@arachne/recorder'
-import { createBroadcastPlugin } from './broadcast-plugin.js'
-import { WsHub } from './ws-hub.js'
-import { registerApi } from './api.js'
+import { createBroadcastPlugin } from './broadcast-plugin'
+import { WsHub } from './ws-hub'
+import { registerApi } from './api'
 
 function envNum(name: string, def: number): number {
     const v = process.env[name]

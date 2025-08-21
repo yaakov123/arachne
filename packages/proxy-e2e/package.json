@@ -4,9 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "pretest": "npm run build -w @arachne/proxy",
         "test": "ARACHNE_DISABLE_SYSTEM_PROXY=1 vitest run --reporter=verbose",
-        "build": "echo 'no build'",
         "lint": "eslint tests --max-warnings 0",
         "type-check": "tsc --noEmit"
     },

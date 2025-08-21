@@ -15,11 +15,7 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
-        "composite": true,
-        "paths": {
-            "@arachne/proxy": ["./packages/proxy/src/index.ts"],
-            "@arachne/recorder": ["./packages/recorder/src/index.ts"]
-        }
+        "composite": true
     },
     "files": [],
     "references": [
