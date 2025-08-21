@@ -9,7 +9,7 @@ import { WsHub } from './ws-hub.js'
 import type {
   BackendEvent,
   InterceptRequestBodyEvent,
-} from './types.js'
+} from '@arachne/api-types'
 
 const DEFAULT_MAX = 1024 * 1024 // 1MB sample cap, aligns with recorder default
 

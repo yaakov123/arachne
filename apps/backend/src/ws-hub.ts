@@ -6,7 +6,7 @@ import type {
     InterceptSkipMessage,
     InterceptRequestBodyEvent,
     InterceptResolvedEvent,
-} from './types.js'
+} from '@arachne/api-types'
 
 // The socket is a ws.WebSocket from @fastify/websocket
 export type WSSocket = any
@@ -90,6 +90,10 @@ export class WsHub {
     }
 
     handleConnection(socket: WSSocket, reqUrl: URL) {
+        // Guard: ensure we have a valid WS-like object
+        if (!socket || typeof (socket as any).on !== 'function') {
+            return
+        }
         const id = this.genClientId()
         const now = Date.now()
         const tokenFromQuery = reqUrl.searchParams.get('token') || undefined
@@ -266,6 +270,10 @@ export class WsHub {
     private heartbeat() {
         const now = Date.now()
         for (const c of this.clients.values()) {
+            if (!c.socket || typeof c.socket.readyState !== 'number') {
+                this.clients.delete(c.id)
+                continue
+            }
             if (c.socket.readyState !== 1) continue
             try {
                 c.socket.ping()

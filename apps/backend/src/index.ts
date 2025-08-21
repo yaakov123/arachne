@@ -60,7 +60,8 @@ async function main() {
         const rawUrl = req.raw.url || BACKEND_WS_PATH
         const base = `http://${req.headers.host || 'localhost'}`
         const u = new URL(rawUrl, base)
-        hub.handleConnection(conn.socket, u)
+        const wsAny: any = (conn as any).socket ?? (conn as any)
+        hub.handleConnection(wsAny, u)
     })
 
     // Recorder storage and plugin

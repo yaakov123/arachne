@@ -11,6 +11,7 @@
     "cleanup": "tsx src/cleanup.ts"
   },
   "dependencies": {
+    "@arachne/api-types": "*",
     "@arachne/proxy": "*",
     "@arachne/recorder": "*",
     "@fastify/cors": "^11.1.0",
