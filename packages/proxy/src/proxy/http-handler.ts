@@ -1,28 +1,26 @@
-import http, { IncomingMessage, RequestOptions } from 'node:http'
-import https from 'node:https'
-import { URL } from 'node:url'
-import type {
-    RequestContext,
-    ResponseContext,
-    RequestBodyContext,
-    ResponseBodyContext,
-} from '../plugins/types'
-import { genId, parseHostPort, sanitizeHeaders } from './utils'
-import { 
-    getRemote, 
-    getNumericHeader, 
-    headerToString, 
-    readStreamToBuffer, 
-    decodeBody,
-    MAX_BODY_SIZE 
-} from './proxy-utils'
-import { PluginManager } from './plugin-manager'
+import http, { IncomingMessage } from 'node:http'
+import { genId } from './utils'
+import type { PluginManager } from './plugin-manager'
+import type { RequestContext } from '../plugins/types'
+import { UrlProcessor } from './url-processor'
+import { ContextBuilder } from './context-builder'
+import { RequestBodyHandler } from './request-body-handler'
+import { ResponseBodyHandler } from './response-body-handler'
+import { UpstreamHandler } from './upstream-handler'
 
 export class HttpHandler {
+    private requestBodyHandler: RequestBodyHandler
+    private responseBodyHandler: ResponseBodyHandler
+    private upstreamHandler: UpstreamHandler
+
     constructor(
         private pluginManager: PluginManager,
         private onError: (err: unknown, ctx: any) => void
-    ) {}
+    ) {
+        this.requestBodyHandler = new RequestBodyHandler(pluginManager)
+        this.responseBodyHandler = new ResponseBodyHandler(pluginManager)
+        this.upstreamHandler = new UpstreamHandler(onError)
+    }
 
     async handleHttpRequest(
         clientReq: IncomingMessage,
@@ -30,237 +28,93 @@ export class HttpHandler {
         isHttps: boolean,
     ): Promise<void> {
         const id = genId('req')
-        const h = clientReq.headers
 
-        // Build full URL
-        let fullUrl: URL
-        if (clientReq.url && /^https?:\/\//i.test(clientReq.url)) {
-            fullUrl = new URL(clientReq.url)
-        } else {
-            const hostHeader = h['host'] as string | undefined
-            if (!hostHeader) {
-                try {
-                    console.warn(
-                        '[Arachne:Proxy] Origin-form request missing Host header',
-                        { url: clientReq.url, headers: h }
-                    )
-                } catch {}
+        try {
+            // Parse URL
+            const fullUrl = UrlProcessor.buildFullUrl(clientReq, isHttps)
+            
+            // Build request context
+            const reqCtx = ContextBuilder.buildRequestContext(fullUrl, clientReq, isHttps, id)
+            
+            // Execute request hook
+            await this.pluginManager.runHook('onRequest', reqCtx)
+
+            // Process request body if needed
+            const { body: requestBodyToSend, updatedHeaders } = await this.requestBodyHandler.processBody(clientReq, reqCtx)
+            
+            // Update headers based on body processing
+            if (requestBodyToSend) {
+                this.requestBodyHandler.updateRequestHeaders(reqCtx.requestOptions.headers, updatedHeaders)
+            }
+
+            // Prefer uncompressed upstream responses if we plan to inspect/modify bodies
+            const hasResBodyHook = this.pluginManager.hasHook('onResponseBody')
+            if (hasResBodyHook) {
+                reqCtx.requestOptions.headers['accept-encoding'] = 'identity'
+            }
+
+            // Forward to upstream and handle response
+            await this.handleUpstreamRequest(fullUrl, reqCtx, clientReq, clientRes, requestBodyToSend)
+            
+        } catch (error) {
+            if (error instanceof Error && error.message.includes('Host header')) {
                 clientRes.writeHead(400, 'Bad Request: Missing Host header')
                 clientRes.end()
                 return
             }
-            const { hostname, port } = parseHostPort(hostHeader)
-            const protocol = isHttps ? 'https:' : 'http:'
-            const portPart = port ? `:${port}` : ''
-            fullUrl = new URL(
-                `${protocol}//${hostname}${portPart}${clientReq.url || '/'}`
-            )
-        }
-
-        const sanitizedHeaders = sanitizeHeaders(h)
-        const requestOptions: RequestOptions = {
-            protocol: fullUrl.protocol,
-            hostname: fullUrl.hostname,
-            port:
-                Number(fullUrl.port) ||
-                (fullUrl.protocol === 'https:' ? 443 : 80),
-            method: clientReq.method,
-            path: `${fullUrl.pathname}${fullUrl.search}`,
-            headers: sanitizedHeaders,
-        }
-
-        const reqCtx: RequestContext = {
-            id,
-            isHttps,
-            url: fullUrl,
-            method: clientReq.method || 'GET',
-            headers: sanitizedHeaders,
-            clientIp: getRemote(clientReq.socket),
-            requestOptions: requestOptions as any,
-        }
-
-        await this.pluginManager.runHook('onRequest', reqCtx)
-
-        const hasReqBodyHook = this.pluginManager.hasHook('onRequestBody')
-        const hasResBodyHook = this.pluginManager.hasHook('onResponseBody')
-
-        const method = (clientReq.method || 'GET').toUpperCase()
-        const hasRequestBody = !['GET', 'HEAD'].includes(method)
-        const reqContentLength = getNumericHeader(h['content-length'])
-        const canBufferRequest =
-            hasReqBodyHook &&
-            hasRequestBody &&
-            typeof reqContentLength === 'number' &&
-            reqContentLength > 0 &&
-            reqContentLength <= MAX_BODY_SIZE
-
-        let requestBodyToSend: Buffer | undefined
-        if (canBufferRequest) {
-            try {
-                const buffered = await readStreamToBuffer(
-                    clientReq,
-                    reqContentLength
-                )
-                const reqEnc = headerToString(h['content-encoding'])
-                const decoded = await decodeBody(buffered, reqEnc)
-                let bodyBuf = decoded
-                const reqBodyCtx: RequestBodyContext = Object.assign(
-                    {},
-                    reqCtx,
-                    {
-                        body: bodyBuf,
-                        contentType: headerToString(h['content-type']),
-                        contentEncoding: reqEnc,
-                        setBody: (b: Buffer | string) => {
-                            bodyBuf = Buffer.isBuffer(b) ? b : Buffer.from(b)
-                            ;(reqBodyCtx as any).body = bodyBuf
-                        },
-                    }
-                )
-                await this.pluginManager.runHook('onRequestBody', reqBodyCtx as any)
-                requestBodyToSend = bodyBuf
-                // Update headers for new body
-                reqCtx.requestOptions.headers['content-length'] = String(
-                    requestBodyToSend.length
-                )
-                delete (reqCtx.requestOptions.headers as any)[
-                    'transfer-encoding'
-                ]
-                if (reqEnc)
-                    delete (reqCtx.requestOptions.headers as any)[
-                        'content-encoding'
-                    ]
-            } catch (e) {
-                // Fallback to streaming if anything goes wrong while buffering
-                this.onError(e, reqCtx)
+            this.onError(error, { id })
+            if (!clientRes.headersSent) {
+                clientRes.writeHead(500, 'Internal Server Error')
+                clientRes.end('Internal server error')
             }
         }
-
-        // Prefer uncompressed upstream responses if we plan to inspect/modify bodies
-        if (hasResBodyHook) {
-            reqCtx.requestOptions.headers['accept-encoding'] = 'identity'
-        }
-
-        await this.forwardToUpstream(
-            requestOptions,
-            fullUrl,
-            reqCtx,
-            clientReq,
-            clientRes,
-            requestBodyToSend,
-            hasResBodyHook,
-            method
-        )
     }
 
-    private async forwardToUpstream(
-        requestOptions: RequestOptions,
+    private async handleUpstreamRequest(
         fullUrl: URL,
         reqCtx: RequestContext,
         clientReq: IncomingMessage,
         clientRes: http.ServerResponse,
-        requestBodyToSend: Buffer | undefined,
-        hasResBodyHook: boolean,
-        method: string
+        requestBodyToSend?: Buffer
     ): Promise<void> {
-        const upstream = fullUrl.protocol === 'https:' ? https : http
-        const upstreamReq = upstream.request(requestOptions, async (upRes) => {
-            const resCtx: ResponseContext = {
-                ...reqCtx,
-                statusCode: upRes.statusCode || 0,
-                statusMessage: upRes.statusMessage,
-                responseHeaders: { ...(upRes.headers as any) },
-            }
+        try {
+            const upRes = await this.upstreamHandler.sendRequest(
+                fullUrl,
+                reqCtx.requestOptions,
+                reqCtx,
+                clientReq,
+                requestBodyToSend
+            )
 
+            // Build response context
+            const resCtx = ContextBuilder.buildResponseContext(reqCtx, upRes)
+            
+            // Execute response hook
             await this.pluginManager.runHook('onResponse', resCtx)
 
             const statusCode = upRes.statusCode || 502
             const statusMessage = upRes.statusMessage
+            const method = reqCtx.method.toUpperCase()
 
-            const resContentLength = getNumericHeader(
-                upRes.headers['content-length']
-            )
-            const resContentEncoding = headerToString(
-                upRes.headers['content-encoding']
-            )
-            const isBodyless =
-                method === 'HEAD' ||
-                [101, 204, 304].includes(statusCode) ||
-                resContentLength === 0
-
-            const canBufferResponse =
-                hasResBodyHook &&
-                !isBodyless &&
-                ((typeof resContentLength === 'number' &&
-                    resContentLength >= 0 &&
-                    resContentLength <= MAX_BODY_SIZE) ||
-                    typeof resContentLength === 'undefined')
-
-            if (canBufferResponse) {
-                try {
-                    const raw = await readStreamToBuffer(
-                        upRes,
-                        typeof resContentLength === 'number'
-                            ? resContentLength
-                            : MAX_BODY_SIZE + 1
-                    )
-                    const decoded = await decodeBody(raw, resContentEncoding)
-                    let bodyBuf = decoded
-                    const resBodyCtx: ResponseBodyContext = Object.assign(
-                        {},
-                        resCtx,
-                        {
-                            body: bodyBuf,
-                            contentType: headerToString(
-                                upRes.headers['content-type']
-                            ),
-                            contentEncoding: resContentEncoding,
-                            setBody: (b: Buffer | string) => {
-                                bodyBuf = Buffer.isBuffer(b)
-                                    ? b
-                                    : Buffer.from(b)
-                                ;(resBodyCtx as any).body = bodyBuf
-                            },
-                        }
-                    )
-                    await this.pluginManager.runHook('onResponseBody', resBodyCtx as any)
-
-                    // Prepare headers for uncompressed, rewritten body
-                    const headersOut = sanitizeHeaders(
-                        resCtx.responseHeaders as any
-                    )
-                    delete headersOut['content-encoding']
-                    delete (headersOut as any)['transfer-encoding']
-                    headersOut['content-length'] = String(bodyBuf.length)
-
-                    clientRes.writeHead(statusCode, statusMessage, headersOut)
-                    clientRes.end(bodyBuf)
-                    return
-                } catch (e) {
-                    this.onError(e, resCtx)
-                    // Fallback to streaming original if rewrite fails
-                }
+            // Try to process response body
+            const processedBody = await this.responseBodyHandler.processBody(upRes, resCtx, method)
+            
+            if (processedBody) {
+                // Send buffered response
+                this.upstreamHandler.sendBufferedResponse(
+                    clientRes,
+                    statusCode,
+                    statusMessage,
+                    processedBody.headers,
+                    processedBody.body
+                )
+            } else {
+                // Stream original response
+                const headers = this.responseBodyHandler.prepareStreamingHeaders(resCtx.responseHeaders as any)
+                this.upstreamHandler.streamResponse(upRes, clientRes, statusCode, statusMessage, headers)
             }
-
-            // Default: stream original response through
-            const responseHeaders = sanitizeHeaders(
-                resCtx.responseHeaders as any
-            )
-            clientRes.writeHead(statusCode, statusMessage, responseHeaders)
-            upRes.pipe(clientRes)
-        })
-
-        upstreamReq.on('error', (err) => {
-            this.onError(err, reqCtx)
-            if (!clientRes.headersSent) clientRes.writeHead(502, 'Bad Gateway')
-            clientRes.end('Upstream error')
-        })
-
-        if (requestBodyToSend) {
-            upstreamReq.end(requestBodyToSend)
-        } else {
-            // Stream request body
-            clientReq.pipe(upstreamReq)
+        } catch (err) {
+            this.upstreamHandler.handleUpstreamError(err as Error, reqCtx, clientRes)
         }
     }
 }

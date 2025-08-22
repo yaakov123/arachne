@@ -38,7 +38,7 @@ export async function readStreamToBuffer(
 ): Promise<Buffer> {
     const chunks: Buffer[] = []
     let total = 0
-    for await (const chunk of stream as any as AsyncIterable<Buffer>) {
+    for await (const chunk of stream as AsyncIterable<Buffer>) {
         const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
         total += buf.length
         if (total > MAX_BODY_SIZE) throw new Error('Body too large')

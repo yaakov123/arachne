@@ -84,7 +84,7 @@ export class MitmProxyServer {
     }
 
     private handleError(err: unknown, ctx: any): void {
-        this.pluginManager.runHook('onError', { error: err, context: ctx }).catch(() => {
+        this.pluginManager.runHook('onError', { error: err, context: ctx } as any).catch(() => {
             // Silently handle errors in error handlers
         })
     }

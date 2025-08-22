@@ -1,4 +1,4 @@
-import type { ProxyPlugin } from '../plugins/types.js'
+import type { ProxyPlugin, RequestContext } from '../plugins/types.js'
 
 export class PluginManager {
     private plugins: ProxyPlugin[] = []
@@ -15,7 +15,7 @@ export class PluginManager {
         return this.plugins.some(p => typeof p[hook] === 'function')
     }
 
-    async runHook<K extends keyof ProxyPlugin>(hook: K, ctx: any): Promise<void> {
+    async runHook<K extends keyof ProxyPlugin>(hook: K, ctx: RequestContext): Promise<void> {
         for (const plugin of this.plugins) {
             try {
                 const fn = plugin[hook]

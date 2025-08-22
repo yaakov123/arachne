@@ -11,39 +11,117 @@ import type {
     RequestEvent,
     ResponseBodyEvent,
     ResponseHeadEvent,
+    TransactionCompleteEvent,
+    DisplayHeader,
+    ContentInfo,
+    RequestURL,
 } from '@arachne/api-types'
 
 const DEFAULT_MAX = 1024 * 1024 // 1MB sample cap, aligns with recorder default
 
-function bodyToSampleString(
+// Sensitive headers that should be marked for special handling in UI
+const SENSITIVE_HEADERS = new Set([
+    'authorization',
+    'cookie',
+    'set-cookie',
+    'proxy-authorization',
+    'www-authenticate',
+    'x-api-key',
+    'x-auth-token',
+])
+
+function detectContentFormat(contentType?: string, sample?: string): ContentInfo['detectedFormat'] {
+    if (!contentType && !sample) return 'binary'
+    
+    const ct = (contentType || '').toLowerCase()
+    
+    // Check content-type first
+    if (ct.includes('application/json') || ct.endsWith('+json')) return 'json'
+    if (ct.includes('application/xml') || ct.endsWith('+xml') || ct.includes('text/xml')) return 'xml'
+    if (ct.includes('text/html')) return 'html'
+    if (ct.includes('text/css')) return 'css'
+    if (ct.includes('application/javascript') || ct.includes('text/javascript')) return 'javascript'
+    if (ct.includes('application/x-www-form-urlencoded') || ct.includes('multipart/form-data')) return 'form'
+    if (ct.startsWith('text/')) return 'text'
+    if (ct.startsWith('image/')) return 'image'
+    
+    // Fallback to sample-based detection for UTF8 content
+    if (sample && typeof sample === 'string' && !sample.startsWith('base64:')) {
+        const trimmed = sample.trim()
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) return 'json'
+        if (trimmed.startsWith('<')) return trimmed.includes('<!DOCTYPE') ? 'html' : 'xml'
+        return 'text'
+    }
+    
+    return 'binary'
+}
+
+function parseHeaders(headers: Record<string, string | string[]>): DisplayHeader[] {
+    return Object.entries(headers).map(([name, value]) => ({
+        name,
+        value: Array.isArray(value) ? value.join(', ') : value,
+        sensitive: SENSITIVE_HEADERS.has(name.toLowerCase()),
+    }))
+}
+
+function parseURL(url: URL): RequestURL {
+    return {
+        full: url.toString(),
+        protocol: url.protocol,
+        host: url.hostname,
+        port: url.port ? parseInt(url.port) : undefined,
+        path: url.pathname,
+        query: url.search ? url.search.substring(1) : undefined,
+        fragment: url.hash ? url.hash.substring(1) : undefined,
+    }
+}
+
+function bodyToContentInfo(
     buf: Buffer,
     contentType?: string,
+    contentEncoding?: string,
     max = DEFAULT_MAX
-): { sample: string; truncated: boolean; encoding: 'utf8' | 'base64' } {
+): { content: ContentInfo; sample: string } {
     const ct = (contentType || '').toLowerCase()
     const truncated = buf.length > max
     const slice = truncated ? buf.subarray(0, max) : buf
+    
+    let sample: string
+    let encoding: 'utf8' | 'base64' = 'base64'
+    
+    // Try UTF8 for text-like content
     if (
         ct.includes('application/json') ||
         ct.startsWith('text/') ||
         ct.endsWith('+json') ||
-        ct.includes('application/xml')
+        ct.includes('application/xml') ||
+        ct.includes('application/x-www-form-urlencoded') ||
+        ct.includes('application/javascript')
     ) {
         try {
-            return {
-                sample: slice.toString('utf8'),
-                truncated,
-                encoding: 'utf8',
-            }
+            sample = slice.toString('utf8')
+            encoding = 'utf8'
         } catch {
-            /* fallthrough */
+            sample = 'base64:' + slice.toString('base64')
+            encoding = 'base64'
         }
+    } else {
+        sample = 'base64:' + slice.toString('base64')
+        encoding = 'base64'
     }
-    return {
-        sample: 'base64:' + slice.toString('base64'),
+    
+    const content: ContentInfo = {
+        contentType,
+        contentEncoding,
+        size: buf.length,
+        sampleSize: slice.length,
         truncated,
-        encoding: 'base64',
+        detectedFormat: detectContentFormat(contentType, encoding === 'utf8' ? sample : undefined),
+        encoding,
+        isCompressed: !!(contentEncoding && ['gzip', 'deflate', 'br', 'compress'].includes(contentEncoding.toLowerCase())),
     }
+    
+    return { content, sample }
 }
 
 function nowIso() {
@@ -61,6 +139,36 @@ export interface BroadcastPluginOptions {
     maxSampleBytes?: number
 }
 
+// Track transaction state for timing and completion events
+interface TransactionState {
+    requestStartTime: number
+    responseStartTime?: number
+    // Request data
+    method: string
+    url: RequestURL
+    headers: DisplayHeader[]
+    rawHeaders: Record<string, string | string[]>
+    clientIp?: string
+    requestBody?: {
+        content: ContentInfo
+        sample: string
+    }
+    // Response data
+    statusCode?: number
+    statusMessage?: string
+    responseHeaders?: DisplayHeader[]
+    rawResponseHeaders?: Record<string, string | string[]>
+    responseBody?: {
+        content: ContentInfo
+        sample: string
+    }
+    // Summary stats
+    requestSize?: number
+    responseSize?: number
+    hasRequestBody: boolean
+    hasResponseBody: boolean
+}
+
 export function createBroadcastPlugin(
     opts: BroadcastPluginOptions
 ): ProxyPlugin {
@@ -70,99 +178,204 @@ export function createBroadcastPlugin(
             ? opts.maxSampleBytes
             : DEFAULT_MAX
 
+    // Track ongoing transactions for completion events
+    const transactions = new Map<string, TransactionState>()
+
+    // Helper function to handle transaction completion
+    function completeTransaction(id: string) {
+        const transaction = transactions.get(id)
+        if (!transaction) return
+
+        const ev: TransactionCompleteEvent = {
+            type: 'transactionComplete',
+            id,
+            ts: nowIso(),
+            transaction: {
+                request: {
+                    method: transaction.method,
+                    url: transaction.url,
+                    headers: transaction.headers,
+                    rawHeaders: transaction.rawHeaders,
+                    clientIp: transaction.clientIp,
+                    body: transaction.requestBody,
+                },
+                response: transaction.statusCode ? {
+                    statusCode: transaction.statusCode,
+                    statusMessage: transaction.statusMessage,
+                    headers: transaction.responseHeaders || [],
+                    rawHeaders: transaction.rawResponseHeaders || {},
+                    body: transaction.responseBody,
+                } : undefined,
+                timing: {
+                    startTime: transaction.requestStartTime,
+                    responseTime: transaction.responseStartTime,
+                    duration: transaction.responseStartTime 
+                        ? transaction.responseStartTime - transaction.requestStartTime 
+                        : undefined,
+                },
+                summary: {
+                    requestSize: transaction.requestSize,
+                    responseSize: transaction.responseSize,
+                    hasRequestBody: transaction.hasRequestBody,
+                    hasResponseBody: transaction.hasResponseBody,
+                },
+            },
+        }
+        hub.broadcast(ev)
+        
+        // Clean up transaction state
+        transactions.delete(id)
+    }
+
     const plugin: ProxyPlugin = {
         name: 'ws-broadcast',
 
         async onRequest(ctx: RequestContext) {
+            const timestamp = Date.now()
+            const startTime = timestamp
+            const parsedURL = parseURL(ctx.url)
+            const parsedHeaders = parseHeaders(ctx.headers)
+            
+            // Initialize transaction tracking with complete request data
+            transactions.set(ctx.id, {
+                requestStartTime: startTime,
+                method: ctx.method,
+                url: parsedURL,
+                headers: parsedHeaders,
+                rawHeaders: ctx.headers,
+                clientIp: ctx.clientIp,
+                hasRequestBody: false,
+                hasResponseBody: false,
+            })
+
             const ev: RequestEvent = {
                 type: 'request',
                 id: ctx.id,
                 ts: nowIso(),
+                timestamp,
                 method: ctx.method,
-                url: ctx.url.toString(),
-                headers: ctx.headers,
+                url: parsedURL,
+                headers: parsedHeaders,
+                rawHeaders: ctx.headers,
                 clientIp: ctx.clientIp,
-                isHttps: ctx.isHttps,
             }
             hub.broadcast(ev)
         },
 
         async onResponse(ctx: ResponseContext) {
+            const timestamp = Date.now()
+            const transaction = transactions.get(ctx.id)
+            const parsedHeaders = parseHeaders(ctx.responseHeaders)
+            
+            if (transaction) {
+                transaction.responseStartTime = timestamp
+                transaction.statusCode = ctx.statusCode
+                transaction.statusMessage = ctx.statusMessage
+                transaction.responseHeaders = parsedHeaders
+                transaction.rawResponseHeaders = ctx.responseHeaders
+            }
+
             const ev: ResponseHeadEvent = {
                 type: 'responseHead',
                 id: ctx.id,
                 ts: nowIso(),
                 statusCode: ctx.statusCode,
                 statusMessage: ctx.statusMessage,
-                headers: ctx.responseHeaders,
+                headers: parsedHeaders,
+                rawHeaders: ctx.responseHeaders,
+                timing: transaction ? {
+                    startTime: transaction.requestStartTime,
+                    responseTime: timestamp,
+                    duration: timestamp - transaction.requestStartTime,
+                } : undefined,
             }
             hub.broadcast(ev)
+
+            // If no response body is expected, complete the transaction here
+            // Note: The proxy will call onResponseBody if there's a body, which will also complete the transaction
+            setTimeout(() => {
+                // Small delay to allow onResponseBody to be called if there is a body
+                if (transactions.has(ctx.id)) {
+                    completeTransaction(ctx.id)
+                }
+            }, 10)
         },
 
         async onRequestBody(ctx: RequestBodyContext) {
-            const { sample, truncated } = bodyToSampleString(
+            const { content, sample } = bodyToContentInfo(
                 ctx.body,
                 ctx.contentType,
+                ctx.contentEncoding,
                 maxSampleBytes
             )
+
+            const transaction = transactions.get(ctx.id)
+            if (transaction) {
+                transaction.hasRequestBody = true
+                transaction.requestSize = ctx.body.length
+                transaction.requestBody = { content, sample }
+            }
+            
             const ev: RequestBodyEvent = {
                 type: 'requestBody',
                 id: ctx.id,
                 ts: nowIso(),
-                contentType: ctx.contentType,
+                content,
                 sample,
-                truncated,
-                request: {
-                    type: 'request',
-                    id: ctx.id,
-                    ts: nowIso(),
-                    method: ctx.method,
-                    url: ctx.url.toString(),
-                    headers: ctx.headers,
-                    clientIp: ctx.clientIp,
-                    isHttps: ctx.isHttps,
-                },
             }
             hub.broadcast(ev)
         },
 
         async onResponseBody(ctx: ResponseBodyContext) {
-            const { sample, truncated } = bodyToSampleString(
+            const { content, sample } = bodyToContentInfo(
                 ctx.body,
                 ctx.contentType,
+                ctx.contentEncoding,
                 maxSampleBytes
             )
+
+            const transaction = transactions.get(ctx.id)
+            if (transaction) {
+                transaction.hasResponseBody = true
+                transaction.responseSize = ctx.body.length
+                transaction.responseBody = { content, sample }
+            }
+            
             const ev: ResponseBodyEvent = {
                 type: 'responseBody',
                 id: ctx.id,
                 ts: nowIso(),
-                contentType: ctx.contentType,
+                content,
                 sample,
-                truncated,
-                response: {
-                    type: 'responseHead',
-                    id: ctx.id,
-                    ts: nowIso(),
-                    statusCode: ctx.statusCode,
-                    statusMessage: ctx.statusMessage,
-                    headers: ctx.responseHeaders,
-                },
             }
             hub.broadcast(ev)
+
+            // Send transaction complete event
+            completeTransaction(ctx.id)
         },
 
         onError(err: unknown, ctx: Partial<RequestContext>) {
             try {
-                hub.broadcast({
-                    type: 'error',
+                const ev = {
+                    type: 'error' as const,
                     id: ctx?.id || genId('err'),
                     ts: nowIso(),
                     message:
                         (err instanceof Error ? err.message : String(err)) ||
                         'Unknown error',
-                } as any)
+                    stack: err instanceof Error ? err.stack : undefined,
+                    phase: 'connection' as const, // Could be enhanced based on context
+                }
+                hub.broadcast(ev)
+                
+                // Complete transaction if we have an ID
+                if (ctx?.id) {
+                    completeTransaction(ctx.id)
+                }
             } catch {}
         },
+
+
     }
 
     return plugin
