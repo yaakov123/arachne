@@ -1,6 +1,6 @@
 import forge from 'node-forge'
 import * as tls from 'node:tls'
-import { CertStore, type CertStoreOptions } from './store.js'
+import { CertStore, type CertStoreOptions } from './store'
 
 export interface CAOptions {
     commonName?: string

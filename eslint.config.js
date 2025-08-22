@@ -1,9 +1,12 @@
 import js from '@eslint/js'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import tsparser from '@typescript-eslint/parser'
+import vue from 'eslint-plugin-vue'
+import vueParser from 'vue-eslint-parser'
 
 export default [
     js.configs.recommended,
+    ...vue.configs['flat/recommended'],
     {
         files: ['**/*.ts', '**/*.tsx'],
         languageOptions: {
@@ -39,6 +42,23 @@ export default [
             'no-useless-escape': 'off',
         },
     },
+    // Vue Single File Components
+    {
+        files: ['**/*.vue'],
+        languageOptions: {
+            parser: vueParser,
+            parserOptions: {
+                // Use TS parser for <script lang="ts">
+                parser: tsparser,
+                ecmaVersion: 'latest',
+                sourceType: 'module',
+                extraFileExtensions: ['.vue'],
+            },
+        },
+        rules: {
+            'no-empty': 'off',
+        },
+    },
     // Frontend (browser) files: allow DOM globals
     {
         files: ['apps/frontend/**/*.{ts,tsx,js,jsx,vue}'],
@@ -54,6 +74,6 @@ export default [
         },
     },
     {
-        ignores: ['node_modules/', 'dist/', '.turbo/'],
+        ignores: ['node_modules/', 'dist/', '.turbo/', './apps/frontend/**'],
     },
 ]

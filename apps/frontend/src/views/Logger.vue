@@ -20,15 +20,6 @@
                 Disconnect
             </button>
 
-            <label class="ml-4 flex items-center gap-2">
-                <input
-                    type="checkbox"
-                    v-model="intercept"
-                    @change="toggleIntercept"
-                />
-                Intercept
-            </label>
-
             <input
                 v-model="token"
                 class="ml-4 px-2 py-1 border rounded min-w-64"
@@ -90,7 +81,6 @@ import { wsClient } from '@/services/ws'
 import type { BackendEvent } from '@arachne/api-types'
 
 const connected = ref(false)
-const intercept = ref(false)
 const token = ref<string | undefined>(undefined)
 const health = ref<boolean | null>(null)
 const events = ref<BackendEvent[]>([])
@@ -105,7 +95,7 @@ function attachHandler() {
 let off: (() => void) | null = null
 
 async function doConnect() {
-    await wsClient.connect({ token: token.value, intercept: intercept.value })
+    await wsClient.connect({ token: token.value })
     off = attachHandler()
     connected.value = wsClient.isConnected()
 }
@@ -115,10 +105,6 @@ function doDisconnect() {
     if (off) off()
     off = null
     connected.value = false
-}
-
-function toggleIntercept() {
-    wsClient.setIntercept(intercept.value)
 }
 
 function applyToken() {

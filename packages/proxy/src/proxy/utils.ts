@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { IncomingHttpHeaders } from 'node:http'
 
 export function genId(prefix = 'req'): string {
     return `${prefix}_${randomBytes(6).toString('hex')}`
@@ -30,10 +31,11 @@ export function parseHostPort(hostHeaderOrAuthority: string): {
 }
 
 export function sanitizeHeaders(
-    headers: Record<string, any>
-): Record<string, any> {
-    const out: Record<string, any> = {}
+    headers: IncomingHttpHeaders
+): Record<string, string> {
+    const out: Record<string, string> = {}
     for (const [k, v] of Object.entries(headers)) {
+        if (!v) continue
         const lk = k.toLowerCase()
         if (lk === 'proxy-connection') continue
         if (
@@ -45,7 +47,13 @@ export function sanitizeHeaders(
             continue
         }
         if (lk === 'connection') continue
-        out[k] = v as any
+
+        if (Array.isArray(v)) {
+            out[k] = v.join(', ')
+            continue
+        }
+
+        out[k] = v
     }
     return out
 }
