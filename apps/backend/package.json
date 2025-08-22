@@ -8,7 +8,9 @@
     "dev": "tsx watch src/index.ts",
     "lint": "eslint src --max-warnings 0",
     "type-check": "tsc --noEmit",
-    "cleanup": "tsx src/cleanup.ts"
+    "cleanup": "tsx src/cleanup.ts",
+    "test": "vitest run",
+    "test:watch": "vitest watch"
   },
   "dependencies": {
     "@arachne/api-types": "*",
