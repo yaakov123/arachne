@@ -52,16 +52,13 @@ async function main() {
     })
 
     // WebSocket Hub
-    const hub = new WsHub({ token: BACKEND_TOKEN })
+    const hub = new WsHub()
     hub.start()
 
     await app.register(websocket)
-    app.get(BACKEND_WS_PATH, { websocket: true }, (conn, req) => {
-        const rawUrl = req.raw.url || BACKEND_WS_PATH
-        const base = `http://${req.headers.host || 'localhost'}`
-        const u = new URL(rawUrl, base)
+    app.get(BACKEND_WS_PATH, { websocket: true }, (conn) => {
         const wsAny: any = (conn as any).socket ?? (conn as any)
-        hub.handleConnection(wsAny, u)
+        hub.handleConnection(wsAny)
     })
 
     // Recorder storage and plugin
