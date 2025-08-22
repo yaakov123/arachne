@@ -60,7 +60,10 @@
             </div>
             <div class="flex items-center gap-2">
                 <label class="text-sm font-medium">Method:</label>
-                <select v-model="methodFilter" class="px-2 py-1 border rounded text-sm">
+                <select
+                    v-model="methodFilter"
+                    class="px-2 py-1 border rounded text-sm"
+                >
                     <option value="">All</option>
                     <option value="GET">GET</option>
                     <option value="POST">POST</option>
@@ -71,7 +74,10 @@
             </div>
             <div class="flex items-center gap-2">
                 <label class="text-sm font-medium">Status:</label>
-                <select v-model="statusFilter" class="px-2 py-1 border rounded text-sm">
+                <select
+                    v-model="statusFilter"
+                    class="px-2 py-1 border rounded text-sm"
+                >
                     <option value="">All</option>
                     <option value="2xx">2xx Success</option>
                     <option value="3xx">3xx Redirect</option>
@@ -87,35 +93,53 @@
         <!-- HTTP Transactions -->
         <div>
             <h2 class="font-semibold mb-2">HTTP Transactions</h2>
-            <div class="border rounded bg-white divide-y max-h-[70vh] overflow-auto">
+            <div
+                class="border rounded bg-white divide-y max-h-[70vh] overflow-auto"
+            >
                 <div
                     v-for="transaction in filteredTransactions"
                     :key="transaction.id"
                     class="transaction-item"
-                    :class="{ 'expanded': expandedTransaction === transaction.id }"
+                    :class="{
+                        expanded: expandedTransaction === transaction.id,
+                    }"
                     @click="toggleTransaction(transaction.id)"
                 >
                     <!-- Transaction Summary -->
-                    <div class="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-3">
+                    <div
+                        class="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-3"
+                    >
                         <div class="flex-shrink-0">
                             <span class="text-xs text-gray-500">
                                 {{ formatTime(transaction.ts) }}
                             </span>
                         </div>
                         <div class="flex-shrink-0">
-                            <span 
+                            <span
                                 class="method-badge"
-                                :class="getMethodClass(transaction.transaction.request.method)"
+                                :class="
+                                    getMethodClass(
+                                        transaction.transaction.request.method
+                                    )
+                                "
                             >
                                 {{ transaction.transaction.request.method }}
                             </span>
                         </div>
                         <div class="flex-shrink-0">
-                            <span 
+                            <span
                                 class="status-badge"
-                                :class="getStatusClass(transaction.transaction.response?.statusCode)"
+                                :class="
+                                    getStatusClass(
+                                        transaction.transaction.response
+                                            ?.statusCode
+                                    )
+                                "
                             >
-                                {{ transaction.transaction.response?.statusCode || 'Pending' }}
+                                {{
+                                    transaction.transaction.response
+                                        ?.statusCode || 'Pending'
+                                }}
                             </span>
                         </div>
                         <div class="flex-1 truncate">
@@ -124,101 +148,244 @@
                             </span>
                         </div>
                         <div class="flex-shrink-0 text-xs text-gray-500">
-                            {{ formatDuration(transaction.transaction.timing.duration) }}
+                            {{
+                                formatDuration(
+                                    transaction.transaction.timing.duration
+                                )
+                            }}
                         </div>
                         <div class="flex-shrink-0 text-xs text-gray-500">
-                            {{ formatSize(getTotalSize(transaction.transaction)) }}
+                            {{
+                                formatSize(
+                                    getTotalSize(transaction.transaction)
+                                )
+                            }}
                         </div>
                         <div class="flex-shrink-0">
-                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': expandedTransaction === transaction.id }">
-                                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                            <svg
+                                class="w-4 h-4 transition-transform"
+                                :class="{
+                                    'rotate-90':
+                                        expandedTransaction === transaction.id,
+                                }"
+                            >
+                                <path
+                                    d="M6 9l6 6 6-6"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    fill="none"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
                             </svg>
                         </div>
                     </div>
 
                     <!-- Expanded Transaction Details -->
-                    <div v-if="expandedTransaction === transaction.id" class="px-4 pb-4 bg-gray-50">
+                    <div
+                        v-if="expandedTransaction === transaction.id"
+                        class="px-4 pb-4 bg-gray-50"
+                    >
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <!-- Request Details -->
                             <div class="space-y-3">
-                                <h4 class="font-semibold text-green-700 border-b pb-1">Request</h4>
-                                
+                                <h4
+                                    class="font-semibold text-green-700 border-b pb-1"
+                                >
+                                    Request
+                                </h4>
+
                                 <!-- Request Line -->
-                                <div class="bg-white p-3 rounded border font-mono text-sm">
-                                    {{ transaction.transaction.request.method }} {{ transaction.transaction.request.url.path }}{{ transaction.transaction.request.url.query ? '?' + transaction.transaction.request.url.query : '' }} HTTP/1.1
+                                <div
+                                    class="bg-white p-3 rounded border font-mono text-sm"
+                                >
+                                    {{
+                                        transaction.transaction.request.method
+                                    }}
+                                    {{ transaction.transaction.request.url.path
+                                    }}{{
+                                        transaction.transaction.request.url
+                                            .query
+                                            ? '?' +
+                                              transaction.transaction.request
+                                                  .url.query
+                                            : ''
+                                    }}
+                                    HTTP/1.1
                                 </div>
 
                                 <!-- Request Headers -->
                                 <div>
                                     <h5 class="font-medium mb-2">Headers</h5>
-                                    <div class="bg-white rounded border max-h-32 overflow-auto">
-                                        <div 
-                                            v-for="header in transaction.transaction.request.headers" 
+                                    <div
+                                        class="bg-white rounded border max-h-32 overflow-auto"
+                                    >
+                                        <div
+                                            v-for="header in transaction
+                                                .transaction.request.headers"
                                             :key="header.name"
                                             class="px-3 py-1 border-b last:border-b-0 font-mono text-xs"
-                                            :class="{ 'bg-yellow-50': header.sensitive }"
+                                            :class="{
+                                                'bg-yellow-50':
+                                                    header.sensitive,
+                                            }"
                                         >
-                                            <span class="text-blue-600">{{ header.name }}:</span>
-                                            <span class="ml-2" :class="{ 'text-red-600': header.sensitive }">
-                                                {{ header.sensitive ? '••••••••' : header.value }}
+                                            <span class="text-blue-600"
+                                                >{{ header.name }}:</span
+                                            >
+                                            <span
+                                                class="ml-2"
+                                                :class="{
+                                                    'text-red-600':
+                                                        header.sensitive,
+                                                }"
+                                            >
+                                                {{
+                                                    header.sensitive
+                                                        ? '••••••••'
+                                                        : header.value
+                                                }}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Request Body -->
-                                <div v-if="transaction.transaction.request.body">
+                                <div
+                                    v-if="transaction.transaction.request.body"
+                                >
                                     <h5 class="font-medium mb-2">
-                                        Body 
+                                        Body
                                         <span class="text-xs text-gray-500">
-                                            ({{ transaction.transaction.request.body.content.detectedFormat }}, 
-                                            {{ formatSize(transaction.transaction.request.body.content.size) }})
+                                            ({{
+                                                transaction.transaction.request
+                                                    .body.content
+                                                    .detectedFormat
+                                            }},
+                                            {{
+                                                formatSize(
+                                                    transaction.transaction
+                                                        .request.body.content
+                                                        .size
+                                                )
+                                            }})
                                         </span>
                                     </h5>
-                                    <div class="bg-white rounded border p-3 max-h-32 overflow-auto">
-                                        <pre class="text-xs font-mono whitespace-pre-wrap">{{ formatBodySample(transaction.transaction.request.body) }}</pre>
+                                    <div
+                                        class="bg-white rounded border p-3 max-h-32 overflow-auto"
+                                    >
+                                        <pre
+                                            class="text-xs font-mono whitespace-pre-wrap"
+                                            >{{
+                                                formatBodySample(
+                                                    transaction.transaction
+                                                        .request.body
+                                                )
+                                            }}</pre
+                                        >
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Response Details -->
-                            <div class="space-y-3" v-if="transaction.transaction.response">
-                                <h4 class="font-semibold text-blue-700 border-b pb-1">Response</h4>
-                                
+                            <div
+                                class="space-y-3"
+                                v-if="transaction.transaction.response"
+                            >
+                                <h4
+                                    class="font-semibold text-blue-700 border-b pb-1"
+                                >
+                                    Response
+                                </h4>
+
                                 <!-- Status Line -->
-                                <div class="bg-white p-3 rounded border font-mono text-sm">
-                                    HTTP/1.1 {{ transaction.transaction.response.statusCode }} {{ transaction.transaction.response.statusMessage || getStatusText(transaction.transaction.response.statusCode) }}
+                                <div
+                                    class="bg-white p-3 rounded border font-mono text-sm"
+                                >
+                                    HTTP/1.1
+                                    {{
+                                        transaction.transaction.response
+                                            .statusCode
+                                    }}
+                                    {{
+                                        transaction.transaction.response
+                                            .statusMessage ||
+                                        getStatusText(
+                                            transaction.transaction.response
+                                                .statusCode
+                                        )
+                                    }}
                                 </div>
 
                                 <!-- Response Headers -->
                                 <div>
                                     <h5 class="font-medium mb-2">Headers</h5>
-                                    <div class="bg-white rounded border max-h-32 overflow-auto">
-                                        <div 
-                                            v-for="header in transaction.transaction.response.headers" 
+                                    <div
+                                        class="bg-white rounded border max-h-32 overflow-auto"
+                                    >
+                                        <div
+                                            v-for="header in transaction
+                                                .transaction.response.headers"
                                             :key="header.name"
                                             class="px-3 py-1 border-b last:border-b-0 font-mono text-xs"
-                                            :class="{ 'bg-yellow-50': header.sensitive }"
+                                            :class="{
+                                                'bg-yellow-50':
+                                                    header.sensitive,
+                                            }"
                                         >
-                                            <span class="text-blue-600">{{ header.name }}:</span>
-                                            <span class="ml-2" :class="{ 'text-red-600': header.sensitive }">
-                                                {{ header.sensitive ? '••••••••' : header.value }}
+                                            <span class="text-blue-600"
+                                                >{{ header.name }}:</span
+                                            >
+                                            <span
+                                                class="ml-2"
+                                                :class="{
+                                                    'text-red-600':
+                                                        header.sensitive,
+                                                }"
+                                            >
+                                                {{
+                                                    header.sensitive
+                                                        ? '••••••••'
+                                                        : header.value
+                                                }}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Response Body -->
-                                <div v-if="transaction.transaction.response.body">
+                                <div
+                                    v-if="transaction.transaction.response.body"
+                                >
                                     <h5 class="font-medium mb-2">
-                                        Body 
+                                        Body
                                         <span class="text-xs text-gray-500">
-                                            ({{ transaction.transaction.response.body.content.detectedFormat }}, 
-                                            {{ formatSize(transaction.transaction.response.body.content.size) }})
+                                            ({{
+                                                transaction.transaction.response
+                                                    .body.content
+                                                    .detectedFormat
+                                            }},
+                                            {{
+                                                formatSize(
+                                                    transaction.transaction
+                                                        .response.body.content
+                                                        .size
+                                                )
+                                            }})
                                         </span>
                                     </h5>
-                                    <div class="bg-white rounded border p-3 max-h-32 overflow-auto">
-                                        <pre class="text-xs font-mono whitespace-pre-wrap">{{ formatBodySample(transaction.transaction.response.body) }}</pre>
+                                    <div
+                                        class="bg-white rounded border p-3 max-h-32 overflow-auto"
+                                    >
+                                        <pre
+                                            class="text-xs font-mono whitespace-pre-wrap"
+                                            >{{
+                                                formatBodySample(
+                                                    transaction.transaction
+                                                        .response.body
+                                                )
+                                            }}</pre
+                                        >
                                     </div>
                                 </div>
                             </div>
@@ -227,9 +394,14 @@
                 </div>
 
                 <!-- Empty State -->
-                <div v-if="filteredTransactions.length === 0" class="p-8 text-center text-gray-500">
+                <div
+                    v-if="filteredTransactions.length === 0"
+                    class="p-8 text-center text-gray-500"
+                >
                     <div class="mb-2">No HTTP transactions captured yet</div>
-                    <div class="text-sm">Make some HTTP requests to see them here</div>
+                    <div class="text-sm">
+                        Make some HTTP requests to see them here
+                    </div>
                 </div>
             </div>
         </div>
@@ -255,26 +427,32 @@ const statusFilter = ref('')
 
 // Computed filtered transactions
 const filteredTransactions = computed(() => {
-    return transactions.value.filter(transaction => {
+    return transactions.value.filter((transaction) => {
         const tx = transaction.transaction
-        
+
         // Search filter
         if (searchFilter.value) {
             const search = searchFilter.value.toLowerCase()
-            const matchesUrl = tx.request.url.full.toLowerCase().includes(search)
-            const matchesMethod = tx.request.method.toLowerCase().includes(search)
-            const matchesStatus = tx.response?.statusCode?.toString().includes(search)
-            
+            const matchesUrl = tx.request.url.full
+                .toLowerCase()
+                .includes(search)
+            const matchesMethod = tx.request.method
+                .toLowerCase()
+                .includes(search)
+            const matchesStatus = tx.response?.statusCode
+                ?.toString()
+                .includes(search)
+
             if (!matchesUrl && !matchesMethod && !matchesStatus) {
                 return false
             }
         }
-        
+
         // Method filter
         if (methodFilter.value && tx.request.method !== methodFilter.value) {
             return false
         }
-        
+
         // Status filter
         if (statusFilter.value && tx.response?.statusCode) {
             const status = tx.response.statusCode
@@ -284,7 +462,7 @@ const filteredTransactions = computed(() => {
             if (range === '4xx' && (status < 400 || status >= 500)) return false
             if (range === '5xx' && (status < 500 || status >= 600)) return false
         }
-        
+
         return true
     })
 })
@@ -293,6 +471,8 @@ function attachHandler() {
     return wsClient.on((ev) => {
         // Only handle transaction complete events
         if (ev.type === 'transactionComplete') {
+            console.log(ev.transaction.request.url.full)
+            console.log(ev)
             transactions.value.unshift(ev as TransactionCompleteEvent)
             // Keep only the latest 100 transactions
             if (transactions.value.length > 100) {
@@ -325,18 +505,23 @@ function formatSize(bytes?: number): string {
 }
 
 function getTotalSize(transaction: any): number {
-    return (transaction.summary.requestSize || 0) + (transaction.summary.responseSize || 0)
+    return (
+        (transaction.summary.requestSize || 0) +
+        (transaction.summary.responseSize || 0)
+    )
 }
 
 function getMethodClass(method: string): string {
     const classes = {
         GET: 'bg-blue-100 text-blue-800',
-        POST: 'bg-green-100 text-green-800', 
+        POST: 'bg-green-100 text-green-800',
         PUT: 'bg-yellow-100 text-yellow-800',
         DELETE: 'bg-red-100 text-red-800',
         PATCH: 'bg-purple-100 text-purple-800',
     }
-    return classes[method as keyof typeof classes] || 'bg-gray-100 text-gray-800'
+    return (
+        classes[method as keyof typeof classes] || 'bg-gray-100 text-gray-800'
+    )
 }
 
 function getStatusClass(status?: number): string {
@@ -373,7 +558,10 @@ function formatBodySample(body: any): string {
     
     // Handle base64 encoded content
     if (content.encoding === 'base64' && sample.startsWith('base64:')) {
-        if (content.detectedFormat === 'binary' || content.detectedFormat === 'image') {
+        if (
+            content.detectedFormat === 'binary' ||
+            content.detectedFormat === 'image'
+        ) {
             return `[Binary data - ${content.detectedFormat}]`
         }
         try {
@@ -382,7 +570,7 @@ function formatBodySample(body: any): string {
             return '[Invalid base64 data]'
         }
     }
-    
+
     // Pretty print JSON
     if (content.detectedFormat === 'json') {
         try {
@@ -391,7 +579,7 @@ function formatBodySample(body: any): string {
             return sample
         }
     }
-    
+
     return sample
 }
 

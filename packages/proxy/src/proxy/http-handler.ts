@@ -25,26 +25,35 @@ export class HttpHandler {
     async handleHttpRequest(
         clientReq: IncomingMessage,
         clientRes: http.ServerResponse,
-        isHttps: boolean,
+        isHttps: boolean
     ): Promise<void> {
         const id = genId('req')
 
         try {
             // Parse URL
             const fullUrl = UrlProcessor.buildFullUrl(clientReq, isHttps)
-            
+
             // Build request context
-            const reqCtx = ContextBuilder.buildRequestContext(fullUrl, clientReq, isHttps, id)
-            
+            const reqCtx = ContextBuilder.buildRequestContext(
+                fullUrl,
+                clientReq,
+                isHttps,
+                id
+            )
+
             // Execute request hook
             await this.pluginManager.runHook('onRequest', reqCtx)
 
             // Process request body if needed
-            const { body: requestBodyToSend, updatedHeaders } = await this.requestBodyHandler.processBody(clientReq, reqCtx)
-            
+            const { body: requestBodyToSend, updatedHeaders } =
+                await this.requestBodyHandler.processBody(clientReq, reqCtx)
+
             // Update headers based on body processing
             if (requestBodyToSend) {
-                this.requestBodyHandler.updateRequestHeaders(reqCtx.requestOptions.headers, updatedHeaders)
+                this.requestBodyHandler.updateRequestHeaders(
+                    reqCtx.requestOptions.headers,
+                    updatedHeaders
+                )
             }
 
             // Prefer uncompressed upstream responses if we plan to inspect/modify bodies
@@ -54,10 +63,18 @@ export class HttpHandler {
             }
 
             // Forward to upstream and handle response
-            await this.handleUpstreamRequest(fullUrl, reqCtx, clientReq, clientRes, requestBodyToSend)
-            
+            await this.handleUpstreamRequest(
+                fullUrl,
+                reqCtx,
+                clientReq,
+                clientRes,
+                requestBodyToSend
+            )
         } catch (error) {
-            if (error instanceof Error && error.message.includes('Host header')) {
+            if (
+                error instanceof Error &&
+                error.message.includes('Host header')
+            ) {
                 clientRes.writeHead(400, 'Bad Request: Missing Host header')
                 clientRes.end()
                 return
@@ -88,7 +105,7 @@ export class HttpHandler {
 
             // Build response context
             const resCtx = ContextBuilder.buildResponseContext(reqCtx, upRes)
-            
+
             // Execute response hook
             await this.pluginManager.runHook('onResponse', resCtx)
 
@@ -97,8 +114,12 @@ export class HttpHandler {
             const method = reqCtx.method.toUpperCase()
 
             // Try to process response body
-            const processedBody = await this.responseBodyHandler.processBody(upRes, resCtx, method)
-            
+            const processedBody = await this.responseBodyHandler.processBody(
+                upRes,
+                resCtx,
+                method
+            )
+
             if (processedBody) {
                 // Send buffered response
                 this.upstreamHandler.sendBufferedResponse(
@@ -110,11 +131,24 @@ export class HttpHandler {
                 )
             } else {
                 // Stream original response
-                const headers = this.responseBodyHandler.prepareStreamingHeaders(resCtx.responseHeaders as any)
-                this.upstreamHandler.streamResponse(upRes, clientRes, statusCode, statusMessage, headers)
+                const headers =
+                    this.responseBodyHandler.prepareStreamingHeaders(
+                        resCtx.responseHeaders as any
+                    )
+                this.upstreamHandler.streamResponse(
+                    upRes,
+                    clientRes,
+                    statusCode,
+                    statusMessage,
+                    headers
+                )
             }
         } catch (err) {
-            this.upstreamHandler.handleUpstreamError(err as Error, reqCtx, clientRes)
+            this.upstreamHandler.handleUpstreamError(
+                err as Error,
+                reqCtx,
+                clientRes
+            )
         }
     }
 }

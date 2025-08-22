@@ -17,7 +17,7 @@ import type {
     RequestURL,
 } from '@arachne/api-types'
 
-const DEFAULT_MAX = 1024 * 1024 // 1MB sample cap, aligns with recorder default
+const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap, aligns with recorder default
 
 // Sensitive headers that should be marked for special handling in UI
 const SENSITIVE_HEADERS = new Set([
@@ -30,33 +30,49 @@ const SENSITIVE_HEADERS = new Set([
     'x-auth-token',
 ])
 
-function detectContentFormat(contentType?: string, sample?: string): ContentInfo['detectedFormat'] {
+function detectContentFormat(
+    contentType?: string,
+    sample?: string
+): ContentInfo['detectedFormat'] {
     if (!contentType && !sample) return 'binary'
-    
+
     const ct = (contentType || '').toLowerCase()
-    
+
     // Check content-type first
     if (ct.includes('application/json') || ct.endsWith('+json')) return 'json'
-    if (ct.includes('application/xml') || ct.endsWith('+xml') || ct.includes('text/xml')) return 'xml'
+    if (
+        ct.includes('application/xml') ||
+        ct.endsWith('+xml') ||
+        ct.includes('text/xml')
+    )
+        return 'xml'
     if (ct.includes('text/html')) return 'html'
     if (ct.includes('text/css')) return 'css'
-    if (ct.includes('application/javascript') || ct.includes('text/javascript')) return 'javascript'
-    if (ct.includes('application/x-www-form-urlencoded') || ct.includes('multipart/form-data')) return 'form'
+    if (ct.includes('application/javascript') || ct.includes('text/javascript'))
+        return 'javascript'
+    if (
+        ct.includes('application/x-www-form-urlencoded') ||
+        ct.includes('multipart/form-data')
+    )
+        return 'form'
     if (ct.startsWith('text/')) return 'text'
     if (ct.startsWith('image/')) return 'image'
-    
+
     // Fallback to sample-based detection for UTF8 content
     if (sample && typeof sample === 'string' && !sample.startsWith('base64:')) {
         const trimmed = sample.trim()
         if (trimmed.startsWith('{') || trimmed.startsWith('[')) return 'json'
-        if (trimmed.startsWith('<')) return trimmed.includes('<!DOCTYPE') ? 'html' : 'xml'
+        if (trimmed.startsWith('<'))
+            return trimmed.includes('<!DOCTYPE') ? 'html' : 'xml'
         return 'text'
     }
-    
+
     return 'binary'
 }
 
-function parseHeaders(headers: Record<string, string | string[]>): DisplayHeader[] {
+function parseHeaders(
+    headers: Record<string, string | string[]>
+): DisplayHeader[] {
     return Object.entries(headers).map(([name, value]) => ({
         name,
         value: Array.isArray(value) ? value.join(', ') : value,
@@ -85,10 +101,10 @@ function bodyToContentInfo(
     const ct = (contentType || '').toLowerCase()
     const truncated = buf.length > max
     const slice = truncated ? buf.subarray(0, max) : buf
-    
+
     let sample: string
     let encoding: 'utf8' | 'base64' = 'base64'
-    
+
     // Try UTF8 for text-like content
     if (
         ct.includes('application/json') ||
@@ -109,18 +125,26 @@ function bodyToContentInfo(
         sample = 'base64:' + slice.toString('base64')
         encoding = 'base64'
     }
-    
+
     const content: ContentInfo = {
         contentType,
         contentEncoding,
         size: buf.length,
         sampleSize: slice.length,
         truncated,
-        detectedFormat: detectContentFormat(contentType, encoding === 'utf8' ? sample : undefined),
+        detectedFormat: detectContentFormat(
+            contentType,
+            encoding === 'utf8' ? sample : undefined
+        ),
         encoding,
-        isCompressed: !!(contentEncoding && ['gzip', 'deflate', 'br', 'compress'].includes(contentEncoding.toLowerCase())),
+        isCompressed: !!(
+            contentEncoding &&
+            ['gzip', 'deflate', 'br', 'compress'].includes(
+                contentEncoding.toLowerCase()
+            )
+        ),
     }
-    
+
     return { content, sample }
 }
 
@@ -199,18 +223,21 @@ export function createBroadcastPlugin(
                     clientIp: transaction.clientIp,
                     body: transaction.requestBody,
                 },
-                response: transaction.statusCode ? {
-                    statusCode: transaction.statusCode,
-                    statusMessage: transaction.statusMessage,
-                    headers: transaction.responseHeaders || [],
-                    rawHeaders: transaction.rawResponseHeaders || {},
-                    body: transaction.responseBody,
-                } : undefined,
+                response: transaction.statusCode
+                    ? {
+                          statusCode: transaction.statusCode,
+                          statusMessage: transaction.statusMessage,
+                          headers: transaction.responseHeaders || [],
+                          rawHeaders: transaction.rawResponseHeaders || {},
+                          body: transaction.responseBody,
+                      }
+                    : undefined,
                 timing: {
                     startTime: transaction.requestStartTime,
                     responseTime: transaction.responseStartTime,
-                    duration: transaction.responseStartTime 
-                        ? transaction.responseStartTime - transaction.requestStartTime 
+                    duration: transaction.responseStartTime
+                        ? transaction.responseStartTime -
+                          transaction.requestStartTime
                         : undefined,
                 },
                 summary: {
@@ -222,7 +249,7 @@ export function createBroadcastPlugin(
             },
         }
         hub.broadcast(ev)
-        
+
         // Clean up transaction state
         transactions.delete(id)
     }
@@ -235,7 +262,7 @@ export function createBroadcastPlugin(
             const startTime = timestamp
             const parsedURL = parseURL(ctx.url)
             const parsedHeaders = parseHeaders(ctx.headers)
-            
+
             // Initialize transaction tracking with complete request data
             transactions.set(ctx.id, {
                 requestStartTime: startTime,
@@ -266,7 +293,7 @@ export function createBroadcastPlugin(
             const timestamp = Date.now()
             const transaction = transactions.get(ctx.id)
             const parsedHeaders = parseHeaders(ctx.responseHeaders)
-            
+
             if (transaction) {
                 transaction.responseStartTime = timestamp
                 transaction.statusCode = ctx.statusCode
@@ -283,11 +310,13 @@ export function createBroadcastPlugin(
                 statusMessage: ctx.statusMessage,
                 headers: parsedHeaders,
                 rawHeaders: ctx.responseHeaders,
-                timing: transaction ? {
-                    startTime: transaction.requestStartTime,
-                    responseTime: timestamp,
-                    duration: timestamp - transaction.requestStartTime,
-                } : undefined,
+                timing: transaction
+                    ? {
+                          startTime: transaction.requestStartTime,
+                          responseTime: timestamp,
+                          duration: timestamp - transaction.requestStartTime,
+                      }
+                    : undefined,
             }
             hub.broadcast(ev)
 
@@ -298,7 +327,7 @@ export function createBroadcastPlugin(
                 if (transactions.has(ctx.id)) {
                     completeTransaction(ctx.id)
                 }
-            }, 10)
+            }, 1_000)
         },
 
         async onRequestBody(ctx: RequestBodyContext) {
@@ -315,7 +344,7 @@ export function createBroadcastPlugin(
                 transaction.requestSize = ctx.body.length
                 transaction.requestBody = { content, sample }
             }
-            
+
             const ev: RequestBodyEvent = {
                 type: 'requestBody',
                 id: ctx.id,
@@ -340,7 +369,7 @@ export function createBroadcastPlugin(
                 transaction.responseSize = ctx.body.length
                 transaction.responseBody = { content, sample }
             }
-            
+
             const ev: ResponseBodyEvent = {
                 type: 'responseBody',
                 id: ctx.id,
@@ -367,15 +396,13 @@ export function createBroadcastPlugin(
                     phase: 'connection' as const, // Could be enhanced based on context
                 }
                 hub.broadcast(ev)
-                
+
                 // Complete transaction if we have an ID
                 if (ctx?.id) {
                     completeTransaction(ctx.id)
                 }
             } catch {}
         },
-
-
     }
 
     return plugin
