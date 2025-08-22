@@ -2,16 +2,7 @@
     <div class="logger-view">
         <Sidebar class="logger-sidebar">
             <div class="sidebar-content">
-                <h2>Logger Controls</h2>
                 <Button label="Click" @click="onClick" />
-                <div class="sidebar-section">
-                    <h3>Filters</h3>
-                    <p>Add your filter controls here</p>
-                </div>
-                <div class="sidebar-section">
-                    <h3>Settings</h3>
-                    <p>Add your settings here</p>
-                </div>
             </div>
         </Sidebar>
         
@@ -25,6 +16,7 @@
 </template>
 
 <script setup lang="ts">
+import Sidebar from '../components/Sidebar.vue'
 function onClick() {
     console.log('Click')
 }
@@ -74,7 +66,6 @@ function onClick() {
 
 .logger-main {
     flex: 1;
-    background-color: var(--surface-ground, #f8f9fa);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -88,8 +79,6 @@ function onClick() {
 }
 
 .logger-content {
-    background-color: var(--surface-card, #ffffff);
-    border: 1px solid var(--surface-border, #dee2e6);
     border-radius: 0.5rem;
     padding: 1rem;
     flex: 1;

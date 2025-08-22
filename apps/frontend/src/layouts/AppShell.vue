@@ -16,9 +16,7 @@
             <slot></slot>
         </main>
         
-        <footer class="app-footer">
-            <p>© 2025 Arachne</p>
-        </footer>
+
     </div>
 </template>
 
@@ -41,7 +39,7 @@ import { RouterLink } from 'vue-router'
     align-items: center;
     justify-content: space-between;
     padding: 0 1.5rem;
-    height: 60px;
+    height: var(--topbar-height);
     background-color: var(--surface-card, #ffffff);
     border-bottom: 1px solid var(--surface-border, #dee2e6);
 }
@@ -77,6 +75,7 @@ import { RouterLink } from 'vue-router'
     flex: 1;
     background-color: var(--surface-ground, #f8f9fa);
     overflow-y: auto;
+    display: flex;
 }
 
 /* Footer styles */

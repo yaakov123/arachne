@@ -27,7 +27,7 @@ declare module 'vue' {
     RadioButton: typeof import('primevue/radiobutton')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    Sidebar: typeof import('primevue/sidebar')['default']
+    Sidebar: typeof import('./src/components/Sidebar.vue')['default']
     Slider: typeof import('primevue/slider')['default']
     TabMenu: typeof import('primevue/tabmenu')['default']
     TabPanel: typeof import('primevue/tabpanel')['default']

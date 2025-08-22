@@ -1,3 +1,11 @@
+:root {
+    --topbar-height: 60px;
+    --sidebar-height: calc(100vh - var(--topbar-height));
+    --sidebar-width: 300px;
+    --sidebar-top: var(--topbar-height);
+}
+
 body {
     font-family: 'Inter', sans-serif;
 }
+
