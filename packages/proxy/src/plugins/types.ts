@@ -59,9 +59,8 @@ export interface ProxyPlugin {
     // Called with buffered/decoded bodies if available and within size limits
     onRequestBody?(ctx: RequestBodyContext): HookResult
     onResponseBody?(ctx: ResponseBodyContext): HookResult
-    onFullRequestResponse?(
-        req: RequestBodyContext,
-        res: ResponseBodyContext
-    ): HookResult
+    // Called exactly once when the response is complete (after onResponseBody if body exists, or immediately if no body)
+    onResponseComplete?(ctx: ResponseContext): HookResult
+
     onError?(err: unknown, ctx: Partial<RequestContext & ConnectContext>): void
 }

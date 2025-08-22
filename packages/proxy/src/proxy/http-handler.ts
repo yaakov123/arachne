@@ -121,7 +121,8 @@ export class HttpHandler {
             )
 
             if (processedBody) {
-                // Send buffered response
+                // Send buffered response - body was processed, call completion hook
+                await this.pluginManager.runHook('onResponseComplete', resCtx)
                 this.upstreamHandler.sendBufferedResponse(
                     clientRes,
                     statusCode,
@@ -130,7 +131,8 @@ export class HttpHandler {
                     processedBody.body
                 )
             } else {
-                // Stream original response
+                // Stream original response - no body processing, call completion hook immediately
+                await this.pluginManager.runHook('onResponseComplete', resCtx)
                 const headers =
                     this.responseBodyHandler.prepareStreamingHeaders(
                         resCtx.responseHeaders as any

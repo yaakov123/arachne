@@ -319,15 +319,6 @@ export function createBroadcastPlugin(
                     : undefined,
             }
             hub.broadcast(ev)
-
-            // If no response body is expected, complete the transaction here
-            // Note: The proxy will call onResponseBody if there's a body, which will also complete the transaction
-            setTimeout(() => {
-                // Small delay to allow onResponseBody to be called if there is a body
-                if (transactions.has(ctx.id)) {
-                    completeTransaction(ctx.id)
-                }
-            }, 1_000)
         },
 
         async onRequestBody(ctx: RequestBodyContext) {
@@ -378,8 +369,10 @@ export function createBroadcastPlugin(
                 sample,
             }
             hub.broadcast(ev)
+        },
 
-            // Send transaction complete event
+        async onResponseComplete(ctx: ResponseContext) {
+            // Response is fully processed - send transaction complete event
             completeTransaction(ctx.id)
         },
 
