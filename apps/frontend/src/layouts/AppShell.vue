@@ -1,16 +1,5 @@
 <template>
     <div class="app-shell">
-        <header class="app-header">
-            <div class="logo">
-                <h1>Arachne</h1>
-            </div>
-            <nav class="main-nav">
-                <RouterLink to="/">Logger</RouterLink>
-            </nav>
-            <div class="header-actions">
-                <!-- Placeholder for actions like settings, user profile, etc. -->
-            </div>
-        </header>
         
         <main class="app-content">
             <slot></slot>
@@ -21,7 +10,6 @@
 </template>
 
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
 </script>
 
 <style scoped>

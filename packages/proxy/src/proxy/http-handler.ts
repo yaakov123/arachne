@@ -1,5 +1,5 @@
 import http, { IncomingMessage } from 'node:http'
-import { genId } from './utils'
+import { genId, isHostIgnored } from './utils'
 import type { PluginManager } from './plugin-manager'
 import type { RequestContext } from '../plugins/types'
 import { UrlProcessor } from './url-processor'
@@ -15,7 +15,8 @@ export class HttpHandler {
 
     constructor(
         private pluginManager: PluginManager,
-        private onError: (err: unknown, ctx: any) => void
+        private onError: (err: unknown, ctx: any) => void,
+        private ignoredHosts?: string[]
     ) {
         this.requestBodyHandler = new RequestBodyHandler(pluginManager)
         this.responseBodyHandler = new ResponseBodyHandler(pluginManager)
@@ -32,6 +33,12 @@ export class HttpHandler {
         try {
             // Parse URL
             const fullUrl = UrlProcessor.buildFullUrl(clientReq, isHttps)
+
+            // Check if host should be ignored - if so, create direct tunnel
+            if (isHostIgnored(fullUrl.hostname, this.ignoredHosts)) {
+                await this.createDirectTunnel(clientReq, clientRes, fullUrl)
+                return
+            }
 
             // Build request context
             const reqCtx = ContextBuilder.buildRequestContext(
@@ -152,5 +159,34 @@ export class HttpHandler {
                 clientRes
             )
         }
+    }
+
+    private async createDirectTunnel(
+        clientReq: IncomingMessage,
+        clientRes: http.ServerResponse,
+        fullUrl: URL
+    ): Promise<void> {
+        const port = fullUrl.port || (fullUrl.protocol === 'https:' ? 443 : 80)
+        const options = {
+            hostname: fullUrl.hostname,
+            port: port,
+            method: clientReq.method,
+            path: fullUrl.pathname + fullUrl.search,
+            headers: clientReq.headers
+        }
+
+        const req = http.request(options, (res) => {
+            clientRes.writeHead(res.statusCode || 200, res.statusMessage, res.headers)
+            res.pipe(clientRes, { end: true })
+        })
+
+        req.on('error', (_err) => {
+            if (!clientRes.headersSent) {
+                clientRes.writeHead(502, 'Bad Gateway')
+                clientRes.end('Error connecting to upstream server')
+            }
+        })
+
+        clientReq.pipe(req, { end: true })
     }
 }

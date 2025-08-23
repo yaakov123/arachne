@@ -3,7 +3,7 @@ import net from 'node:net'
 import tls from 'node:tls'
 import { CertificateAuthority } from '../certs/ca'
 import type { ConnectContext } from '../plugins/types'
-import { genId, parseHostPort } from './utils'
+import { genId, parseHostPort, isHostIgnored } from './utils'
 import { getRemote } from './proxy-utils'
 import { PluginManager } from './plugin-manager'
 import { HttpHandler } from './http-handler'
@@ -14,6 +14,7 @@ export class TlsManager {
         private pluginManager: PluginManager,
         private httpHandler: HttpHandler,
         private onError: (err: unknown, ctx: any) => void,
+        private ignoredHosts?: string[]
     ) {}
 
     async handleConnect(
@@ -31,6 +32,13 @@ export class TlsManager {
             port: connectPort,
             clientIp: getRemote(clientSocket),
         }
+        
+        // Check if host should be ignored - if so, create direct tunnel
+        if (isHostIgnored(hostname, this.ignoredHosts)) {
+            await this.createDirectTunnel(clientSocket, hostname, connectPort, head)
+            return
+        }
+        
         await this.pluginManager.runHook('onConnect', ctx)
 
         // Inform client to start TLS handshake through us
@@ -90,5 +98,62 @@ export class TlsManager {
         }
         clientSocket.on('close', cleanup)
         clientSocket.on('end', cleanup)
+    }
+
+    private async createDirectTunnel(
+        clientSocket: net.Socket,
+        hostname: string,
+        port: number,
+        head: Buffer
+    ): Promise<void> {
+        try {
+            const upstreamSocket = new net.Socket()
+            
+            upstreamSocket.connect(port, hostname, () => {
+                // Send successful connection response
+                clientSocket.write(
+                    'HTTP/1.1 200 Connection Established\r\n' +
+                        'Proxy-Agent: Arachne-Proxy/0.1\r\n' +
+                        '\r\n'
+                )
+                
+                // Forward any initial data
+                if (head && head.length) {
+                    upstreamSocket.write(head)
+                }
+                
+                // Pipe both directions
+                clientSocket.pipe(upstreamSocket, { end: true })
+                upstreamSocket.pipe(clientSocket, { end: true })
+            })
+            
+            upstreamSocket.on('error', (_err) => {
+                if (!clientSocket.destroyed) {
+                    clientSocket.write(
+                        'HTTP/1.1 502 Bad Gateway\r\n' +
+                            'Content-Type: text/plain\r\n' +
+                            'Content-Length: 19\r\n' +
+                            '\r\n' +
+                            'Connection failed\r\n'
+                    )
+                    clientSocket.end()
+                }
+            })
+            
+            // Clean up when client disconnects
+            const cleanup = () => {
+                try {
+                    upstreamSocket.destroy()
+                } catch {}
+            }
+            clientSocket.on('close', cleanup)
+            clientSocket.on('end', cleanup)
+            
+        } catch (err) {
+            this.onError(err, { hostname, port })
+            if (!clientSocket.destroyed) {
+                clientSocket.end()
+            }
+        }
     }
 }

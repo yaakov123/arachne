@@ -14,6 +14,7 @@ export interface ProxyOptions {
     ca?: CertificateAuthority
     certStore?: CertStoreOptions
     plugins?: ProxyPlugin[]
+    ignoredHosts?: string[]
 }
 
 export class MitmProxyServer {
@@ -30,7 +31,8 @@ export class MitmProxyServer {
         
         this.httpHandler = new HttpHandler(
             this.pluginManager,
-            this.handleError.bind(this)
+            this.handleError.bind(this),
+            opts.ignoredHosts
         )
         
         this.tlsManager = new TlsManager(
@@ -38,6 +40,7 @@ export class MitmProxyServer {
             this.pluginManager,
             this.httpHandler,
             this.handleError.bind(this),
+            opts.ignoredHosts
         )
 
         this.httpServer = http.createServer((req, res) => {

@@ -57,3 +57,25 @@ export function sanitizeHeaders(
     }
     return out
 }
+
+export function isHostIgnored(hostname: string, ignoredHosts?: string[]): boolean {
+    if (!ignoredHosts || ignoredHosts.length === 0) return false
+    
+    const normalizedHostname = hostname.toLowerCase()
+    
+    return ignoredHosts.some(ignored => {
+        const normalizedIgnored = ignored.toLowerCase()
+        
+        // Exact match
+        if (normalizedHostname === normalizedIgnored) return true
+        
+        // Wildcard match (e.g., *.example.com matches subdomain.example.com)
+        if (normalizedIgnored.startsWith('*.')) {
+            const domain = normalizedIgnored.slice(2)
+            return normalizedHostname === domain || normalizedHostname.endsWith('.' + domain)
+        }
+        
+        // Subdomain match (e.g., example.com matches subdomain.example.com)
+        return normalizedHostname.endsWith('.' + normalizedIgnored)
+    })
+}
