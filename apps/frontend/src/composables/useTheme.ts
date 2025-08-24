@@ -1,11 +1,16 @@
-import { ref, onMounted, watch, readonly, computed } from 'vue'
+import { ref, onMounted, watch, readonly, computed, onUnmounted } from 'vue'
 
 export type Theme = 'light' | 'dark'
 
 const THEME_STORAGE_KEY = 'arachne-theme'
 
-// Reactive theme state
-const theme = ref<Theme>('light')
+// Get current theme from document (already applied in main.ts)
+function getCurrentTheme(): Theme {
+  if (typeof document !== 'undefined') {
+    return document.documentElement.hasAttribute('data-theme') ? 'dark' : 'light'
+  }
+  return 'light'
+}
 
 // Get system preference
 function getSystemTheme(): Theme {
@@ -16,12 +21,11 @@ function getSystemTheme(): Theme {
 }
 
 // Get stored theme or system preference
-function getInitialTheme(): Theme {
+function getStoredTheme(): Theme | null {
   if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
-    return stored || getSystemTheme()
+    return localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
   }
-  return 'light'
+  return null
 }
 
 // Apply theme to document
@@ -42,19 +46,24 @@ function saveTheme(newTheme: Theme) {
   }
 }
 
+// Global reactive theme state - initialize with current theme from document
+const theme = ref<Theme>(getCurrentTheme())
+
+// Global system theme change listener cleanup function
+let systemThemeCleanup: (() => void) | null = null
+
 export function useTheme() {
   // Initialize theme on first use
   onMounted(() => {
-    const initialTheme = getInitialTheme()
-    theme.value = initialTheme
-    applyTheme(initialTheme)
+    // Sync with current document state (already applied in main.ts)
+    theme.value = getCurrentTheme()
 
-    // Listen for system theme changes
-    if (typeof window !== 'undefined' && window.matchMedia) {
+    // Listen for system theme changes only if no theme is stored
+    if (typeof window !== 'undefined' && window.matchMedia && !systemThemeCleanup) {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
       const handleChange = (e: MediaQueryListEvent) => {
         // Only update if no theme is stored (user hasn't made a choice)
-        if (!localStorage.getItem(THEME_STORAGE_KEY)) {
+        if (!getStoredTheme()) {
           const newTheme = e.matches ? 'dark' : 'light'
           theme.value = newTheme
           applyTheme(newTheme)
@@ -63,10 +72,18 @@ export function useTheme() {
 
       mediaQuery.addEventListener('change', handleChange)
       
-      // Cleanup listener on unmount
-      return () => {
+      // Store cleanup function globally to avoid duplicate listeners
+      systemThemeCleanup = () => {
         mediaQuery.removeEventListener('change', handleChange)
+        systemThemeCleanup = null
       }
+    }
+  })
+
+  // Cleanup system theme listener when component unmounts
+  onUnmounted(() => {
+    if (systemThemeCleanup) {
+      systemThemeCleanup()
     }
   })
 
