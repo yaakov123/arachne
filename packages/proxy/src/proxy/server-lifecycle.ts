@@ -49,12 +49,6 @@ export class ServerLifecycleManager {
             srv.closeAllConnections?.()
         } catch {}
         
-        await new Promise<void>((resolve, reject) =>
-            this.httpServer.close((err) => (err ? reject(err) : resolve()))
-        )
-        
-        console.log('[Arachne:Proxy] Stopped proxy server')
-        
         if (this.osProvider.isSupported()) {
             try {
                 console.log('[Arachne:Proxy] Disabling system proxy...')
@@ -64,5 +58,11 @@ export class ServerLifecycleManager {
                 console.warn('Failed to disable system proxy')
             }
         }
+        await new Promise<void>((resolve, reject) =>
+            this.httpServer.close((err) => (err ? reject(err) : resolve()))
+        )
+        
+        console.log('[Arachne:Proxy] Stopped proxy server')
+        
     }
 }
