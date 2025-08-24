@@ -6,7 +6,6 @@ import {
     CertificateAuthority,
     getDefaultCertStoreOptions,
 } from '@arachne/proxy'
-import { createRecorderPlugin, FileStorageAdapter } from '@arachne/recorder'
 import { createBroadcastPlugin } from './broadcast-plugin'
 import { WsHub } from './ws-hub'
 import { registerApi } from './api'
@@ -73,11 +72,6 @@ async function main() {
     })
 
     // Recorder storage and plugin
-    const storage = new FileStorageAdapter({ outDir: REC_OUT_DIR })
-    const { plugin: recorderPlugin } = createRecorderPlugin({
-        storage,
-        maxCaptureBytes: REC_MAX_BYTES,
-    })
 
     // Broadcast plugin
     const broadcastPlugin = createBroadcastPlugin({
@@ -97,7 +91,7 @@ async function main() {
         host: PROXY_HOST,
         port: PROXY_PORT,
         ca,
-        plugins: [broadcastPlugin, recorderPlugin],
+        plugins: [broadcastPlugin],
         ignoredHosts: ['*.youtube.com', '*.googlevideo.com', '*.google.com', '*.openai.com'],
     })
 
@@ -105,7 +99,6 @@ async function main() {
     await registerApi(app, {
         prefix: BACKEND_API_PREFIX,
         token: BACKEND_TOKEN,
-        storage,
         ca,
         proxy,
     })

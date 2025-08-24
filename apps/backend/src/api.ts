@@ -1,9 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
-import type { StorageAdapter } from '@arachne/recorder'
 import type {
-  InventoryTree,
-  HostRecord,
   HealthResponse,
   CertResponse,
   ProxyStartResponse,
@@ -20,13 +17,12 @@ import { getTrustInstructions } from '@arachne/os'
 interface ApiOptions {
   prefix: string
   token?: string
-  storage: StorageAdapter
   ca: CertificateAuthority
   proxy?: MitmProxyServer
 }
 
 export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
-  const { prefix, token, storage, ca, proxy } = opts
+  const { prefix, token, ca, proxy } = opts
 
   const auth: (req: FastifyRequest, rep: FastifyReply) => Promise<void> = async (
     req,
@@ -45,24 +41,9 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
     rep.send(res)
   })
 
-  app.get(`${prefix}/inventory`, { preHandler: auth }, async (_req, rep) => {
-    const inv = storage.snapshot() as unknown as InventoryTree
-    rep.send(inv)
-  })
 
-  app.get(`${prefix}/hosts`, { preHandler: auth }, async (_req, rep) => {
-    const inv = storage.snapshot() as unknown as InventoryTree
-    const hosts = Object.keys(inv.hosts || {})
-    rep.send(hosts)
-  })
 
-  app.get(`${prefix}/hosts/:host`, { preHandler: auth }, async (req, rep) => {
-    const inv = storage.snapshot() as unknown as InventoryTree
-    const host = (req.params as any).host as string
-    const data: HostRecord | undefined = (inv.hosts || {})[host]
-    if (!data) return rep.code(404).send({ error: 'Not Found' })
-    rep.send(data)
-  })
+
 
   app.get(`${prefix}/cert`, { preHandler: auth }, async (_req, rep) => {
     // Check in-memory first, then filesystem
