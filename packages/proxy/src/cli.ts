@@ -2,7 +2,7 @@
 import { Command } from 'commander'
 import fs from 'node:fs'
 import { CertificateAuthority } from './certs/ca.js'
-import { installRootCATrust, uninstallRootCATrust } from './certs/trust.js'
+import { installRootCATrust, uninstallRootCATrust } from '@arachne/os'
 import { CertStore } from './certs/store.js'
 import { MitmProxyServer } from './proxy/server.js'
 import { createLoggerPlugin } from './plugins/logger.js'

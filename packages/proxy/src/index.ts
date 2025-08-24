@@ -2,12 +2,12 @@ import { CertStore, CertStoreOptions } from './certs/store'
 
 export { MitmProxyServer, type ProxyOptions } from './proxy/server'
 export { CertificateAuthority, type CAOptions } from './certs/ca'
-export { installRootCATrust } from './certs/trust'
+export { installRootCATrust, uninstallRootCATrust, platform, type TrustResult, type Platform } from '@arachne/os'
 export * from './plugins/types'
 export { createLoggerPlugin } from './plugins/logger.js'
 export { createDemoRewritePlugin } from './plugins/rewriter.js'
 export { type CertStoreOptions } from './certs/store'
-export { enableSystemProxy, disableSystemProxy } from './os/system-proxy'
+export { enableSystemProxy, disableSystemProxy } from '@arachne/os'
 
 export function getDefaultCertStoreOptions(): CertStoreOptions {
     return {

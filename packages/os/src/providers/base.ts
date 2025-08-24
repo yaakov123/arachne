@@ -1,0 +1,32 @@
+import { platform } from 'node:os'
+import type { OSProvider, ProcessInfo, TrustResult, Platform } from '../types.js'
+
+export abstract class BaseOSProvider implements OSProvider {
+    protected abstract platformName: Platform
+
+    // System proxy methods (to be implemented by each platform)
+    abstract enableSystemProxy(host: string, port: number): Promise<void>
+    abstract disableSystemProxy(): Promise<void>
+
+    // Certificate trust methods (to be implemented by each platform)
+    abstract installRootCATrust(certPath: string): Promise<TrustResult>
+    abstract uninstallRootCATrust(): Promise<TrustResult>
+
+    // Network process tracking (to be implemented by each platform)
+    abstract getProcessForConnection(
+        localPort: number,
+        remoteHost: string,
+        remotePort: number
+    ): Promise<ProcessInfo | null>
+
+    // Common implementations
+    isSupported(): boolean {
+        return this.platformName === platform()
+    }
+
+    getPlatform(): Platform {
+        const p = platform() as Platform
+        if (p === 'darwin' || p === 'win32' || p === 'linux') return p
+        return 'linux'
+    }
+}

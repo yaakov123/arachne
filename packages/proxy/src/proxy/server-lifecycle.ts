@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { enableSystemProxy } from '../os/system-proxy.js'
+import { OSProviderFactory } from '@arachne/os'
 
 export interface ServerInfo {
     host: string
@@ -7,9 +7,11 @@ export interface ServerInfo {
 }
 
 export class ServerLifecycleManager {
+    private osProvider = OSProviderFactory.create()
+    
     constructor(
         private httpServer: http.Server,
-        private onError: (err: unknown, ctx: any) => void
+        private _onError: (err: unknown, ctx: any) => void
     ) {}
 
     async start(host: string = '127.0.0.1', port: number = 8899): Promise<ServerInfo> {
@@ -17,12 +19,14 @@ export class ServerLifecycleManager {
             this.httpServer.listen(port, host, resolve)
         )
         
-        try {
-            console.log('[Arachne:Proxy] Enabling system proxy...')
-            await enableSystemProxy(host, port)
-            console.log('[Arachne:Proxy] Enabled system proxy')
-        } catch {
-            console.warn('Failed to enable system proxy')
+        if (this.osProvider.isSupported()) {
+            try {
+                console.log('[Arachne:Proxy] Enabling system proxy...')
+                await this.osProvider.enableSystemProxy(host, port)
+                console.log('[Arachne:Proxy] Enabled system proxy')
+            } catch {
+                console.warn('Failed to enable system proxy')
+            }
         }
         
         return { host, port }
@@ -51,14 +55,14 @@ export class ServerLifecycleManager {
         
         console.log('[Arachne:Proxy] Stopped proxy server')
         
-        try {
-            // Note: System proxy disabling is commented out in original
-            // console.log('[Arachne:Proxy] Disabling system proxy...')
-            // const disablePromise = disableSystemProxy()
-            // await Promise.all([closePromise, disablePromise])
-            console.log('[Arachne:Proxy] Disabled system proxy')
-        } catch {
-            console.warn('Failed to disable system proxy')
+        if (this.osProvider.isSupported()) {
+            try {
+                console.log('[Arachne:Proxy] Disabling system proxy...')
+                await this.osProvider.disableSystemProxy()
+                console.log('[Arachne:Proxy] Disabled system proxy')
+            } catch {
+                console.warn('Failed to disable system proxy')
+            }
         }
     }
 }

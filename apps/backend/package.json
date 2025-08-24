@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@arachne/api-types": "*",
+    "@arachne/os": "*",
     "@arachne/proxy": "*",
     "@arachne/recorder": "*",
     "@fastify/cors": "^11.1.0",

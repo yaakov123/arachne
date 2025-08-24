@@ -1,4 +1,4 @@
-import { disableSystemProxy } from '@arachne/proxy'
+import { disableSystemProxy } from '@arachne/os'
 
 export async function cleanup() {
     await disableSystemProxy()

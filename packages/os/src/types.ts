@@ -1,0 +1,31 @@
+export interface ProcessInfo {
+    pid: number
+    name: string
+    path?: string
+    user?: string
+}
+
+export interface TrustResult {
+    ok: boolean
+    message: string
+    code?: number | null
+}
+
+export type Platform = 'darwin' | 'win32' | 'linux'
+
+export interface OSProvider {
+    // System proxy management
+    enableSystemProxy(host: string, port: number): Promise<void>
+    disableSystemProxy(): Promise<void>
+    
+    // Certificate trust management
+    installRootCATrust(certPath: string): Promise<TrustResult>
+    uninstallRootCATrust(): Promise<TrustResult>
+    
+    // Network process tracking (future functionality)
+    getProcessForConnection(localPort: number, remoteHost: string, remotePort: number): Promise<ProcessInfo | null>
+    
+    // Platform info
+    isSupported(): boolean
+    getPlatform(): Platform
+}
