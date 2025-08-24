@@ -1,34 +1,97 @@
 <template>
     <div class="advanced-filters">
         <div class="filters-header">
-            <h3>Filters</h3>
+            <div class="filters-title">
+                <h3>Filters</h3>
+                <span v-if="hasActiveFilters" class="active-filters-count">
+                    {{ activeFiltersCount }} active
+                </span>
+            </div>
             <div class="filters-actions">
                 <button 
                     class="btn btn-secondary btn-sm"
                     @click="clearAllFilters"
                     :disabled="!hasActiveFilters"
+                    title="Clear all active filters (Esc)"
                 >
                     Clear All
                 </button>
                 <button 
                     class="btn btn-secondary btn-sm"
                     @click="toggleCollapsed"
+                    title="Toggle advanced filters visibility (F)"
                 >
-                    {{ isCollapsed ? 'Show' : 'Hide' }}
+                    {{ isCollapsed ? 'Advanced' : 'Hide Advanced' }}
+                </button>
+                <button 
+                    class="btn btn-secondary btn-sm"
+                    title="Keyboard shortcuts: Ctrl+K (focus search), F (toggle), Esc (clear)"
+                >
+                    ⌨️
                 </button>
             </div>
         </div>
         
+        <!-- Quick Filters - Always Visible -->
+        <div class="quick-filters">
+            <div class="quick-filters-label">Quick Filters:</div>
+            <div class="quick-filters-buttons">
+                <button 
+                    class="quick-filter-btn"
+                    :class="{ active: isQuickFilterActive('errors') }"
+                    @click="toggleQuickFilter('errors')"
+                    title="Show only 4xx and 5xx responses"
+                >
+                    🚨 Errors
+                </button>
+                <button 
+                    class="quick-filter-btn"
+                    :class="{ active: isQuickFilterActive('slow') }"
+                    @click="toggleQuickFilter('slow')"
+                    title="Show requests slower than 1 second"
+                >
+                    🐌 Slow (>1s)
+                </button>
+                <button 
+                    class="quick-filter-btn"
+                    :class="{ active: isQuickFilterActive('large') }"
+                    @click="toggleQuickFilter('large')"
+                    title="Show responses larger than 100KB"
+                >
+                    📦 Large (>100KB)
+                </button>
+                <button 
+                    class="quick-filter-btn"
+                    :class="{ active: isQuickFilterActive('api') }"
+                    @click="toggleQuickFilter('api')"
+                    title="Show only JSON API calls"
+                >
+                    🔌 API Calls
+                </button>
+                <button 
+                    class="quick-filter-btn"
+                    :class="{ active: isQuickFilterActive('recent') }"
+                    @click="toggleQuickFilter('recent')"
+                    title="Show only requests from last 5 minutes"
+                >
+                    ⏰ Recent
+                </button>
+            </div>
+        </div>
+
+        <!-- Detailed Filters - Collapsible -->
         <div v-show="!isCollapsed" class="filters-content">
+            
             <div class="filters-row">
                 <!-- URL/Path Filter -->
                 <div class="filter-group">
-                    <label>URL/Path</label>
+                    <label>🔍 URL/Path</label>
                     <input 
                         v-model="filters.url"
                         type="text" 
-                        placeholder="Filter by URL or path..."
+                        placeholder="e.g., /api/users, example.com, .json"
                         class="filter-input"
+                        title="Search by URL, path, or file extension. Supports partial matches."
                     />
                 </div>
                 
@@ -52,13 +115,28 @@
                     <label>Status</label>
                     <select v-model="filters.statusCode" class="filter-select">
                         <option value="">All Status</option>
-                        <option value="2xx">2xx Success</option>
-                        <option value="3xx">3xx Redirect</option>
-                        <option value="4xx">4xx Client Error</option>
-                        <option value="5xx">5xx Server Error</option>
-                        <option value="200">200 OK</option>
-                        <option value="404">404 Not Found</option>
-                        <option value="500">500 Internal Error</option>
+                        <optgroup label="Status Classes">
+                            <option value="2xx">✅ 2xx Success</option>
+                            <option value="3xx">↩️ 3xx Redirect</option>
+                            <option value="4xx">⚠️ 4xx Client Error</option>
+                            <option value="5xx">❌ 5xx Server Error</option>
+                        </optgroup>
+                        <optgroup label="Common Status Codes">
+                            <option value="200">200 OK</option>
+                            <option value="201">201 Created</option>
+                            <option value="204">204 No Content</option>
+                            <option value="301">301 Moved Permanently</option>
+                            <option value="302">302 Found</option>
+                            <option value="304">304 Not Modified</option>
+                            <option value="400">400 Bad Request</option>
+                            <option value="401">401 Unauthorized</option>
+                            <option value="403">403 Forbidden</option>
+                            <option value="404">404 Not Found</option>
+                            <option value="429">429 Too Many Requests</option>
+                            <option value="500">500 Internal Server Error</option>
+                            <option value="502">502 Bad Gateway</option>
+                            <option value="503">503 Service Unavailable</option>
+                        </optgroup>
                     </select>
                 </div>
                 
@@ -86,18 +164,44 @@
                     <div class="size-filter">
                         <select v-model="filters.sizeOperator" class="filter-select size-operator">
                             <option value="">Any Size</option>
-                            <option value="gt">Greater than</option>
-                            <option value="lt">Less than</option>
-                            <option value="eq">Equal to</option>
+                            <option value="gt">📈 Greater than</option>
+                            <option value="lt">📉 Less than</option>
                         </select>
-                        <input 
-                            v-if="filters.sizeOperator"
-                            v-model.number="filters.sizeValue"
-                            type="number" 
-                            placeholder="Size in KB"
-                            class="filter-input size-input"
-                            min="0"
-                        />
+                        <div v-if="filters.sizeOperator" class="size-input-container">
+                            <input 
+                                v-model.number="filters.sizeValue"
+                                type="number" 
+                                placeholder="Size in KB"
+                                class="filter-input size-input"
+                                min="0"
+                            />
+                            <div class="preset-buttons">
+                                <button 
+                                    type="button"
+                                    class="preset-btn"
+                                    @click="setSizePreset(10)"
+                                    title="10 KB"
+                                >
+                                    10KB
+                                </button>
+                                <button 
+                                    type="button"
+                                    class="preset-btn"
+                                    @click="setSizePreset(100)"
+                                    title="100 KB"
+                                >
+                                    100KB
+                                </button>
+                                <button 
+                                    type="button"
+                                    class="preset-btn"
+                                    @click="setSizePreset(1024)"
+                                    title="1 MB"
+                                >
+                                    1MB
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -107,17 +211,52 @@
                     <div class="duration-filter">
                         <select v-model="filters.durationOperator" class="filter-select duration-operator">
                             <option value="">Any Duration</option>
-                            <option value="gt">Slower than</option>
-                            <option value="lt">Faster than</option>
+                            <option value="gt">🐌 Slower than</option>
+                            <option value="lt">⚡ Faster than</option>
                         </select>
-                        <input 
-                            v-if="filters.durationOperator"
-                            v-model.number="filters.durationValue"
-                            type="number" 
-                            placeholder="Duration in ms"
-                            class="filter-input duration-input"
-                            min="0"
-                        />
+                        <div v-if="filters.durationOperator" class="duration-input-container">
+                            <input 
+                                v-model.number="filters.durationValue"
+                                type="number" 
+                                placeholder="Duration in ms"
+                                class="filter-input duration-input"
+                                min="0"
+                            />
+                            <div class="preset-buttons">
+                                <button 
+                                    type="button"
+                                    class="preset-btn"
+                                    @click="setDurationPreset(100)"
+                                    title="100 ms"
+                                >
+                                    100ms
+                                </button>
+                                <button 
+                                    type="button"
+                                    class="preset-btn"
+                                    @click="setDurationPreset(500)"
+                                    title="500 ms"
+                                >
+                                    500ms
+                                </button>
+                                <button 
+                                    type="button"
+                                    class="preset-btn"
+                                    @click="setDurationPreset(1000)"
+                                    title="1 second"
+                                >
+                                    1s
+                                </button>
+                                <button 
+                                    type="button"
+                                    class="preset-btn"
+                                    @click="setDurationPreset(5000)"
+                                    title="5 seconds"
+                                >
+                                    5s
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -169,7 +308,7 @@
         </div>
         
         <!-- Active Filters Summary -->
-        <div v-if="hasActiveFilters && !isCollapsed" class="active-filters">
+        <div v-if="hasActiveFilters" class="active-filters">
             <div class="active-filters-header">
                 <span>Active Filters:</span>
             </div>
@@ -216,7 +355,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
 import type { AdvancedFilters as FilterOptions } from '../stores/transactions'
 
@@ -250,6 +389,19 @@ const hasActiveFilters = computed(() => {
            (filters.value.durationOperator !== '' && filters.value.durationValue !== null) ||
            filters.value.timeRange !== '' ||
            filters.value.hasBody !== ''
+})
+
+const activeFiltersCount = computed(() => {
+    let count = 0
+    if (filters.value.url !== '') count++
+    if (filters.value.method !== '') count++
+    if (filters.value.statusCode !== '') count++
+    if (filters.value.contentType !== '') count++
+    if (filters.value.sizeOperator !== '' && filters.value.sizeValue !== null) count++
+    if (filters.value.durationOperator !== '' && filters.value.durationValue !== null) count++
+    if (filters.value.timeRange !== '') count++
+    if (filters.value.hasBody !== '') count++
+    return count
 })
 
 // Watch for filter changes and emit
@@ -313,6 +465,118 @@ function getBodyFilterLabel(bodyFilter: string): string {
     }
     return labels[bodyFilter] || bodyFilter
 }
+
+// Quick filter functions
+function isQuickFilterActive(filterType: string): boolean {
+    switch (filterType) {
+        case 'errors':
+            return filters.value.statusCode === '4xx' || filters.value.statusCode === '5xx'
+        case 'slow':
+            return filters.value.durationOperator === 'gt' && filters.value.durationValue === 1000
+        case 'large':
+            return filters.value.sizeOperator === 'gt' && filters.value.sizeValue === 100
+        case 'api':
+            return filters.value.contentType === 'json'
+        case 'recent':
+            return filters.value.timeRange === '5m'
+        default:
+            return false
+    }
+}
+
+function toggleQuickFilter(filterType: string) {
+    const isActive = isQuickFilterActive(filterType)
+    
+    if (isActive) {
+        // Clear the filter
+        switch (filterType) {
+            case 'errors':
+                filters.value.statusCode = ''
+                break
+            case 'slow':
+                filters.value.durationOperator = ''
+                filters.value.durationValue = null
+                break
+            case 'large':
+                filters.value.sizeOperator = ''
+                filters.value.sizeValue = null
+                break
+            case 'api':
+                filters.value.contentType = ''
+                break
+            case 'recent':
+                filters.value.timeRange = ''
+                break
+        }
+    } else {
+        // Apply the filter
+        switch (filterType) {
+            case 'errors':
+                filters.value.statusCode = '4xx'
+                break
+            case 'slow':
+                filters.value.durationOperator = 'gt'
+                filters.value.durationValue = 1000
+                break
+            case 'large':
+                filters.value.sizeOperator = 'gt'
+                filters.value.sizeValue = 100
+                break
+            case 'api':
+                filters.value.contentType = 'json'
+                break
+            case 'recent':
+                filters.value.timeRange = '5m'
+                break
+        }
+    }
+}
+
+// Preset functions
+function setSizePreset(value: number) {
+    filters.value.sizeValue = value
+}
+
+function setDurationPreset(value: number) {
+    filters.value.durationValue = value
+}
+
+// Keyboard shortcuts
+function handleKeydown(event: KeyboardEvent) {
+    // Only handle shortcuts when not typing in an input
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {
+        return
+    }
+    
+    // Ctrl/Cmd + K to focus URL filter
+    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+        event.preventDefault()
+        const urlInput = document.querySelector('.filter-input') as HTMLInputElement
+        if (urlInput) {
+            urlInput.focus()
+        }
+    }
+    
+    // Escape to clear all filters
+    if (event.key === 'Escape' && hasActiveFilters.value) {
+        event.preventDefault()
+        clearAllFilters()
+    }
+    
+    // Toggle filters visibility with 'f'
+    if (event.key === 'f' && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault()
+        toggleCollapsed()
+    }
+}
+
+onMounted(() => {
+    document.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
@@ -333,11 +597,32 @@ function getBodyFilterLabel(bodyFilter: string): string {
     border-bottom: 1px solid var(--surface-border);
 }
 
+.filters-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
 .filters-header h3 {
     margin: 0;
     font-size: var(--text-lg);
     font-weight: var(--font-semibold);
     color: var(--text-color);
+}
+
+.active-filters-count {
+    background: var(--primary-color);
+    color: white;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
 }
 
 .filters-actions {
@@ -496,5 +781,137 @@ function getBodyFilterLabel(bodyFilter: string): string {
 
 .btn-secondary {
     background: var(--surface-section);
+}
+
+/* Quick Filters Styles */
+.quick-filters {
+    padding: var(--space-lg);
+    background: var(--surface-ground);
+    border-bottom: 1px solid var(--surface-border);
+}
+
+.quick-filters-label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-color-secondary);
+    margin-bottom: var(--space-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.quick-filters-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.quick-filter-btn {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-card);
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.quick-filter-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.quick-filter-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.quick-filter-btn.active:hover {
+    background: color-mix(in srgb, var(--primary-color) 90%, black);
+}
+
+/* Preset Buttons Styles */
+.size-input-container,
+.duration-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.preset-buttons {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+}
+
+.preset-btn {
+    padding: var(--space-xs);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-xs);
+    background: var(--surface-ground);
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    transition: all var(--transition-fast);
+    min-width: 50px;
+}
+
+.preset-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-color);
+    border-color: var(--primary-color);
+}
+
+.preset-btn:active {
+    transform: scale(0.95);
+}
+
+/* Improved responsive layout */
+@media (max-width: 768px) {
+    .filters-row {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+    }
+    
+    .quick-filters-buttons {
+        justify-content: center;
+    }
+    
+    .quick-filter-btn {
+        flex: 1;
+        min-width: 120px;
+        justify-content: center;
+    }
+    
+    .preset-buttons {
+        justify-content: center;
+    }
+}
+
+/* Enhanced focus styles for accessibility */
+.filter-input:focus,
+.filter-select:focus,
+.quick-filter-btn:focus,
+.preset-btn:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Improved optgroup styling */
+.filter-select optgroup {
+    font-weight: var(--font-semibold);
+    color: var(--text-color);
+}
+
+.filter-select option {
+    padding: var(--space-xs);
 }
 </style>
