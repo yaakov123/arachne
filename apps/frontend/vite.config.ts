@@ -9,8 +9,10 @@ export default defineConfig({
     plugins: [
         vue(),
         vueDevTools(),
-       
     ],
+    optimizeDeps: {
+        include: ['monaco-editor']
+    },
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),

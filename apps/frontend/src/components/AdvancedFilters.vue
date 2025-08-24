@@ -34,48 +34,73 @@
         
         <!-- Quick Filters - Always Visible -->
         <div class="quick-filters">
-            <div class="quick-filters-label">Quick Filters:</div>
-            <div class="quick-filters-buttons">
-                <button 
-                    class="quick-filter-btn"
-                    :class="{ active: isQuickFilterActive('errors') }"
-                    @click="toggleQuickFilter('errors')"
-                    title="Show only 4xx and 5xx responses"
-                >
-                    🚨 Errors
-                </button>
-                <button 
-                    class="quick-filter-btn"
-                    :class="{ active: isQuickFilterActive('slow') }"
-                    @click="toggleQuickFilter('slow')"
-                    title="Show requests slower than 1 second"
-                >
-                    🐌 Slow (>1s)
-                </button>
-                <button 
-                    class="quick-filter-btn"
-                    :class="{ active: isQuickFilterActive('large') }"
-                    @click="toggleQuickFilter('large')"
-                    title="Show responses larger than 100KB"
-                >
-                    📦 Large (>100KB)
-                </button>
-                <button 
-                    class="quick-filter-btn"
-                    :class="{ active: isQuickFilterActive('api') }"
-                    @click="toggleQuickFilter('api')"
-                    title="Show only JSON API calls"
-                >
-                    🔌 API Calls
-                </button>
-                <button 
-                    class="quick-filter-btn"
-                    :class="{ active: isQuickFilterActive('recent') }"
-                    @click="toggleQuickFilter('recent')"
-                    title="Show only requests from last 5 minutes"
-                >
-                    ⏰ Recent
-                </button>
+            <!-- Left Side: Quick Filter Buttons -->
+            <div class="quick-filters-section">
+                <div class="quick-filters-label">Quick Filters:</div>
+                <div class="quick-filters-buttons">
+                    <button 
+                        class="quick-filter-btn"
+                        :class="{ active: isQuickFilterActive('errors') }"
+                        @click="toggleQuickFilter('errors')"
+                        title="Show only 4xx and 5xx responses"
+                    >
+                        🚨 Errors
+                    </button>
+                    <button 
+                        class="quick-filter-btn"
+                        :class="{ active: isQuickFilterActive('slow') }"
+                        @click="toggleQuickFilter('slow')"
+                        title="Show requests slower than 1 second"
+                    >
+                        🐌 Slow (>1s)
+                    </button>
+                    <button 
+                        class="quick-filter-btn"
+                        :class="{ active: isQuickFilterActive('large') }"
+                        @click="toggleQuickFilter('large')"
+                        title="Show responses larger than 100KB"
+                    >
+                        📦 Large (>100KB)
+                    </button>
+                    <button 
+                        class="quick-filter-btn"
+                        :class="{ active: isQuickFilterActive('api') }"
+                        @click="toggleQuickFilter('api')"
+                        title="Show only JSON API calls"
+                    >
+                        🔌 API Calls
+                    </button>
+                    <button 
+                        class="quick-filter-btn"
+                        :class="{ active: isQuickFilterActive('recent') }"
+                        @click="toggleQuickFilter('recent')"
+                        title="Show only requests from last 5 minutes"
+                    >
+                        ⏰ Recent
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Right Side: Search Bar -->
+            <div class="search-section">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input 
+                        v-model="filters.url"
+                        type="text" 
+                        placeholder="Search URLs, paths, or file extensions..."
+                        class="search-input"
+                        title="Search by URL, path, or file extension. Supports partial matches."
+                    />
+                    <button 
+                        v-if="filters.url"
+                        @click="filters.url = ''"
+                        class="search-clear"
+                        title="Clear search"
+                    >
+                        ×
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -83,17 +108,7 @@
         <div v-show="!isCollapsed" class="filters-content">
             
             <div class="filters-row">
-                <!-- URL/Path Filter -->
-                <div class="filter-group">
-                    <label>🔍 URL/Path</label>
-                    <input 
-                        v-model="filters.url"
-                        type="text" 
-                        placeholder="e.g., /api/users, example.com, .json"
-                        class="filter-input"
-                        title="Search by URL, path, or file extension. Supports partial matches."
-                    />
-                </div>
+
                 
                 <!-- Method Filter -->
                 <div class="filter-group">
@@ -548,12 +563,12 @@ function handleKeydown(event: KeyboardEvent) {
         return
     }
     
-    // Ctrl/Cmd + K to focus URL filter
+    // Ctrl/Cmd + K to focus search bar
     if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
         event.preventDefault()
-        const urlInput = document.querySelector('.filter-input') as HTMLInputElement
-        if (urlInput) {
-            urlInput.focus()
+        const searchInput = document.querySelector('.search-input') as HTMLInputElement
+        if (searchInput) {
+            searchInput.focus()
         }
     }
     
@@ -788,13 +803,96 @@ onUnmounted(() => {
     padding: var(--space-lg);
     background: var(--surface-ground);
     border-bottom: 1px solid var(--surface-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-lg);
+}
+
+/* Search Bar Styles */
+.search-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 300px;
+}
+
+.search-icon {
+    position: absolute;
+    left: var(--space-sm);
+    color: var(--text-color-secondary);
+    font-size: var(--text-sm);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.search-input {
+    width: 100%;
+    padding: var(--space-sm) var(--space-xl) var(--space-sm) calc(var(--space-xl) + var(--space-xs));
+    border: 2px solid var(--surface-border);
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+    color: var(--text-color);
+    font-size: var(--text-sm);
+    transition: all var(--transition-fast);
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
+    background: var(--surface-ground);
+}
+
+.search-input::placeholder {
+    color: var(--text-color-secondary);
+    opacity: 0.7;
+}
+
+.search-clear {
+    position: absolute;
+    right: var(--space-sm);
+    background: none;
+    border: none;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    font-size: var(--text-lg);
+    font-weight: bold;
+    padding: var(--space-xs);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.search-clear:hover {
+    background: var(--surface-hover);
+    color: var(--text-color);
+}
+
+/* Quick Filter Buttons Section */
+.quick-filters-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    flex: 1;
+    min-width: 0;
 }
 
 .quick-filters-label {
     font-size: var(--text-sm);
     font-weight: var(--font-medium);
     color: var(--text-color-secondary);
-    margin-bottom: var(--space-sm);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -881,6 +979,21 @@ onUnmounted(() => {
         gap: var(--space-md);
     }
     
+    .quick-filters {
+        padding: var(--space-md);
+        gap: var(--space-md);
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-section {
+        order: -1; /* Move search to top on mobile */
+    }
+    
+    .search-input-wrapper {
+        width: 100%;
+    }
+    
     .quick-filters-buttons {
         justify-content: center;
     }
@@ -900,7 +1013,8 @@ onUnmounted(() => {
 .filter-input:focus,
 .filter-select:focus,
 .quick-filter-btn:focus,
-.preset-btn:focus {
+.preset-btn:focus,
+.search-clear:focus {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
 }

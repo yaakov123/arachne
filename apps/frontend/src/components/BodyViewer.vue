@@ -10,26 +10,28 @@
             </span>
         </div>
 
-        <!-- JSON Content -->
-        <JsonBodyViewer v-if="isJsonContent" :content="body.sample" />
-
-        <!-- XML/HTML Content -->
-        <XmlBodyViewer v-else-if="isXmlOrHtmlContent" :content="body.sample" />
-
-        <!-- Form Data Content -->
-        <FormDataViewer v-else-if="isFormContent" :content="body.sample" />
-
-        <!-- Binary/Image Content -->
+        <!-- Binary/Image Content (keep original viewer) -->
         <BinaryBodyViewer
-            v-else-if="isBinaryContent"
+            v-if="isBinaryContent"
             :content="body.sample"
             :content-type="body.content.contentType"
             :content-size="body.content.size"
             :encoding="body.content.encoding"
         />
 
-        <!-- Default Text Content -->
-        <TextBodyViewer v-else :content="body.sample" />
+        <!-- Form Data Content (keep original viewer) -->
+        <FormDataViewer v-else-if="isFormContent" :content="body.sample" />
+
+        <!-- Enhanced Monaco Editor for text-based content -->
+        <MonacoBodyViewer
+            v-else
+            :content="body.sample"
+            :detected-format="body.content.detectedFormat"
+            :content-type="body.content.contentType"
+            :content-size="body.content.size"
+            :encoding="body.content.encoding"
+            :editor-height="editorHeight"
+        />
     </div>
 </template>
 
@@ -41,27 +43,21 @@ import XmlBodyViewer from './XmlBodyViewer.vue'
 import FormDataViewer from './FormDataViewer.vue'
 import BinaryBodyViewer from './BinaryBodyViewer.vue'
 import TextBodyViewer from './TextBodyViewer.vue'
+import MonacoBodyViewer from './MonacoBodyViewer.vue'
 import type { TransactionBody } from '@arachne/api-types'
 
 interface Props {
     body?: TransactionBody | null
     defaultCollapsed?: boolean
+    editorHeight?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
     defaultCollapsed: false,
+    editorHeight: '400px'
 })
 
 // Content type detection
-const isJsonContent = computed(() => {
-    return props.body?.content.detectedFormat === 'json'
-})
-
-const isXmlOrHtmlContent = computed(() => {
-    const format = props.body?.content.detectedFormat
-    return format === 'xml' || format === 'html'
-})
-
 const isFormContent = computed(() => {
     return props.body?.content.detectedFormat === 'form'
 })
@@ -70,6 +66,8 @@ const isBinaryContent = computed(() => {
     const format = props.body?.content.detectedFormat
     return format === 'binary' || props.body?.content.encoding === 'base64'
 })
+
+
 
 // Formatting functions
 const formatBodySize = (size: number): string => {
