@@ -1,4 +1,5 @@
 import type { BackendEvent } from '@arachne/api-types'
+import { randomBytes } from 'node:crypto'
 
 // The socket is a ws.WebSocket from @fastify/websocket
 export type WSSocket = any
@@ -115,6 +116,6 @@ export class WsHub {
     }
 
     private genClientId() {
-        return 'ws_' + Math.random().toString(36).slice(2, 10)
+        return 'ws_' + randomBytes(4).toString('hex')
     }
 }

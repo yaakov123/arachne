@@ -5,6 +5,7 @@ import type {
     RequestBodyContext,
     ResponseBodyContext,
 } from '@arachne/proxy'
+import { randomBytes } from 'node:crypto'
 import { WsHub } from './ws-hub'
 import type {
     RequestBodyEvent,
@@ -153,9 +154,8 @@ function nowIso() {
 }
 
 function genId(prefix: string) {
-    return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Math.random()
-        .toString(36)
-        .slice(2, 6)}`
+    // Use crypto.randomBytes for secure, collision-resistant ID generation
+    return `${prefix}_${randomBytes(6).toString('hex')}`
 }
 
 export interface BroadcastPluginOptions {

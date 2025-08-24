@@ -34,7 +34,6 @@ src/
 ├── views/              # Page components
 │   └── Logger.vue
 └── assets/             # Static assets and styles
-    ├── DESIGN_SYSTEM.md
     ├── design-system.css
     ├── main.css
     └── semantic.css

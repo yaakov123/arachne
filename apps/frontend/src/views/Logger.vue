@@ -3,6 +3,7 @@
         <HostsSidebar />
         
         <main class="logger-main">
+            <AdvancedFilters @filters-changed="handleFiltersChanged" />
             <div ref="trafficListContainer" class="traffic-list-container">
                 <TrafficList />
             </div>
@@ -29,13 +30,19 @@ import HostsSidebar from '../components/HostsSidebar.vue'
 import TrafficList from '../components/TrafficList.vue'
 import RequestResponseViewer from '../components/RequestResponseViewer.vue'
 import Resizer from '../components/Resizer.vue'
-import { useTransactionsStore } from '../stores/transactions'
+import AdvancedFilters from '../components/AdvancedFilters.vue'
+import { useTransactionsStore, type AdvancedFilters as FilterOptions } from '../stores/transactions'
 
 const transactionsStore = useTransactionsStore()
 
 // Element references
 const trafficListContainer = ref<HTMLElement>()
 const requestResponseContainer = ref<HTMLElement>()
+
+// Filter handling
+function handleFiltersChanged(filters: FilterOptions) {
+    transactionsStore.updateAdvancedFilters(filters)
+}
 
 // Lifecycle
 onMounted(async () => {

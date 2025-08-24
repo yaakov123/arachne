@@ -6,18 +6,43 @@
         </div>
         
         <div class="viewer-content">
-            <RequestPanel :request="transactionsStore.selectedTransaction.request" />
-            <ResponsePanel :response="transactionsStore.selectedTransaction.response" />
+            <RequestPanel ref="requestPanel" :request="transactionsStore.selectedTransaction.request" />
+            <Resizer 
+                direction="horizontal" 
+                :first-element="requestPanel?.$el"
+                :second-element="responsePanel?.$el"
+                :min-size="200"
+                @resize-start="onResizeStart"
+            />
+            <ResponsePanel ref="responsePanel" :response="transactionsStore.selectedTransaction.response" />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useTransactionsStore } from '../stores/transactions'
 import RequestPanel from './RequestPanel.vue'
 import ResponsePanel from './ResponsePanel.vue'
+import Resizer from './Resizer.vue'
 
 const transactionsStore = useTransactionsStore()
+const requestPanel = ref<InstanceType<typeof RequestPanel>>()
+const responsePanel = ref<InstanceType<typeof ResponsePanel>>()
+
+const onResizeStart = () => {
+    // Convert from flex to explicit sizes when resizing starts
+    if (requestPanel.value?.$el && responsePanel.value?.$el) {
+        const requestRect = requestPanel.value.$el.getBoundingClientRect()
+        const responseRect = responsePanel.value.$el.getBoundingClientRect()
+        
+        requestPanel.value.$el.style.flex = 'none'
+        responsePanel.value.$el.style.flex = 'none'
+        requestPanel.value.$el.style.width = `${requestRect.width}px`
+        responsePanel.value.$el.style.width = `${responseRect.width}px`
+    }
+}
+
 </script>
 
 <style scoped>
@@ -68,5 +93,11 @@ const transactionsStore = useTransactionsStore()
     flex: 1;
     display: flex;
     overflow: hidden;
+}
+
+.viewer-content :deep(.request-panel),
+.viewer-content :deep(.response-panel) {
+    flex: 1; /* Initially fill container equally */
+    min-width: 200px; /* Ensure minimum width */
 }
 </style>
