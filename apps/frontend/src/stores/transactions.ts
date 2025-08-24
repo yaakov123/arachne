@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { wsClient } from '../services/ws'
-import type { TransactionCompleteEvent, TransactionData } from '@arachne/api-types'
+import type { TransactionCompleteEvent, TransactionData, TransactionDependency } from '@arachne/api-types'
 
 export type TransactionWithMeta = TransactionData & { 
     id: string
     timestamp: number 
+    dependencies?: TransactionDependency[]
 }
 
 // Removed AdvancedFilters interface - now using simple search query
@@ -46,12 +47,42 @@ export const useTransactionsStore = defineStore('transactions', () => {
         return filtered
     })
 
+    const dependencyGraph = computed(() => {
+        const graph = new Map<string, string[]>() // transactionId -> [dependent transactionIds]
+        
+        for (const transaction of transactions.value) {
+            if (transaction.dependencies && transaction.dependencies.length > 0) {
+                for (const dep of transaction.dependencies) {
+                    if (!graph.has(dep.sourceTransactionId)) {
+                        graph.set(dep.sourceTransactionId, [])
+                    }
+                    graph.get(dep.sourceTransactionId)!.push(transaction.id)
+                }
+            }
+        }
+        
+        return graph
+    })
+
+    const transactionDependencies = computed(() => {
+        const deps = new Map<string, TransactionDependency[]>() // transactionId -> dependencies
+        
+        for (const transaction of transactions.value) {
+            if (transaction.dependencies && transaction.dependencies.length > 0) {
+                deps.set(transaction.id, transaction.dependencies)
+            }
+        }
+        
+        return deps
+    })
+
     // Actions
     function addTransaction(transactionEvent: TransactionCompleteEvent) {
         const transactionWithMeta: TransactionWithMeta = {
             ...transactionEvent.transaction,
             id: transactionEvent.id,
-            timestamp: new Date(transactionEvent.ts).getTime()
+            timestamp: new Date(transactionEvent.ts).getTime(),
+            dependencies: transactionEvent.dependencies
         }
         
         // Add to beginning of array (newest first)
@@ -128,6 +159,50 @@ export const useTransactionsStore = defineStore('transactions', () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
     }
 
+    // Dependency helper functions
+    function getTransactionDependencies(transactionId: string): TransactionDependency[] {
+        return transactionDependencies.value.get(transactionId) || []
+    }
+
+    function getDependentTransactions(transactionId: string): TransactionWithMeta[] {
+        const dependentIds = dependencyGraph.value.get(transactionId) || []
+        return dependentIds.map(id => transactions.value.find(t => t.id === id))
+                         .filter(Boolean) as TransactionWithMeta[]
+    }
+
+    function getSourceTransaction(dependency: TransactionDependency): TransactionWithMeta | undefined {
+        return transactions.value.find(t => t.id === dependency.sourceTransactionId)
+    }
+
+    function hasAuthDependencies(transactionId: string): boolean {
+        const deps = getTransactionDependencies(transactionId)
+        return deps.some(dep => dep.type === 'auth_token' || dep.type === 'cookie')
+    }
+
+    function getDependencyChain(transactionId: string): TransactionWithMeta[] {
+        const chain: TransactionWithMeta[] = []
+        const visited = new Set<string>()
+        
+        function collectChain(id: string) {
+            if (visited.has(id)) return
+            visited.add(id)
+            
+            const transaction = transactions.value.find(t => t.id === id)
+            if (!transaction) return
+            
+            chain.push(transaction)
+            
+            // Follow dependencies backwards
+            const deps = getTransactionDependencies(id)
+            for (const dep of deps) {
+                collectChain(dep.sourceTransactionId)
+            }
+        }
+        
+        collectChain(transactionId)
+        return chain.reverse() // Order from source to target
+    }
+
     return {
         // State
         transactions,
@@ -140,6 +215,8 @@ export const useTransactionsStore = defineStore('transactions', () => {
         // Computed
         uniqueHosts,
         filteredTransactions,
+        dependencyGraph,
+        transactionDependencies,
         
         // Actions
         addTransaction,
@@ -152,6 +229,13 @@ export const useTransactionsStore = defineStore('transactions', () => {
         clearSearch,
         connect,
         disconnect,
-        formatSize
+        formatSize,
+        
+        // Dependency helpers
+        getTransactionDependencies,
+        getDependentTransactions,
+        getSourceTransaction,
+        hasAuthDependencies,
+        getDependencyChain
     }
 })

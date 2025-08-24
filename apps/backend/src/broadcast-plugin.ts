@@ -18,6 +18,7 @@ import type {
     ContentInfo,
     RequestURL,
 } from '@arachne/api-types'
+import { ReverseLookupDependencyDetector } from './dependency-analyzer'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap, aligns with recorder default
 
@@ -203,8 +204,11 @@ export function createBroadcastPlugin(
             ? opts.maxSampleBytes
             : DEFAULT_MAX
 
+    // Initialize dependency detector
+    const dependencyDetector = new ReverseLookupDependencyDetector()
+
     // Log plugin initialization
-    logger.info('Initializing broadcast plugin', {
+    logger.info('Initializing broadcast plugin with dependency analysis', {
         maxSampleBytes,
         hubConnected: !!hub
     })
@@ -218,44 +222,55 @@ export function createBroadcastPlugin(
         if (!transaction) return
         if (transaction.method === "OPTIONS") return
 
+        // Build complete transaction data
+        const transactionData = {
+            request: {
+                method: transaction.method,
+                url: transaction.url,
+                headers: transaction.headers,
+                rawHeaders: transaction.rawHeaders,
+                clientIp: transaction.clientIp,
+                body: transaction.requestBody,
+            },
+            response: transaction.statusCode
+                ? {
+                      statusCode: transaction.statusCode,
+                      statusMessage: transaction.statusMessage,
+                      headers: transaction.responseHeaders || [],
+                      rawHeaders: transaction.rawResponseHeaders || {},
+                      body: transaction.responseBody,
+                  }
+                : undefined,
+            timing: {
+                startTime: transaction.requestStartTime,
+                responseTime: transaction.responseStartTime,
+                duration: transaction.responseStartTime
+                    ? transaction.responseStartTime -
+                      transaction.requestStartTime
+                    : undefined,
+            },
+            summary: {
+                requestSize: transaction.requestSize,
+                responseSize: transaction.responseSize,
+                hasRequestBody: transaction.hasRequestBody,
+                hasResponseBody: transaction.hasResponseBody,
+            },
+        }
+
+        // STEP 1: Analyze current request for dependencies (look backwards)
+        const dependencies = dependencyDetector.analyzeRequest(transactionData, id)
+
+        // STEP 2: Index current response for future lookups
+        dependencyDetector.indexResponse(transactionData, id)
+
         const ev: TransactionCompleteEvent = {
             type: 'transactionComplete',
             id,
             ts: nowIso(),
-            transaction: {
-                request: {
-                    method: transaction.method,
-                    url: transaction.url,
-                    headers: transaction.headers,
-                    rawHeaders: transaction.rawHeaders,
-                    clientIp: transaction.clientIp,
-                    body: transaction.requestBody,
-                },
-                response: transaction.statusCode
-                    ? {
-                          statusCode: transaction.statusCode,
-                          statusMessage: transaction.statusMessage,
-                          headers: transaction.responseHeaders || [],
-                          rawHeaders: transaction.rawResponseHeaders || {},
-                          body: transaction.responseBody,
-                      }
-                    : undefined,
-                timing: {
-                    startTime: transaction.requestStartTime,
-                    responseTime: transaction.responseStartTime,
-                    duration: transaction.responseStartTime
-                        ? transaction.responseStartTime -
-                          transaction.requestStartTime
-                        : undefined,
-                },
-                summary: {
-                    requestSize: transaction.requestSize,
-                    responseSize: transaction.responseSize,
-                    hasRequestBody: transaction.hasRequestBody,
-                    hasResponseBody: transaction.hasResponseBody,
-                },
-            },
+            transaction: transactionData,
+            dependencies: dependencies.length > 0 ? dependencies : undefined
         }
+
         // Log the broadcast event
         broadcastLogger.info('Broadcasting transaction complete event', {
             eventType: 'transactionComplete',
@@ -267,7 +282,8 @@ export function createBroadcastPlugin(
             requestSize: transaction.requestSize,
             responseSize: transaction.responseSize,
             hasRequestBody: transaction.hasRequestBody,
-            hasResponseBody: transaction.hasResponseBody
+            hasResponseBody: transaction.hasResponseBody,
+            dependenciesCount: dependencies.length
         })
         
         hub.broadcast(ev)

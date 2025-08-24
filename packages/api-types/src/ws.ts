@@ -136,9 +136,25 @@ export interface TransactionData {
     summary: TransactionSummary
 }
 
+// Dependency analysis types
+export interface TransactionDependency {
+    type: 'data_flow' | 'cookie' | 'auth_token' | 'csrf' | 'referrer'
+    sourceTransactionId: string
+    targetTransactionId: string
+    detail: {
+        field: string           // source field -> target field
+        value: string          // the actual value that flowed
+        confidence: number     // 0-1 confidence score
+        sourceLocation?: 'header' | 'body_field' | 'status_code'
+        targetLocation?: 'header' | 'query_param' | 'url_path' | 'body_field'
+        timespan?: number      // milliseconds between source and target
+    }
+}
+
 export interface TransactionCompleteEvent extends BaseEvent {
     type: 'transactionComplete'
     transaction: TransactionData
+    dependencies?: TransactionDependency[]
 }
 
 export interface ClientHello {
