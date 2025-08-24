@@ -12,8 +12,8 @@
 .sidebar {
     height: var(--sidebar-height);
     width: var(--sidebar-width);
-    background-color: var(--surface-800);
-    border-right: 1px solid var(--surface-700);
+    background-color: var(--surface-card);
+    border-right: 1px solid var(--surface-border);
     overflow-y: auto;
     overflow-x: hidden;
 }

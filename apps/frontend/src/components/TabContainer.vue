@@ -133,27 +133,27 @@ watch(() => props.defaultTab, (newDefaultTab) => {
 
 /* Badge variants */
 .tab-badge.success {
-    background: var(--green-500);
+    background: var(--color-success-500);
     color: white;
 }
 
 .tab-badge.redirect {
-    background: var(--blue-500);
+    background: var(--color-info-500);
     color: white;
 }
 
 .tab-badge.client-error {
-    background: var(--orange-500);
+    background: var(--color-warning-500);
     color: white;
 }
 
 .tab-badge.server-error {
-    background: var(--red-500);
+    background: var(--color-error-500);
     color: white;
 }
 
 .tab-badge.size {
-    background: var(--surface-300);
+    background: var(--color-neutral-300);
     color: var(--text-color);
 }
 

@@ -180,6 +180,7 @@ const filteredHosts = computed(() => {
 
 [data-theme="dark"] .host-count {
     background: var(--color-neutral-700);
+    color: var(--color-neutral-200);
 }
 
 .host-item.active .host-count {

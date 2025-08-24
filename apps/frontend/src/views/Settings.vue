@@ -454,12 +454,12 @@ onMounted(async () => {
 }
 
 .btn-secondary {
-  background-color: var(--surface-200, #e5e7eb);
-  color: var(--text-color, #1f2937);
+  background-color: var(--color-neutral-200);
+  color: var(--text-color);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--surface-300, #d1d5db);
+  background-color: var(--color-neutral-300);
 }
 
 .btn-success {
@@ -598,15 +598,15 @@ onMounted(async () => {
 
 .instruction-note {
   padding: 0.75rem;
-  background: var(--blue-50, #eff6ff);
-  border: 1px solid var(--blue-200, #bfdbfe);
+  background: var(--color-info-50);
+  border: 1px solid var(--color-primary-200);
   border-radius: 8px;
 }
 
 .instruction-note p {
   margin: 0;
   font-size: 0.875rem;
-  color: var(--blue-700, #1d4ed8);
+  color: var(--color-info-700);
 }
 
 @media (max-width: 768px) {

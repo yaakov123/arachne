@@ -63,7 +63,7 @@ onUnmounted(() => {
     display: flex;
     height: 100vh;
     width: 100%;
-    background: #f8f9fa;
+    background: var(--surface-ground);
 }
 
 .logger-main {
