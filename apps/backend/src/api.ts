@@ -13,6 +13,7 @@ import type {
   CAErrorResponse,
   CATrustInstructionsResponse,
   ProxyStatusResponse,
+  CAStatusResponse,
 } from '@arachne/api-types'
 import { getTrustInstructions } from '@arachne/os'
 
@@ -64,10 +65,21 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
   })
 
   app.get(`${prefix}/cert`, { preHandler: auth }, async (_req, rep) => {
-    // Ensure CA exists and return PEM
-    const pem = ca.caCert || (await ca.ensureRootCA()).certPem
-    const res: CertResponse = { pem }
-    rep.send(res)
+    // Check in-memory first, then filesystem
+    let certPem = ca.caCert
+    if (!certPem) {
+      // Try to load from filesystem
+      const certPath = ca.certStore.caCertPath()
+      certPem = ca.certStore.readFileIfExists(certPath)
+    }
+    
+    if (certPem) {
+      const res: CertResponse = { pem: certPem }
+      rep.send(res)
+    } else {
+      // Certificate doesn't exist in memory or filesystem
+      rep.code(404).send({ error: 'Certificate not found', message: 'Root CA certificate has not been created yet. Use the CA management endpoints to create one.' })
+    }
   })
 
   // Proxy management routes
@@ -121,6 +133,24 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
   }
 
   // Certificate Authority management routes
+  app.get(`${prefix}/ca/status`, { preHandler: auth }, async (_req, rep) => {
+    // Check filesystem for certificate existence, not just in-memory state
+    const certPath = ca.certStore.caCertPath()
+    const keyPath = ca.certStore.caKeyPath()
+    const certExists = !!ca.certStore.readFileIfExists(certPath)
+    const keyExists = !!ca.certStore.readFileIfExists(keyPath)
+    const exists = certExists && keyExists
+    
+    const response: CAStatusResponse = {
+      ok: true,
+      exists,
+      message: exists 
+        ? 'Root CA certificate exists on filesystem' 
+        : 'Root CA certificate not found on filesystem'
+    }
+    rep.send(response)
+  })
+
   app.post(`${prefix}/ca/create`, { preHandler: auth }, async (_req, rep) => {
     try {
       const result = await ca.ensureRootCA()
@@ -142,9 +172,20 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
 
   app.get(`${prefix}/ca/trust-instructions`, { preHandler: auth }, async (_req, rep) => {
     try {
-      // Ensure CA exists first
-      await ca.ensureRootCA()
+      // Check if certificate exists on filesystem first
       const certPath = ca.certStore.caCertPath()
+      const certExists = !!ca.certStore.readFileIfExists(certPath)
+      
+      if (!certExists) {
+        const response: CAErrorResponse = {
+          ok: false,
+          error: 'Certificate not found',
+          message: 'Root CA certificate has not been created yet. Create the certificate first.'
+        }
+        rep.code(404).send(response)
+        return
+      }
+      
       const instructions = await getTrustInstructions(certPath)
       const response: CATrustInstructionsResponse = {
         ok: true,

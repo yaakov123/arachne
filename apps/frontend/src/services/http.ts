@@ -11,6 +11,7 @@ import type {
   CACreateResponse,
   CATrustResponse,
   CATrustInstructionsResponse,
+  CAStatusResponse,
 } from '@arachne/api-types'
 import { HttpRoutes } from '@arachne/api-types'
 
@@ -97,6 +98,13 @@ export class ApiClient {
   }
 
   // Certificate Authority management methods
+  async getCAStatus(): Promise<CAStatusResponse> {
+    const { data } = await this.http.get<CAStatusResponse>(HttpRoutes.caStatus, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
   async createCA(): Promise<CACreateResponse> {
     const { data } = await this.http.post<CACreateResponse>(HttpRoutes.caCreate, {}, {
       headers: this.authHeaders(),

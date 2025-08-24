@@ -79,7 +79,7 @@ async function main() {
         ? { baseDir: CA_BASE_DIR }
         : getDefaultCertStoreOptions()
     const ca = new CertificateAuthority({ store })
-    await ca.ensureRootCA()
+    // Certificate creation is now manually controlled from the UI
 
     // Create proxy instance but don't start it yet
     const proxy = new MitmProxyServer({

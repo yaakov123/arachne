@@ -61,21 +61,25 @@
             <div class="control-info">
               <h3>Root CA Certificate</h3>
               <p>Create and manage the Root Certificate Authority for SSL/TLS interception</p>
+              <div class="status-indicator">
+                <span class="status-dot" :class="{ 'running': caExists, 'stopped': !caExists }"></span>
+                <span class="status-text">{{ caExists ? 'Certificate exists' : 'Certificate not created' }}</span>
+              </div>
             </div>
             <div class="control-actions">
               <button 
                 class="btn btn-primary" 
-                :disabled="caLoading"
+                :disabled="caLoading || caExists"
                 @click="createCA"
               >
                 <span v-if="caLoading" class="loading-spinner"></span>
-                Create/Ensure CA
+                {{ caExists ? 'Certificate Ready' : 'Create CA Certificate' }}
               </button>
             </div>
           </div>
           
           <!-- Trust Instructions -->
-          <div v-if="trustInstructions" class="control-group">
+          <div v-if="caExists && trustInstructions" class="control-group">
             <div class="control-info">
               <h3>System Trust Instructions</h3>
               <p>Run these commands in your terminal to trust/untrust the Root CA</p>
@@ -118,7 +122,7 @@
           </div>
 
           <!-- Certificate Display -->
-          <div v-if="caCertPem" class="control-group">
+          <div v-if="caExists && caCertPem" class="control-group">
             <div class="control-info">
               <h3>Certificate PEM</h3>
               <p>Current Root CA certificate in PEM format</p>
@@ -157,6 +161,7 @@ const trustLoading = ref(false)
 const caMessage = ref('')
 const caMessageType = ref<'success' | 'error' | 'info'>('info')
 const caCertPem = ref('')
+const caExists = ref(false)
 const trustInstructions = ref<{
   trustCommand: string
   untrustCommands: string[]
@@ -219,6 +224,16 @@ async function stopProxy() {
 }
 
 // CA methods
+async function checkCAStatus() {
+  try {
+    const response = await api.getCAStatus()
+    caExists.value = response.exists
+  } catch (error) {
+    // Silently fail - assume CA doesn't exist
+    caExists.value = false
+  }
+}
+
 async function createCA() {
   caLoading.value = true
   caMessage.value = ''
@@ -231,7 +246,8 @@ async function createCA() {
       if (response.certPem) {
         caCertPem.value = response.certPem
       }
-      // Load trust instructions after CA is created
+      // Update CA status and load trust instructions after CA is created
+      await checkCAStatus()
       await loadTrustInstructions()
     } else {
       caMessage.value = response.message || 'Failed to create CA'
@@ -288,15 +304,20 @@ async function loadExistingCert() {
     const response = await api.getCert()
     caCertPem.value = response.pem
   } catch (error) {
-    // Silently fail - cert might not exist yet
+    // Certificate doesn't exist yet - this is expected now
+    caCertPem.value = ''
   }
 }
 
 // Load cert and proxy status on component mount
 onMounted(async () => {
+  await checkCAStatus()
   await loadExistingCert()
   await checkProxyStatus()
-  await loadTrustInstructions()
+  // Only load trust instructions if CA exists
+  if (caExists.value) {
+    await loadTrustInstructions()
+  }
 })
 </script>
 

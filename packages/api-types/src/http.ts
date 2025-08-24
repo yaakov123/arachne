@@ -103,6 +103,12 @@ export interface CATrustInstructionsResponse {
   certPath: string
 }
 
+export interface CAStatusResponse {
+  ok: boolean
+  exists: boolean
+  message: string
+}
+
 export const HttpRoutes = {
   health: '/health',
   inventory: `${API_PREFIX}/inventory`,
@@ -114,6 +120,7 @@ export const HttpRoutes = {
   proxyStop: `${API_PREFIX}/proxy/stop`,
   proxyStatus: `${API_PREFIX}/proxy/status`,
   // Certificate Authority management
+  caStatus: `${API_PREFIX}/ca/status`,
   caCreate: `${API_PREFIX}/ca/create`,
   caTrust: `${API_PREFIX}/ca/trust`,
   caUntrust: `${API_PREFIX}/ca/untrust`,
