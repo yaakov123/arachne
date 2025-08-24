@@ -29,26 +29,10 @@
 import CollapsibleSection from './CollapsibleSection.vue'
 import HeadersList from './HeadersList.vue'
 import BodyViewer from './BodyViewer.vue'
-
-interface Header {
-    name: string
-    value: string
-    sensitive?: boolean
-}
-
-interface Body {
-    sample: string
-}
-
-interface Response {
-    statusCode: number
-    statusMessage?: string
-    headers: Header[]
-    body?: Body | null
-}
+import type { TransactionResponse, TransactionBody } from '@arachne/api-types'
 
 interface Props {
-    response?: Response | null
+    response?: TransactionResponse | null
 }
 
 defineProps<Props>()

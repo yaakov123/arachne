@@ -94,47 +94,48 @@ export interface ErrorEvent extends BaseEvent {
     phase?: 'request' | 'response' | 'body' | 'connection'
 }
 
-// Complete transaction data for easy client consumption
-export interface TransactionData {
-    // Request data
-    request: {
-        method: string
-        url: RequestURL
-        headers: DisplayHeader[]
-        rawHeaders: HeaderMap
-        clientIp?: string
-        body?: {
-            content: ContentInfo
-            sample: string
-        }
-    }
-    // Response data
-    response?: {
-        statusCode: number
-        statusMessage?: string
-        headers: DisplayHeader[]
-        rawHeaders: HeaderMap
-        body?: {
-            content: ContentInfo
-            sample: string
-        }
-    }
-    // Timing and metadata
-    timing: {
-        startTime: number
-        responseTime?: number
-        duration?: number
-    }
-    // Summary stats
-    summary: {
-        requestSize?: number
-        responseSize?: number
-        hasRequestBody: boolean
-        hasResponseBody: boolean
-    }
+export interface TransactionRequest {
+    method: string
+    url: RequestURL
+    headers: DisplayHeader[]
+    rawHeaders: HeaderMap
+    clientIp?: string
+    body?: TransactionBody
 }
 
-// New event to indicate a complete request-response transaction
+export interface TransactionBody {
+    content: ContentInfo
+    sample: string
+}
+
+export interface TransactionResponse {
+    statusCode: number
+    statusMessage?: string
+    headers: DisplayHeader[]
+    rawHeaders: HeaderMap
+    body?: TransactionBody
+}
+
+export interface TransactionTiming {
+    startTime: number
+    responseTime?: number
+    duration?: number
+}
+
+export interface TransactionSummary {
+    requestSize?: number
+    responseSize?: number
+    hasRequestBody: boolean
+    hasResponseBody: boolean
+}
+
+export interface TransactionData {
+    request: TransactionRequest
+    response?: TransactionResponse
+    timing: TransactionTiming
+    summary: TransactionSummary
+}
+
 export interface TransactionCompleteEvent extends BaseEvent {
     type: 'transactionComplete'
     transaction: TransactionData

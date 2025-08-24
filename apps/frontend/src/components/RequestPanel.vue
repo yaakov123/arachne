@@ -20,6 +20,7 @@
 import CollapsibleSection from './CollapsibleSection.vue'
 import HeadersList from './HeadersList.vue'
 import BodyViewer from './BodyViewer.vue'
+import type { TransactionRequest, TransactionBody } from '@arachne/api-types'
 
 interface Header {
     name: string
@@ -27,21 +28,10 @@ interface Header {
     sensitive?: boolean
 }
 
-interface Body {
-    sample: string
-}
 
-interface Request {
-    method: string
-    url: {
-        full: string
-    }
-    headers: Header[]
-    body?: Body | null
-}
 
 interface Props {
-    request: Request
+    request: TransactionRequest
 }
 
 defineProps<Props>()
