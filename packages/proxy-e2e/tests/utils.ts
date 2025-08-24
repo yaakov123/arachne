@@ -306,6 +306,12 @@ export async function requestViaProxy(
                         } catch (err) {
                             console.warn('Failed to decompress deflate response:', err)
                         }
+                    } else if (encoding === 'br') {
+                        try {
+                            body = zlib.brotliDecompressSync(body)
+                        } catch (err) {
+                            console.warn('Failed to decompress brotli response:', err)
+                        }
                     }
                     
                     resolve({

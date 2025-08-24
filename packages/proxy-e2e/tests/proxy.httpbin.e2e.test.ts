@@ -376,3 +376,371 @@ describe('HTTP Proxy plugin integration with real traffic', () => {
         }
     })
 })
+
+describe('HTTP Proxy extended functionality with real traffic', () => {
+    let proxyInfo: { proxy: any; host: string; port: number }
+
+    beforeAll(async () => {
+        proxyInfo = await startProxy([])
+    })
+
+    afterAll(async () => {
+        if (proxyInfo?.proxy) {
+            await proxyInfo.proxy.stop()
+        }
+    })
+
+    it('handles image responses (PNG)', async () => {
+        const target = `${HTTPBIN_BASE}/image/png`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'image/png' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toBe('image/png')
+        expect(res.body.length).toBeGreaterThan(0)
+        // Verify PNG signature (first 8 bytes)
+        expect(res.body[0]).toBe(0x89)
+        expect(res.body[1]).toBe(0x50) // 'P'
+        expect(res.body[2]).toBe(0x4E) // 'N'
+        expect(res.body[3]).toBe(0x47) // 'G'
+    })
+
+    it('handles image responses (JPEG)', async () => {
+        const target = `${HTTPBIN_BASE}/image/jpeg`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'image/jpeg' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toBe('image/jpeg')
+        expect(res.body.length).toBeGreaterThan(0)
+        // Verify JPEG signature (starts with 0xFF 0xD8)
+        expect(res.body[0]).toBe(0xFF)
+        expect(res.body[1]).toBe(0xD8)
+    })
+
+    it('handles image responses (WebP)', async () => {
+        const target = `${HTTPBIN_BASE}/image/webp`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'image/webp' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toBe('image/webp')
+        expect(res.body.length).toBeGreaterThan(0)
+        // Verify WebP signature (RIFF...WEBP)
+        expect(res.body.toString('ascii', 0, 4)).toBe('RIFF')
+        expect(res.body.toString('ascii', 8, 12)).toBe('WEBP')
+    })
+
+    it('handles SVG image responses', async () => {
+        const target = `${HTTPBIN_BASE}/image/svg`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'image/svg+xml' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toBe('image/svg+xml')
+        const svgContent = res.body.toString('utf8')
+        expect(svgContent).toContain('<svg')
+        expect(svgContent).toContain('</svg>')
+    })
+
+    it('handles multiple cookies in single request', async () => {
+        const target = `${HTTPBIN_BASE}/cookies/set?cookie1=value1&cookie2=value2&cookie3=value3`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(302)
+        const setCookieHeaders = res.headers['set-cookie']
+        expect(Array.isArray(setCookieHeaders)).toBe(true)
+        expect(setCookieHeaders).toHaveLength(3)
+        
+        // Verify each cookie is set correctly
+        expect(setCookieHeaders!.some(cookie => cookie.includes('cookie1=value1'))).toBe(true)
+        expect(setCookieHeaders!.some(cookie => cookie.includes('cookie2=value2'))).toBe(true)
+        expect(setCookieHeaders!.some(cookie => cookie.includes('cookie3=value3'))).toBe(true)
+    })
+
+    it('handles cookies with special characters', async () => {
+        const specialValue = encodeURIComponent('value with spaces & symbols!')
+        const target = `${HTTPBIN_BASE}/cookies/set/special-cookie/${specialValue}`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(302)
+        expect(res.headers['set-cookie']).toBeDefined()
+        
+        // Verify the cookie with special characters
+        const cookieTarget = `${HTTPBIN_BASE}/cookies`
+        const cookieRes = await requestViaProxy(proxyInfo.host, proxyInfo.port, cookieTarget, {
+            headers: {
+                'Cookie': `special-cookie=${specialValue}`
+            },
+            agent: createHttpAgent(),
+        })
+        
+        expect(cookieRes.status).toBe(200)
+        const cookieData = JSON.parse(cookieRes.body.toString('utf8'))
+        expect(cookieData.cookies['special-cookie']).toBe('value%20with%20spaces%20%26%20symbols!')
+    })
+
+    it('handles XML responses', async () => {
+        const target = `${HTTPBIN_BASE}/xml`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'application/xml' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toBe('application/xml')
+        const xmlContent = res.body.toString('utf8')
+        expect(xmlContent).toContain('<?xml')
+        expect(xmlContent).toContain('<slideshow')
+    })
+
+    it('handles HTML responses', async () => {
+        const target = `${HTTPBIN_BASE}/html`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'text/html' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toBe('text/html; charset=utf-8')
+        const htmlContent = res.body.toString('utf8')
+        expect(htmlContent).toContain('<!DOCTYPE html>')
+        expect(htmlContent).toContain('<h1>Herman Melville - Moby-Dick</h1>')
+    })
+
+    it('handles robots.txt responses', async () => {
+        const target = `${HTTPBIN_BASE}/robots.txt`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'text/plain' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toBe('text/plain')
+        const robotsContent = res.body.toString('utf8')
+        expect(robotsContent).toContain('User-agent:')
+        expect(robotsContent).toContain('Disallow:')
+    })
+
+    it('handles cache control headers', async () => {
+        const target = `${HTTPBIN_BASE}/cache`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'If-Modified-Since': 'Wed, 21 Oct 2015 07:28:00 GMT' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(304)
+    })
+
+    it('handles ETag responses', async () => {
+        const target = `${HTTPBIN_BASE}/etag/test-etag-123`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers.etag).toBe('test-etag-123')
+        
+        // Test conditional request with matching ETag
+        const conditionalRes = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'If-None-Match': '"test-etag-123"' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(conditionalRes.status).toBe(304) // Not Modified
+    })
+
+    it('handles deflate compressed responses', async () => {
+        const target = `${HTTPBIN_BASE}/deflate`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(200)
+        const data = JSON.parse(res.body.toString('utf8'))
+        expect(data.deflated).toBe(true)
+        expect(data.headers).toBeDefined()
+    })
+
+    it('handles brotli compressed responses', async () => {
+        const target = `${HTTPBIN_BASE}/brotli`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-encoding']).toBe('br')
+        const brotliContent = res.body.toString('utf8')
+        expect(brotliContent).toContain('brotli')
+    })
+
+    it('handles UTF-8 encoded responses', async () => {
+        const target = `${HTTPBIN_BASE}/encoding/utf8`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Accept': 'text/html' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        expect(res.headers['content-type']).toContain('charset=utf-8')
+        const htmlContent = res.body.toString('utf8')
+        expect(htmlContent).toContain('UTF-8')
+        expect(htmlContent).toContain('∮') // Unicode character
+    })
+
+    it('handles range requests for partial content', async () => {
+        const target = `${HTTPBIN_BASE}/range/1024`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Range': 'bytes=0-99' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(206) // Partial Content
+        expect(res.headers['content-range']).toBe('bytes 0-99/1024')
+        expect(res.headers['content-length']).toBe('100')
+        expect(res.body.length).toBe(100)
+    })
+
+    it('handles request with custom User-Agent variations', async () => {
+        const userAgents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'curl/7.68.0',
+            'Python-urllib/3.8',
+            'Arachne-Proxy-Test/2.0 (Custom Agent)'
+        ]
+        
+        for (const userAgent of userAgents) {
+            const target = `${HTTPBIN_BASE}/user-agent`
+            const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+                headers: { 'User-Agent': userAgent },
+                agent: createHttpAgent(),
+            })
+            
+            expect(res.status).toBe(200)
+            const data = JSON.parse(res.body.toString('utf8'))
+            expect(data['user-agent']).toBe(userAgent)
+        }
+    })
+
+    it('handles multiple redirect chains', async () => {
+        const redirectCount = 5
+        const target = `${HTTPBIN_BASE}/redirect/${redirectCount}`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(302)
+        expect(res.headers.location).toBe(`/relative-redirect/${redirectCount - 1}`)
+    })
+
+    it('handles absolute redirect URLs', async () => {
+        const target = `${HTTPBIN_BASE}/redirect-to?url=http://httpbin.org/get&status_code=301`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(301)
+        expect(res.headers.location).toBe('http://httpbin.org/get')
+    })
+
+    it('handles digest authentication challenges', async () => {
+        const target = `${HTTPBIN_BASE}/digest-auth/auth/testuser/testpass`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(401)
+        expect(res.headers['www-authenticate']).toContain('Digest')
+        expect(res.headers['www-authenticate']).toContain('realm=')
+        expect(res.headers['www-authenticate']).toContain('nonce=')
+    })
+
+    it('handles bearer token authentication challenges', async () => {
+        const target = `${HTTPBIN_BASE}/bearer`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        
+        expect(res.status).toBe(401)
+        expect(res.headers['www-authenticate']).toBe('Bearer')
+        
+        // Test with valid bearer token
+        const tokenRes = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            headers: { 'Authorization': 'Bearer test-token-123' },
+            agent: createHttpAgent(),
+        })
+        
+        expect(tokenRes.status).toBe(200)
+        const data = JSON.parse(tokenRes.body.toString('utf8'))
+        expect(data.authenticated).toBe(true)
+        expect(data.token).toBe('test-token-123')
+    })
+
+    it('handles multipart form data with files', async () => {
+        const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        const formData = [
+            `------WebKitFormBoundary7MA4YWxkTrZu0gW`,
+            `Content-Disposition: form-data; name="field1"`,
+            ``,
+            `value1`,
+            `------WebKitFormBoundary7MA4YWxkTrZu0gW`,
+            `Content-Disposition: form-data; name="field2"`,
+            ``,
+            `value2`,
+            `------WebKitFormBoundary7MA4YWxkTrZu0gW`,
+            `Content-Disposition: form-data; name="file"; filename="test.txt"`,
+            `Content-Type: text/plain`,
+            ``,
+            `This is a test file content`,
+            `------WebKitFormBoundary7MA4YWxkTrZu0gW--`,
+            ``
+        ].join('\r\n')
+        
+        const target = `${HTTPBIN_BASE}/post`
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, {
+            method: 'POST',
+            headers: {
+                'Content-Type': `multipart/form-data; boundary=${boundary}`,
+                'Content-Length': Buffer.byteLength(formData).toString()
+            },
+            body: formData,
+            agent: createHttpAgent(),
+        })
+        
+        expect(res.status).toBe(200)
+        const data = JSON.parse(res.body.toString('utf8'))
+        expect(data.form.field1).toBe('value1')
+        expect(data.form.field2).toBe('value2')
+        expect(data.files.file).toBe('This is a test file content')
+    })
+
+    it('handles request timeout scenarios', async () => {
+        const target = `${HTTPBIN_BASE}/delay/2` // 2 second delay
+        const start = Date.now()
+        
+        const res = await requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent: createHttpAgent() })
+        const duration = Date.now() - start
+        
+        expect(res.status).toBe(200)
+        expect(duration).toBeGreaterThan(1800) // Should take at least ~2 seconds
+        const data = JSON.parse(res.body.toString('utf8'))
+        expect(data.args).toBeDefined()
+    })
+
+    it('handles HTTP/1.1 connection keep-alive', async () => {
+        const agent = new http.Agent({ keepAlive: true, maxSockets: 1 })
+        
+        try {
+            // Make multiple requests with the same agent
+            const requests = []
+            for (let i = 0; i < 3; i++) {
+                const target = `${HTTPBIN_BASE}/get?request=${i}`
+                requests.push(requestViaProxy(proxyInfo.host, proxyInfo.port, target, { agent }))
+            }
+            
+            const responses = await Promise.all(requests)
+            
+            responses.forEach((res, index) => {
+                expect(res.status).toBe(200)
+                const data = JSON.parse(res.body.toString('utf8'))
+                expect(data.args.request).toBe(index.toString())
+            })
+        } finally {
+            agent.destroy()
+        }
+    })
+})

@@ -81,8 +81,4 @@ try {
     }
 }
 
-// Log startup
-logger.info('Logger initialized', { 
-    logsDir,
-    logLevel: process.env.LOG_LEVEL || 'info'
-})
+

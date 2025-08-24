@@ -7,7 +7,7 @@ import type {
 } from '@arachne/proxy'
 import { randomBytes } from 'node:crypto'
 import { WsHub } from './ws-hub'
-import { broadcastLogger, logger } from './logger'
+import { broadcastLogger } from './logger'
 import type {
     RequestBodyEvent,
     RequestEvent,
@@ -207,11 +207,6 @@ export function createBroadcastPlugin(
     // Initialize dependency detector
     const dependencyDetector = new ReverseLookupDependencyDetector()
 
-    // Log plugin initialization
-    logger.info('Initializing broadcast plugin with dependency analysis', {
-        maxSampleBytes,
-        hubConnected: !!hub
-    })
 
     // Track ongoing transactions for completion events
     const transactions = new Map<string, TransactionState>()
