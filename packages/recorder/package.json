@@ -15,9 +15,7 @@
     ],
     "scripts": {
         "lint": "eslint src --max-warnings 0",
-        "type-check": "tsc --noEmit",
-        "dev:cli": "tsx src/cli.ts",
-        "start:dev": "tsx src/cli.ts start"
+        "type-check": "tsc --noEmit"
     },
     "dependencies": {
         "@arachne/proxy": "*",
