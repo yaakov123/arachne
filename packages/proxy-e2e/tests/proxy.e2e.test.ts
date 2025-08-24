@@ -52,6 +52,91 @@ describe('HTTP-only proxy e2e', () => {
         }
     })
 
+    it('preserves WebSocket upgrade headers', async () => {
+        const { proxy, host, port } = await startProxy([])
+        try {
+            const target = `http://${upstream.host}:${upstream.port}/echo-headers`
+            const res = await requestViaProxy(host, port, target, {
+                headers: {
+                    'Connection': 'Upgrade',
+                    'Upgrade': 'websocket',
+                    'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+                    'Sec-WebSocket-Version': '13',
+                },
+            })
+            expect(res.status).toBe(200)
+            const payload = JSON.parse(res.body.toString('utf8')) as {
+                headers: Record<string, any>
+            }
+            
+            // Check that WebSocket headers are preserved
+            expect(payload.headers['connection']).toBe('Upgrade')
+            expect(payload.headers['upgrade']).toBe('websocket')
+            expect(payload.headers['sec-websocket-key']).toBe('dGhlIHNhbXBsZSBub25jZQ==')
+            expect(payload.headers['sec-websocket-version']).toBe('13')
+        } finally {
+            await proxy.stop()
+        }
+    })
+
+    it('filters hop-by-hop headers correctly', async () => {
+        const { proxy, host, port } = await startProxy([])
+        try {
+            const target = `http://${upstream.host}:${upstream.port}/echo-headers`
+            const res = await requestViaProxy(host, port, target, {
+                headers: {
+                    'TE': 'gzip',
+                    'Proxy-Authorization': 'Basic abc123',
+                    'X-Custom-Hop': 'should-be-removed',
+                    'X-Regular-Header': 'should-be-kept',
+                },
+            })
+            expect(res.status).toBe(200)
+            const payload = JSON.parse(res.body.toString('utf8')) as {
+                headers: Record<string, any>
+            }
+            
+            // These hop-by-hop headers should be filtered out
+            expect(payload.headers['te']).toBeUndefined()
+            expect(payload.headers['proxy-authorization']).toBeUndefined()
+            
+            // Regular headers should be preserved
+            expect(payload.headers['x-regular-header']).toBe('should-be-kept')
+            expect(payload.headers['x-custom-hop']).toBe('should-be-removed') // This should NOT be filtered since no Connection header specified it as hop-by-hop
+        } finally {
+            await proxy.stop()
+        }
+    })
+
+    it('filters custom hop-by-hop headers via Connection token', async () => {
+        const { proxy, host, port } = await startProxy([])
+        try {
+            const target = `http://${upstream.host}:${upstream.port}/echo-headers`
+            const res = await requestViaProxy(host, port, target, {
+                headers: {
+                    'Connection': 'x-custom-hop',
+                    'X-Custom-Hop': 'should-be-removed',
+                    'X-Regular-Header': 'should-be-kept',
+                },
+            })
+            expect(res.status).toBe(200)
+            const payload = JSON.parse(res.body.toString('utf8')) as {
+                headers: Record<string, any>
+            }
+            
+            // Custom hop-by-hop header should be filtered out
+            expect(payload.headers['x-custom-hop']).toBeUndefined()
+            
+            // Regular headers should be preserved
+            expect(payload.headers['x-regular-header']).toBe('should-be-kept')
+            
+            // Connection header behavior: the proxy may add its own connection management
+            // The important thing is that our custom hop-by-hop header was filtered
+        } finally {
+            await proxy.stop()
+        }
+    })
+
     it('can rewrite request bodies via onRequestBody (HTTP)', async () => {
         const rewriteReq: ProxyPlugin = {
             name: 'rewrite-req',

@@ -1,5 +1,5 @@
 import http, { IncomingMessage } from 'node:http'
-import { genId, isHostIgnored } from './utils'
+import { genId, isHostIgnored, sanitizeHeaders } from './utils'
 import type { PluginManager } from './plugin-manager'
 import type { RequestContext } from '../plugins/types'
 import { UrlProcessor } from './url-processor'
@@ -167,12 +167,13 @@ export class HttpHandler {
         fullUrl: URL
     ): Promise<void> {
         const port = fullUrl.port || (fullUrl.protocol === 'https:' ? 443 : 80)
+        const sanitizedHeaders = sanitizeHeaders(clientReq.headers)
         const options = {
             hostname: fullUrl.hostname,
             port: port,
             method: clientReq.method,
             path: fullUrl.pathname + fullUrl.search,
-            headers: clientReq.headers
+            headers: sanitizedHeaders
         }
 
         const req = http.request(options, (res) => {

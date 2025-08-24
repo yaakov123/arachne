@@ -34,19 +34,62 @@ export function sanitizeHeaders(
     headers: IncomingHttpHeaders
 ): Record<string, string> {
     const out: Record<string, string> = {}
+    
+    // RFC 7230 Section 6.1 - Hop-by-hop headers that must not be forwarded
+    const hopByHopHeaders = new Set([
+        'connection',
+        'proxy-connection', 
+        'proxy-authenticate',
+        'proxy-authorization',
+        'te',
+        'trailer',
+        'upgrade'
+    ])
+    
+    // Parse Connection header to find additional hop-by-hop headers
+    const connectionTokens = new Set<string>()
+    const connectionValue = headers.connection || headers.Connection
+    if (typeof connectionValue === 'string') {
+        connectionValue.split(',').forEach(token => {
+            const trimmed = token.trim().toLowerCase()
+            if (trimmed) connectionTokens.add(trimmed)
+        })
+    }
+
     for (const [k, v] of Object.entries(headers)) {
         if (!v) continue
         const lk = k.toLowerCase()
-        if (lk === 'proxy-connection') continue
-        if (
-            lk === 'connection' &&
-            typeof v === 'string' &&
-            v.toLowerCase() === 'keep-alive'
-        ) {
-            out[k] = v
+        
+        // Skip hop-by-hop headers
+        if (hopByHopHeaders.has(lk)) {
+            // Special handling for Connection and Upgrade headers
+            if (lk === 'connection' && typeof v === 'string') {
+                const connectionValue = v.toLowerCase()
+                // Allow keep-alive and upgrade (for WebSocket)
+                if (connectionValue === 'keep-alive' || connectionValue === 'upgrade') {
+                    out[k] = v
+                    continue
+                }
+            }
+            if (lk === 'upgrade' && connectionTokens.has('upgrade')) {
+                // Allow upgrade header when Connection: upgrade is present
+                out[k] = typeof v === 'string' ? v : Array.isArray(v) ? v.join(', ') : String(v)
+                continue
+            }
             continue
         }
-        if (lk === 'connection') continue
+        
+        // Skip headers listed in Connection tokens (custom hop-by-hop headers)
+        if (connectionTokens.has(lk)) continue
+
+        // Special handling for Set-Cookie - preserve multiple values separately
+        if (lk === 'set-cookie' && Array.isArray(v)) {
+            // For Set-Cookie, we should preserve the array structure, but our return type
+            // is Record<string, string>, so we'll join them with a special separator
+            // that can be split later if needed
+            out[k] = v.join('\n')
+            continue
+        }
 
         if (Array.isArray(v)) {
             out[k] = v.join(', ')
