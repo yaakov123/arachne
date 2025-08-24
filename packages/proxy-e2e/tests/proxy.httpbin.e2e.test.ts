@@ -83,12 +83,23 @@ describe('HTTP Proxy E2E with real traffic (httpbin.org)', () => {
         const { proxy, host, port } = await startProxy([])
         try {
             const target = `${HTTPBIN_BASE}/redirect/1`
-            const res = await requestViaProxy(host, port, target)
+            const res = await requestViaProxy(host, port, target, { agent: createHttpAgent() })
             
-            // httpbin redirect should result in final response
-            expect(res.status).toBe(200)
-            const data = JSON.parse(res.body.toString('utf8'))
-            expect(data.url).toBe(`${HTTPBIN_BASE}/get`) // Final destination
+            // Proxy should pass through redirect response (not follow it)
+            expect(res.status).toBe(302)
+            expect(res.headers.location).toBe('/get')
+            
+            // Verify redirect body contains expected HTML
+            const body = res.body.toString('utf8')
+            expect(body).toContain('Redirecting...')
+            expect(body).toContain('href="/get"')
+            
+            // Client can manually follow the redirect if needed
+            const redirectTarget = `${HTTPBIN_BASE}${res.headers.location}`
+            const finalRes = await requestViaProxy(host, port, redirectTarget, { agent: createHttpAgent() })
+            expect(finalRes.status).toBe(200)
+            const finalData = JSON.parse(finalRes.body.toString('utf8'))
+            expect(finalData.url).toBe(`${HTTPBIN_BASE}/get`)
         } finally {
             await proxy.stop()
         }

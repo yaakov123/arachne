@@ -288,13 +288,32 @@ export async function requestViaProxy(
                 res.on('data', (c) =>
                     chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c))
                 )
-                res.on('end', () =>
+                res.on('end', () => {
+                    let body = Buffer.concat(chunks)
+                    
+                    // Handle gzip decompression if needed
+                    const encoding = res.headers['content-encoding']
+                    if (encoding === 'gzip') {
+                        try {
+                            body = zlib.gunzipSync(body)
+                        } catch (err) {
+                            // If decompression fails, return original body
+                            console.warn('Failed to decompress gzip response:', err)
+                        }
+                    } else if (encoding === 'deflate') {
+                        try {
+                            body = zlib.inflateSync(body)
+                        } catch (err) {
+                            console.warn('Failed to decompress deflate response:', err)
+                        }
+                    }
+                    
                     resolve({
                         status: res.statusCode || 0,
                         headers: res.headers,
-                        body: Buffer.concat(chunks),
+                        body,
                     })
-                )
+                })
             }
         )
         req.on('error', reject)
