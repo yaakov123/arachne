@@ -87,7 +87,7 @@ async function main() {
         port: PROXY_PORT,
         ca,
         plugins: [broadcastPlugin, recorderPlugin],
-        ignoredHosts: ['*.youtube.com', '*.googlevideo.com', '*.google.com'],
+        ignoredHosts: ['*.youtube.com', '*.googlevideo.com', '*.google.com', '*.openai.com'],
     })
 
     // API routes

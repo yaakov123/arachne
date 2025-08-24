@@ -5,7 +5,7 @@
         <main class="logger-main">
             <div class="search-bar-container">
                 <div class="search-input-wrapper">
-                    <span class="search-icon">🔍</span>
+                    <Search class="search-icon" :size="16" />
                     <input 
                         v-model="searchQuery"
                         type="text" 
@@ -50,6 +50,7 @@ import TrafficList from '../components/TrafficList.vue'
 import RequestResponseViewer from '../components/RequestResponseViewer.vue'
 import Resizer from '../components/Resizer.vue'
 import { useTransactionsStore } from '../stores/transactions'
+import { Search } from 'lucide-vue-next'
 
 const transactionsStore = useTransactionsStore()
 
@@ -114,7 +115,6 @@ onUnmounted(() => {
     position: absolute;
     left: var(--space-sm);
     color: var(--text-color-secondary);
-    font-size: var(--text-sm);
     pointer-events: none;
     z-index: 1;
 }
