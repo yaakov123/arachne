@@ -7,6 +7,8 @@ import { genId, parseHostPort, isHostIgnored } from './utils'
 import { getRemote } from './proxy-utils'
 import { PluginManager } from './plugin-manager'
 import { HttpHandler } from './http-handler'
+import { WebSocketHandler } from '../websocket/handler.js'
+import { isWebSocketUpgrade } from '../websocket/utils.js'
 import { logger } from '../logger'
 
 export class TlsManager {
@@ -14,6 +16,7 @@ export class TlsManager {
         private ca: CertificateAuthority,
         private pluginManager: PluginManager,
         private httpHandler: HttpHandler,
+        private webSocketHandler: WebSocketHandler,
         private onError: (err: unknown, ctx: any) => void,
         private ignoredHosts?: string[]
     ) {}
@@ -84,6 +87,33 @@ export class TlsManager {
                 this.onError(err, {})
             )
         })
+        
+        // Handle WebSocket upgrades over TLS
+        httpOverTls.on('upgrade', (req: IncomingMessage, socket: net.Socket, head: Buffer) => {
+            logger.debug('WebSocket upgrade request over TLS', {
+                requestId: id,
+                hostname,
+                url: req.url,
+                component: 'tls-manager'
+            })
+            
+            if (isWebSocketUpgrade(req)) {
+                this.webSocketHandler.handleWebSocketUpgrade(req, socket, head).catch((err) =>
+                    this.onError(err, { url: req.url, host: req.headers.host })
+                )
+            } else {
+                // Handle other upgrade requests
+                logger.debug('Non-WebSocket upgrade request rejected', {
+                    requestId: id,
+                    hostname,
+                    url: req.url,
+                    upgrade: req.headers.upgrade,
+                    component: 'tls-manager'
+                })
+                socket.end('HTTP/1.1 501 Not Implemented\r\n\r\n')
+            }
+        })
+        
         httpOverTls.on('clientError', (err, socket) => {
             const socketInfo = {
                 remoteAddress: (socket as any).remoteAddress,

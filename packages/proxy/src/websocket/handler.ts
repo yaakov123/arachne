@@ -317,12 +317,15 @@ export class WebSocketHandler {
             // Run plugin hooks
             await this.runPluginHook('onWebSocketClose', closeContext)
 
-            // Close both sides
+            // Close both sides with valid close codes
+            const closeCode = typeof code === 'number' && code >= 1000 && code <= 4999 ? code : 1000
+            const closeReason = reason || ''
+            
             if (connection.clientWs && connection.clientWs.readyState === WebSocket.OPEN) {
-                connection.clientWs.close(code, reason)
+                connection.clientWs.close(closeCode, closeReason)
             }
             if (connection.upstreamWs && connection.upstreamWs.readyState === WebSocket.OPEN) {
-                connection.upstreamWs.close(code, reason)
+                connection.upstreamWs.close(closeCode, closeReason)
             }
 
             // Clean up connection

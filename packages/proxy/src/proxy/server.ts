@@ -39,18 +39,19 @@ export class MitmProxyServer {
             opts.ignoredHosts
         )
         
-        this.tlsManager = new TlsManager(
-            this.ca,
-            this.pluginManager,
-            this.httpHandler,
-            this.handleError.bind(this),
-            opts.ignoredHosts
-        )
-        
         this.webSocketHandler = new WebSocketHandler(
             this.pluginManager,
             this.handleError.bind(this),
             { ignoredHosts: opts.ignoredHosts }
+        )
+        
+        this.tlsManager = new TlsManager(
+            this.ca,
+            this.pluginManager,
+            this.httpHandler,
+            this.webSocketHandler,
+            this.handleError.bind(this),
+            opts.ignoredHosts
         )
 
         this.httpServer = http.createServer((req, res) => {
