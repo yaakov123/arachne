@@ -18,11 +18,15 @@
             <div class="control-info">
               <h3>Proxy Status</h3>
               <p>Start or stop the proxy server to intercept HTTP/HTTPS traffic</p>
+              <div class="status-indicator">
+                <span class="status-dot" :class="{ 'running': proxyRunning, 'stopped': !proxyRunning }"></span>
+                <span class="status-text">{{ proxyRunning ? 'Running' : 'Stopped' }}</span>
+              </div>
             </div>
             <div class="control-actions">
               <button 
                 class="btn btn-primary" 
-                :disabled="proxyLoading"
+                :disabled="proxyLoading || proxyRunning"
                 @click="startProxy"
               >
                 <span v-if="proxyLoading" class="loading-spinner"></span>
@@ -30,7 +34,7 @@
               </button>
               <button 
                 class="btn btn-secondary" 
-                :disabled="proxyLoading"
+                :disabled="proxyLoading || !proxyRunning"
                 @click="stopProxy"
               >
                 <span v-if="proxyLoading" class="loading-spinner"></span>
@@ -131,6 +135,7 @@ import { api } from '@/services/http'
 const proxyLoading = ref(false)
 const proxyMessage = ref('')
 const proxyMessageType = ref<'success' | 'error' | 'info'>('info')
+const proxyRunning = ref(false)
 
 // CA state
 const caLoading = ref(false)
@@ -140,6 +145,16 @@ const caMessageType = ref<'success' | 'error' | 'info'>('info')
 const caCertPem = ref('')
 
 // Proxy methods
+async function checkProxyStatus() {
+  try {
+    const response = await api.getProxyStatus()
+    proxyRunning.value = response.isRunning
+  } catch (error) {
+    // Silently fail - assume proxy is not running
+    proxyRunning.value = false
+  }
+}
+
 async function startProxy() {
   proxyLoading.value = true
   proxyMessage.value = ''
@@ -149,6 +164,7 @@ async function startProxy() {
     if (response.ok) {
       proxyMessage.value = response.message
       proxyMessageType.value = 'success'
+      await checkProxyStatus() // Update status after starting
     } else {
       proxyMessage.value = response.message || 'Failed to start proxy'
       proxyMessageType.value = 'error'
@@ -170,6 +186,7 @@ async function stopProxy() {
     if (response.ok) {
       proxyMessage.value = response.message
       proxyMessageType.value = 'success'
+      await checkProxyStatus() // Update status after stopping
     } else {
       proxyMessage.value = response.message || 'Failed to stop proxy'
       proxyMessageType.value = 'error'
@@ -214,7 +231,8 @@ async function trustCA() {
   try {
     const response = await api.trustCA()
     caMessage.value = response.message
-    caMessageType.value = response.ok ? 'success' : 'error'
+    // Treat response as informational since we now provide manual commands
+    caMessageType.value = 'info'
   } catch (error) {
     caMessage.value = error instanceof Error ? error.message : 'Unknown error occurred'
     caMessageType.value = 'error'
@@ -230,7 +248,8 @@ async function untrustCA() {
   try {
     const response = await api.untrustCA()
     caMessage.value = response.message
-    caMessageType.value = response.ok ? 'success' : 'error'
+    // Treat response as informational since we now provide manual commands
+    caMessageType.value = response.ok ? 'success' : 'info'
   } catch (error) {
     caMessage.value = error instanceof Error ? error.message : 'Unknown error occurred'
     caMessageType.value = 'error'
@@ -260,8 +279,9 @@ async function loadExistingCert() {
   }
 }
 
-// Load cert on component mount
+// Load cert and proxy status on component mount
 loadExistingCert()
+checkProxyStatus()
 </script>
 
 <style scoped>
@@ -352,6 +372,34 @@ loadExistingCert()
   color: var(--text-color-secondary, #6b7280);
   margin: 0;
   line-height: 1.5;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.status-dot.running {
+  background-color: #10b981;
+}
+
+.status-dot.stopped {
+  background-color: #6b7280;
+}
+
+.status-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-color-secondary, #6b7280);
 }
 
 .control-actions {

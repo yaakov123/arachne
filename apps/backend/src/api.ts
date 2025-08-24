@@ -12,6 +12,7 @@ import type {
   CACreateResponse,
   CATrustResponse,
   CAErrorResponse,
+  ProxyStatusResponse,
 } from '@arachne/api-types'
 import { installRootCATrust, uninstallRootCATrust, type TrustResult } from '@arachne/os'
 
@@ -107,6 +108,16 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
         rep.code(500).send(response)
       }
     })
+
+    app.get(`${prefix}/proxy/status`, { preHandler: auth }, async (_req, rep) => {
+      const isRunning = proxy.isRunning()
+      const response: ProxyStatusResponse = {
+        ok: true,
+        isRunning,
+        serverInfo: proxy.getServerInfo() ?? undefined
+      }
+      rep.send(response)
+    })  
   }
 
   // Certificate Authority management routes

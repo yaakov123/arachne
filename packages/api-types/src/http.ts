@@ -62,6 +62,15 @@ export interface ProxyStopResponse {
   message: string
 }
 
+export interface ProxyStatusResponse {
+  ok: boolean
+  isRunning: boolean
+  serverInfo?: {
+    host: string
+    port: number
+  }
+}
+
 export interface ProxyErrorResponse {
   ok: false
   error: string
@@ -96,6 +105,7 @@ export const HttpRoutes = {
   // Proxy management
   proxyStart: `${API_PREFIX}/proxy/start`,
   proxyStop: `${API_PREFIX}/proxy/stop`,
+  proxyStatus: `${API_PREFIX}/proxy/status`,
   // Certificate Authority management
   caCreate: `${API_PREFIX}/ca/create`,
   caTrust: `${API_PREFIX}/ca/trust`,

@@ -108,15 +108,7 @@ export class DarwinOSProvider extends BaseOSProvider {
     }
 
     async installRootCATrust(certPath: string): Promise<TrustResult> {
-        // Check if certificate already exists in System keychain
-        if (await this.isCertificateInSystemKeychain()) {
-            return {
-                ok: true,
-                message: 'CA certificate is already trusted in System keychain.',
-            }
-        }
-
-        // Add trusted root to System keychain (requires admin privileges)
+        // Provide manual command for user to run instead of automated installation
         const args = [
             'add-trusted-cert',
             '-d',
@@ -127,33 +119,17 @@ export class DarwinOSProvider extends BaseOSProvider {
             certPath,
         ]
 
-        // Try elevating with osascript to show system password dialog
-        const elevated = await this.runSecurityWithOsascript(args)
-
-        // Verify success by checking if certificate now exists in keychain
-        // This is more reliable than relying on exit codes, as some operations
-        // may succeed but return non-zero exit codes due to trust setting issues
-        if (await this.isCertificateInSystemKeychain()) {
-            return {
-                ok: true,
-                message: 'Successfully installed CA into System keychain.',
-            }
-        }
-
-        // If certificate still doesn't exist, the operation truly failed
+        const command = `sudo security ${args.map(this.escapeArg).join(' ')}`
+        
         return {
             ok: false,
-            message: `Failed to add trusted cert to System keychain. ${
-                elevated.message || 'Unknown error'
-            }\n\nYou can try manually:\n  sudo security ${args
-                .map(this.escapeArg)
-                .join(' ')}`,
-            code: elevated.code,
+            message: `To trust the Root CA certificate, please run this command in your terminal:\n\n${command}\n\nThis will add the certificate to your System keychain and mark it as trusted for SSL.`,
+            code: null,
         }
     }
 
     async uninstallRootCATrust(): Promise<TrustResult> {
-        // Find all matching certs by common name in the System keychain and delete them.
+        // Find all matching certs by common name in the System keychain
         const list = await this.runSecurity([
             'find-certificate',
             '-a',
@@ -162,7 +138,13 @@ export class DarwinOSProvider extends BaseOSProvider {
             'Arachne Proxy Root CA',
             '/Library/Keychains/System.keychain',
         ])
-        if (!list.ok) return list
+        if (!list.ok) {
+            return {
+                ok: false,
+                message: `To remove Arachne Root CA certificates, please run:\n\nsudo security find-certificate -a -Z -c "Arachne Proxy Root CA" /Library/Keychains/System.keychain\n\nThen for each SHA-1 hash found, run:\nsudo security delete-certificate -Z <hash> /Library/Keychains/System.keychain`,
+                code: list.code,
+            }
+        }
 
         const hashes = list.message
             .split('\n')
@@ -172,24 +154,19 @@ export class DarwinOSProvider extends BaseOSProvider {
         if (hashes.length === 0) {
             return {
                 ok: true,
-                message:
-                    'No matching Arachne Root CA found in System keychain.',
+                message: 'No matching Arachne Root CA found in System keychain.',
             }
         }
 
-        for (const h of hashes) {
-            const elevated = await this.runSecurityWithOsascript([
-                'delete-certificate',
-                '-Z',
-                h,
-                '/Library/Keychains/System.keychain',
-            ])
-            if (!elevated.ok) return elevated
-        }
+        // Provide manual commands for each certificate found
+        const commands = hashes.map(h => 
+            `sudo security delete-certificate -Z ${h} /Library/Keychains/System.keychain`
+        ).join('\n')
 
         return {
-            ok: true,
-            message: `Removed ${hashes.length} certificate(s) from System keychain.`,
+            ok: false,
+            message: `Found ${hashes.length} Arachne Root CA certificate(s). To remove them, please run these commands in your terminal:\n\n${commands}`,
+            code: null,
         }
     }
 
@@ -257,17 +234,6 @@ export class DarwinOSProvider extends BaseOSProvider {
         return r.ok ? this.parseGetProxy(r.out) : { enabled: false }
     }
 
-    private async isCertificateInSystemKeychain(): Promise<boolean> {
-        const list = await this.runSecurity([
-            'find-certificate',
-            '-a',
-            '-c',
-            'Arachne Proxy Root CA',
-            '/Library/Keychains/System.keychain',
-        ])
-        return list.ok && list.message.includes('Arachne Proxy Root CA')
-    }
-
     private escapeArg(s: string): string {
         return /\s/.test(s) ? `'${s.replace(/'/g, "\\'")}'` : s
     }
@@ -290,34 +256,6 @@ export class DarwinOSProvider extends BaseOSProvider {
             p.on('error', (e) =>
                 resolve({ ok: false, message: String(e), code: null })
             )
-        })
-    }
-
-    private runSecurityWithOsascript(args: string[]): Promise<TrustResult> {
-        // Use osascript to show system password dialog for sudo commands
-        return new Promise((resolve) => {
-            const escapedArgs = args.map(this.escapeArg).join(' ')
-            const script = `do shell script "security ${escapedArgs}" with administrator privileges`
-
-            const p = spawn('osascript', ['-e', script], { stdio: 'pipe' })
-            let out = ''
-            let err = ''
-
-            p.stdout.on('data', (d) => (out += d.toString()))
-            p.stderr.on('data', (d) => (err += d.toString()))
-
-            p.on('close', (code) => {
-                const ok = code === 0
-                resolve({
-                    ok,
-                    message: ok ? out.trim() || 'OK' : err.trim() || out.trim(),
-                    code,
-                })
-            })
-
-            p.on('error', (e) => {
-                resolve({ ok: false, message: String(e), code: null })
-            })
         })
     }
 }

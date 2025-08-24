@@ -7,6 +7,7 @@ import type {
   InventoryTree,
   ProxyStartResponse,
   ProxyStopResponse,
+  ProxyStatusResponse,
   CACreateResponse,
   CATrustResponse,
 } from '@arachne/api-types'
@@ -82,6 +83,13 @@ export class ApiClient {
 
   async stopProxy(): Promise<ProxyStopResponse> {
     const { data } = await this.http.post<ProxyStopResponse>(HttpRoutes.proxyStop, {}, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
+  async getProxyStatus(): Promise<ProxyStatusResponse> {
+    const { data } = await this.http.get<ProxyStatusResponse>(HttpRoutes.proxyStatus, {
       headers: this.authHeaders(),
     })
     return data

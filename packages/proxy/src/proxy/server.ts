@@ -82,6 +82,24 @@ export class MitmProxyServer {
         return await this.lifecycleManager.stop()
     }
 
+    isRunning(): boolean {
+        return this.httpServer.listening
+    }
+
+    getServerInfo(): ServerInfo | null {
+        if (!this.httpServer.listening) {
+            return null
+        }
+        const address = this.httpServer.address()
+        if (!address || typeof address === 'string') {
+            return null
+        }
+        return {
+            host: address.address,
+            port: address.port
+        }
+    }
+
     addPlugin(p: ProxyPlugin): void {
         this.pluginManager.addPlugin(p)
     }
