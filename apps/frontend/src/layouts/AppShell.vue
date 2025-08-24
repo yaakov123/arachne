@@ -1,15 +1,27 @@
 <template>
     <div class="app-shell">
+        <header class="app-header">
+            <div class="logo">
+                <h1>Arachne</h1>
+            </div>
+            <nav class="main-nav">
+                <RouterLink to="/">Traffic Logger</RouterLink>
+                <RouterLink to="/settings">Settings</RouterLink>
+            </nav>
+            <div class="header-actions">
+                <ThemeToggle />
+            </div>
+        </header>
         
         <main class="app-content">
             <slot></slot>
         </main>
-        
-
     </div>
 </template>
 
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 </script>
 
 <style scoped>
@@ -27,9 +39,10 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 1.5rem;
-    height: var(--topbar-height);
+    height: 64px;
     background-color: var(--surface-card, #ffffff);
     border-bottom: 1px solid var(--surface-border, #dee2e6);
+    flex-shrink: 0;
 }
 
 .logo h1 {
@@ -56,6 +69,12 @@
 .main-nav a.router-link-active {
     color: var(--primary-color, #3B82F6);
     border-bottom-color: var(--primary-color, #3B82F6);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 /* Main content area - will expand to fill available space */

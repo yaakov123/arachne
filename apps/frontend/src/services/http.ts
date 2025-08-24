@@ -5,6 +5,10 @@ import type {
   HealthResponse,
   HostRecord,
   InventoryTree,
+  ProxyStartResponse,
+  ProxyStopResponse,
+  CACreateResponse,
+  CATrustResponse,
 } from '@arachne/api-types'
 import { HttpRoutes } from '@arachne/api-types'
 
@@ -63,6 +67,43 @@ export class ApiClient {
 
   async getCert(): Promise<CertResponse> {
     const { data } = await this.http.get<CertResponse>(HttpRoutes.cert, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
+  // Proxy management methods
+  async startProxy(): Promise<ProxyStartResponse> {
+    const { data } = await this.http.post<ProxyStartResponse>(HttpRoutes.proxyStart, {}, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
+  async stopProxy(): Promise<ProxyStopResponse> {
+    const { data } = await this.http.post<ProxyStopResponse>(HttpRoutes.proxyStop, {}, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
+  // Certificate Authority management methods
+  async createCA(): Promise<CACreateResponse> {
+    const { data } = await this.http.post<CACreateResponse>(HttpRoutes.caCreate, {}, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
+  async trustCA(): Promise<CATrustResponse> {
+    const { data } = await this.http.post<CATrustResponse>(HttpRoutes.caTrust, {}, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
+  async untrustCA(): Promise<CATrustResponse> {
+    const { data } = await this.http.post<CATrustResponse>(HttpRoutes.caUntrust, {}, {
       headers: this.authHeaders(),
     })
     return data

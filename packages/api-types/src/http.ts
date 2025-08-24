@@ -47,10 +47,57 @@ export interface CertResponse {
   pem: string
 }
 
+// Proxy management responses
+export interface ProxyStartResponse {
+  ok: boolean
+  message: string
+  serverInfo?: {
+    host: string
+    port: number
+  }
+}
+
+export interface ProxyStopResponse {
+  ok: boolean
+  message: string
+}
+
+export interface ProxyErrorResponse {
+  ok: false
+  error: string
+  message: string
+}
+
+// Certificate Authority management responses
+export interface CACreateResponse {
+  ok: boolean
+  message: string
+  certPem?: string
+}
+
+export interface CATrustResponse {
+  ok: boolean
+  message: string
+  code?: number | null
+}
+
+export interface CAErrorResponse {
+  ok: false
+  error: string
+  message: string
+}
+
 export const HttpRoutes = {
   health: '/health',
   inventory: `${API_PREFIX}/inventory`,
   hosts: `${API_PREFIX}/hosts`,
   host: (host: string) => `${API_PREFIX}/hosts/${encodeURIComponent(host)}`,
   cert: `${API_PREFIX}/cert`,
+  // Proxy management
+  proxyStart: `${API_PREFIX}/proxy/start`,
+  proxyStop: `${API_PREFIX}/proxy/stop`,
+  // Certificate Authority management
+  caCreate: `${API_PREFIX}/ca/create`,
+  caTrust: `${API_PREFIX}/ca/trust`,
+  caUntrust: `${API_PREFIX}/ca/untrust`,
 } as const

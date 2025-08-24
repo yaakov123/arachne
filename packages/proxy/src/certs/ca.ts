@@ -31,6 +31,10 @@ export class CertificateAuthority {
         return this.caCertPem
     }
 
+    get certStore(): CertStore {
+        return this.store
+    }
+
     async ensureRootCA(): Promise<{ certPem: string; keyPem: string }> {
         const existingCert = this.store.readFileIfExists(
             this.store.caCertPath()

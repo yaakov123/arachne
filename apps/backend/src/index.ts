@@ -81,20 +81,7 @@ async function main() {
     const ca = new CertificateAuthority({ store })
     await ca.ensureRootCA()
 
-    // API routes
-    await registerApi(app, {
-        prefix: BACKEND_API_PREFIX,
-        token: BACKEND_TOKEN,
-        storage,
-        ca,
-    })
-
-    // Start HTTP server first
-    await app.listen({ host: BACKEND_HOST, port: BACKEND_PORT })
-    app.log.info(`Backend listening on http://${BACKEND_HOST}:${BACKEND_PORT}`)
-    app.log.info(`WS at ${BACKEND_WS_PATH}`)
-
-    // Start Proxy with plugins (broadcast first to allow interception before recorder)
+    // Create proxy instance but don't start it yet
     const proxy = new MitmProxyServer({
         host: PROXY_HOST,
         port: PROXY_PORT,
@@ -102,8 +89,22 @@ async function main() {
         plugins: [broadcastPlugin, recorderPlugin],
         ignoredHosts: ['*.youtube.com', '*.googlevideo.com', '*.google.com'],
     })
-    await proxy.start()
-    app.log.info(`Proxy listening on ${PROXY_HOST}:${PROXY_PORT}`)
+
+    // API routes
+    await registerApi(app, {
+        prefix: BACKEND_API_PREFIX,
+        token: BACKEND_TOKEN,
+        storage,
+        ca,
+        proxy,
+    })
+
+    // Start HTTP server first
+    await app.listen({ host: BACKEND_HOST, port: BACKEND_PORT })
+    app.log.info(`Backend listening on http://${BACKEND_HOST}:${BACKEND_PORT}`)
+    app.log.info(`WS at ${BACKEND_WS_PATH}`)
+
+
 
     let stopping = false
     const shutdown = async (signal: string) => {

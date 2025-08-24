@@ -11,12 +11,13 @@ interface ProxyState {
 
 export class DarwinOSProvider extends BaseOSProvider {
     protected platformName = 'darwin' as const
-    
+
     private previousState: ProxyState | null = null
     private activeService: string | null = null
-    
+
     // Allow tests/CI to disable any system proxy modifications
-    private readonly DISABLE_SYSTEM_PROXY = process.env.ARACHNE_DISABLE_SYSTEM_PROXY === '1'
+    private readonly DISABLE_SYSTEM_PROXY =
+        process.env.ARACHNE_DISABLE_SYSTEM_PROXY === '1'
 
     async enableSystemProxy(host: string, port: number): Promise<void> {
         if (this.DISABLE_SYSTEM_PROXY) {
@@ -25,7 +26,7 @@ export class DarwinOSProvider extends BaseOSProvider {
             )
             return
         }
-        
+
         const service = await this.getDefaultService()
         if (!service) {
             console.warn(
@@ -45,7 +46,12 @@ export class DarwinOSProvider extends BaseOSProvider {
             }
 
             // Configure proxies
-            await run('networksetup', ['-setwebproxy', service, host, String(port)])
+            await run('networksetup', [
+                '-setwebproxy',
+                service,
+                host,
+                String(port),
+            ])
             await run('networksetup', [
                 '-setsecurewebproxy',
                 service,
@@ -53,7 +59,11 @@ export class DarwinOSProvider extends BaseOSProvider {
                 String(port),
             ])
             await run('networksetup', ['-setwebproxystate', service, 'on'])
-            await run('networksetup', ['-setsecurewebproxystate', service, 'on'])
+            await run('networksetup', [
+                '-setsecurewebproxystate',
+                service,
+                'on',
+            ])
 
             this.activeService = service
             console.log(
@@ -71,7 +81,7 @@ export class DarwinOSProvider extends BaseOSProvider {
             )
             return
         }
-        
+
         const service = this.activeService || (await this.getDefaultService())
         if (!service) {
             console.warn(
@@ -83,7 +93,11 @@ export class DarwinOSProvider extends BaseOSProvider {
         try {
             // Best-effort: turn off if we don't know previous state
             await run('networksetup', ['-setwebproxystate', service, 'off'])
-            await run('networksetup', ['-setsecurewebproxystate', service, 'off'])
+            await run('networksetup', [
+                '-setsecurewebproxystate',
+                service,
+                'off',
+            ])
         } catch (e) {
             console.warn('[Arachne] Failed to disable/restore system proxy:', e)
         } finally {
@@ -94,7 +108,15 @@ export class DarwinOSProvider extends BaseOSProvider {
     }
 
     async installRootCATrust(certPath: string): Promise<TrustResult> {
-        // Add trusted root to System keychain (requires sudo)
+        // Check if certificate already exists in System keychain
+        if (await this.isCertificateInSystemKeychain()) {
+            return {
+                ok: true,
+                message: 'CA certificate is already trusted in System keychain.',
+            }
+        }
+
+        // Add trusted root to System keychain (requires admin privileges)
         const args = [
             'add-trusted-cert',
             '-d',
@@ -104,17 +126,29 @@ export class DarwinOSProvider extends BaseOSProvider {
             '/Library/Keychains/System.keychain',
             certPath,
         ]
-        const res = await this.runSecurity(args)
-        if (res.ok) return res
-        // Try elevating only this subcommand with sudo
-        const elevated = await this.runSecuritySudo(args)
-        if (elevated.ok)
-            return { ok: true, message: 'Installed CA into System keychain.' }
-        // If failed (likely due to permissions or user cancelled), suggest manual command
+
+        // Try elevating with osascript to show system password dialog
+        const elevated = await this.runSecurityWithOsascript(args)
+
+        // Verify success by checking if certificate now exists in keychain
+        // This is more reliable than relying on exit codes, as some operations
+        // may succeed but return non-zero exit codes due to trust setting issues
+        if (await this.isCertificateInSystemKeychain()) {
+            return {
+                ok: true,
+                message: 'Successfully installed CA into System keychain.',
+            }
+        }
+
+        // If certificate still doesn't exist, the operation truly failed
         return {
             ok: false,
-            message: `Failed to add trusted cert to System keychain. You can try:\n  sudo security ${args.map(this.escapeArg).join(' ')}`,
-            code: elevated.code ?? res.code,
+            message: `Failed to add trusted cert to System keychain. ${
+                elevated.message || 'Unknown error'
+            }\n\nYou can try manually:\n  sudo security ${args
+                .map(this.escapeArg)
+                .join(' ')}`,
+            code: elevated.code,
         }
     }
 
@@ -138,27 +172,21 @@ export class DarwinOSProvider extends BaseOSProvider {
         if (hashes.length === 0) {
             return {
                 ok: true,
-                message: 'No matching Arachne Root CA found in System keychain.',
+                message:
+                    'No matching Arachne Root CA found in System keychain.',
             }
         }
 
         for (const h of hashes) {
-            const del = await this.runSecurity([
+            const elevated = await this.runSecurityWithOsascript([
                 'delete-certificate',
                 '-Z',
                 h,
                 '/Library/Keychains/System.keychain',
             ])
-            if (!del.ok) {
-                const elevated = await this.runSecuritySudo([
-                    'delete-certificate',
-                    '-Z',
-                    h,
-                    '/Library/Keychains/System.keychain',
-                ])
-                if (!elevated.ok) return elevated
-            }
+            if (!elevated.ok) return elevated
         }
+
         return {
             ok: true,
             message: `Removed ${hashes.length} certificate(s) from System keychain.`,
@@ -229,6 +257,17 @@ export class DarwinOSProvider extends BaseOSProvider {
         return r.ok ? this.parseGetProxy(r.out) : { enabled: false }
     }
 
+    private async isCertificateInSystemKeychain(): Promise<boolean> {
+        const list = await this.runSecurity([
+            'find-certificate',
+            '-a',
+            '-c',
+            'Arachne Proxy Root CA',
+            '/Library/Keychains/System.keychain',
+        ])
+        return list.ok && list.message.includes('Arachne Proxy Root CA')
+    }
+
     private escapeArg(s: string): string {
         return /\s/.test(s) ? `'${s.replace(/'/g, "\\'")}'` : s
     }
@@ -254,21 +293,31 @@ export class DarwinOSProvider extends BaseOSProvider {
         })
     }
 
-    private runSecuritySudo(args: string[]): Promise<TrustResult> {
-        // Elevate just this subcommand; inherit stdio to allow password prompt
+    private runSecurityWithOsascript(args: string[]): Promise<TrustResult> {
+        // Use osascript to show system password dialog for sudo commands
         return new Promise((resolve) => {
-            const p = spawn('sudo', ['security', ...args], { stdio: 'inherit' })
+            const escapedArgs = args.map(this.escapeArg).join(' ')
+            const script = `do shell script "security ${escapedArgs}" with administrator privileges`
+
+            const p = spawn('osascript', ['-e', script], { stdio: 'pipe' })
+            let out = ''
+            let err = ''
+
+            p.stdout.on('data', (d) => (out += d.toString()))
+            p.stderr.on('data', (d) => (err += d.toString()))
+
             p.on('close', (code) => {
                 const ok = code === 0
                 resolve({
                     ok,
-                    message: ok ? 'OK' : `security exited with code ${code}`,
+                    message: ok ? out.trim() || 'OK' : err.trim() || out.trim(),
                     code,
                 })
             })
-            p.on('error', (e) =>
+
+            p.on('error', (e) => {
                 resolve({ ok: false, message: String(e), code: null })
-            )
+            })
         })
     }
 }

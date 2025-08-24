@@ -6,7 +6,7 @@ export { installRootCATrust, uninstallRootCATrust, platform, type TrustResult, t
 export * from './plugins/types'
 export { createLoggerPlugin } from './plugins/logger.js'
 export { createDemoRewritePlugin } from './plugins/rewriter.js'
-export { type CertStoreOptions } from './certs/store'
+export { CertStore, type CertStoreOptions } from './certs/store'
 export { enableSystemProxy, disableSystemProxy } from '@arachne/os'
 
 export function getDefaultCertStoreOptions(): CertStoreOptions {
