@@ -11,7 +11,6 @@ export class ServerLifecycleManager {
     
     constructor(
         private httpServer: http.Server,
-        private _onError: (err: unknown, ctx: any) => void
     ) {}
 
     async start(host: string = '127.0.0.1', port: number = 8899): Promise<ServerInfo> {

@@ -49,10 +49,7 @@ export class MitmProxyServer {
             )
         })
 
-        this.lifecycleManager = new ServerLifecycleManager(
-            this.httpServer,
-            this.handleError.bind(this)
-        )
+        this.lifecycleManager = new ServerLifecycleManager(this.httpServer)
 
         // HTTPS tunneling via CONNECT
         this.httpServer.on(
