@@ -2,15 +2,26 @@
     <Sidebar class="hosts-sidebar">
         <div class="sidebar-content">
             <h2>Hosts</h2>
+            <div class="search-container">
+                <input 
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="Search hosts..."
+                    class="search-input"
+                />
+            </div>
             <div class="hosts-list">
                 <div 
-                    v-for="host in transactionsStore.uniqueHosts" 
+                    v-for="host in filteredHosts" 
                     :key="host"
                     class="host-item"
                     :class="{ active: transactionsStore.selectedHost === host }"
                     @click="transactionsStore.selectHost(host)"
                 >
-                    <span class="host-name">{{ host }}</span>
+                    <div class="host-info">
+    
+                        <span class="host-name">{{ host }}</span>
+                    </div>
                     <span class="host-count">{{ transactionsStore.getHostCount(host) }}</span>
                 </div>
             </div>
@@ -26,10 +37,26 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import Sidebar from './Sidebar.vue'
 import { useTransactionsStore } from '../stores/transactions'
 
 const transactionsStore = useTransactionsStore()
+const searchQuery = ref('')
+
+// Computed property to filter hosts based on search query
+const filteredHosts = computed(() => {
+    if (!searchQuery.value.trim()) {
+        return transactionsStore.uniqueHosts
+    }
+    
+    const query = searchQuery.value.toLowerCase().trim()
+    return transactionsStore.uniqueHosts.filter(host => 
+        host.toLowerCase().includes(query)
+    )
+})
+
+
 </script>
 
 <style scoped>
@@ -54,6 +81,36 @@ const transactionsStore = useTransactionsStore()
     color: var(--text-color);
 }
 
+.search-container {
+    margin-bottom: var(--space-lg);
+}
+
+.search-input {
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-md);
+    background: var(--surface-subtle);
+    color: var(--text-color);
+    font-size: var(--text-sm);
+    transition: all var(--transition-fast);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: var(--surface-base);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+
+[data-theme="dark"] .search-input:focus {
+    box-shadow: 0 0 0 3px var(--color-primary-900);
+}
+
+.search-input::placeholder {
+    color: var(--text-color-secondary);
+}
+
 .hosts-list {
     flex: 1;
     overflow-y: auto;
@@ -70,6 +127,23 @@ const transactionsStore = useTransactionsStore()
     transition: all var(--transition-fast);
     font-size: var(--text-sm);
     color: var(--text-color);
+}
+
+.host-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex: 1;
+    min-width: 0; /* Allow text truncation */
+}
+
+.host-favicon {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    object-fit: cover;
+    background: var(--surface-subtle);
 }
 
 .host-item:hover {
