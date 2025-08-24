@@ -209,6 +209,7 @@ export function createBroadcastPlugin(
     function completeTransaction(id: string) {
         const transaction = transactions.get(id)
         if (!transaction) return
+        if (transaction.method === "OPTIONS") return
 
         const ev: TransactionCompleteEvent = {
             type: 'transactionComplete',

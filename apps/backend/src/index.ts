@@ -100,7 +100,7 @@ async function main() {
         port: PROXY_PORT,
         ca,
         plugins: [broadcastPlugin, recorderPlugin],
-        ignoredHosts: ['*.youtube.com', '*.googlevideo.com'],
+        ignoredHosts: ['*.youtube.com', '*.googlevideo.com', '*.google.com'],
     })
     await proxy.start()
     app.log.info(`Proxy listening on ${PROXY_HOST}:${PROXY_PORT}`)
