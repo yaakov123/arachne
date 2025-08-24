@@ -235,7 +235,7 @@ const filters = ref<FilterOptions>({
     hasBody: ''
 })
 
-const isCollapsed = ref(false)
+const isCollapsed = ref(true)
 
 const emit = defineEmits<{
     filtersChanged: [filters: FilterOptions]

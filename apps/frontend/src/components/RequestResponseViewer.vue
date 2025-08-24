@@ -1,7 +1,25 @@
 <template>
     <div v-if="transactionsStore.selectedTransaction" class="request-response-viewer">
         <div class="viewer-header">
-            <h3>Request & Response Details</h3>
+            <div class="request-response-line">
+                <span class="request-info">
+                    <span class="method" :class="getMethodClass(transactionsStore.selectedTransaction.request.method)">
+                        {{ transactionsStore.selectedTransaction.request.method }}
+                    </span>
+                    <span class="url-parts">
+                        <span class="host">{{ getUrlHost(transactionsStore.selectedTransaction.request.url.full) }}</span>
+                        <span class="path">{{ getUrlPath(transactionsStore.selectedTransaction.request.url.full) }}</span>
+                    </span>
+                </span>
+                <span v-if="transactionsStore.selectedTransaction.response" class="response-info">
+                    <span class="status-code" :class="getStatusClass(transactionsStore.selectedTransaction.response.statusCode)">
+                        {{ transactionsStore.selectedTransaction.response.statusCode }}
+                    </span>
+                    <span v-if="transactionsStore.selectedTransaction.response.statusMessage" class="status-message">
+                        {{ transactionsStore.selectedTransaction.response.statusMessage }}
+                    </span>
+                </span>
+            </div>
             <button class="close-viewer" @click="transactionsStore.clearSelectedTransaction()">×</button>
         </div>
         
@@ -25,6 +43,7 @@ import { useTransactionsStore } from '../stores/transactions'
 import RequestPanel from './RequestPanel.vue'
 import ResponsePanel from './ResponsePanel.vue'
 import Resizer from './Resizer.vue'
+import { getMethodClass, getStatusClass } from '../utils/http-colors'
 
 const transactionsStore = useTransactionsStore()
 const requestPanel = ref<InstanceType<typeof RequestPanel>>()
@@ -40,6 +59,26 @@ const onResizeStart = () => {
         responsePanel.value.$el.style.flex = 'none'
         requestPanel.value.$el.style.width = `${requestRect.width}px`
         responsePanel.value.$el.style.width = `${responseRect.width}px`
+    }
+}
+
+
+
+const getUrlHost = (url: string): string => {
+    try {
+        return new URL(url).host
+    } catch {
+        return url.split('/')[0] || ''
+    }
+}
+
+const getUrlPath = (url: string): string => {
+    try {
+        const urlObj = new URL(url)
+        return urlObj.pathname
+    } catch {
+        const parts = url.split('?')[0].split('/')
+        return parts.length > 1 ? '/' + parts.slice(1).join('/') : '/'
     }
 }
 
@@ -66,11 +105,144 @@ const onResizeStart = () => {
     padding: var(--space-md) var(--space-lg);
 }
 
-.viewer-header h3 {
-    margin: 0;
-    font-size: var(--text-base);
-    font-weight: var(--font-semibold);
+.request-response-line {
+    flex: 1;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--text-sm);
+    padding: var(--space-sm);
+    background: var(--surface-ground);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    word-break: break-all;
+    border-left: 3px solid var(--primary-color);
+}
+
+.request-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.response-info {
+    flex-shrink: 0;
+    padding-left: var(--space-md);
+    border-left: 1px solid var(--surface-border);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+/* HTTP Method Colors */
+.method {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.method-get {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.method-post {
+    background: #e8f5e8;
+    color: #388e3c;
+}
+
+.method-put {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.method-patch {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.method-delete {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.method-head {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.method-options {
+    background: #e0f2f1;
+    color: #00796b;
+}
+
+.method-other {
+    background: #f5f5f5;
+    color: #616161;
+}
+
+/* URL Parts */
+.url-parts {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.host {
+    color: #1976d2;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.path {
     color: var(--text-color);
+    word-break: break-all;
+    min-width: 0;
+}
+
+
+
+/* Status Code Colors */
+.status-code {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.status-success {
+    background: #e8f5e8;
+    color: #388e3c;
+}
+
+.status-redirect {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.status-client-error {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.status-server-error {
+    background: #ffebee;
+    color: #b71c1c;
+}
+
+.status-info {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-message {
+    color: var(--text-color-muted);
+    font-size: var(--text-xs);
 }
 
 .close-viewer {

@@ -3,38 +3,97 @@
         <div class="panel-header">
             <h4>Request</h4>
         </div>
-        <div class="panel-content">
-            <CollapsibleSection title="Request Line">
-                <div class="request-line">
-                    <strong>{{ request.method }}</strong> 
-                    {{ request.url.full }}
-                </div>
-            </CollapsibleSection>
-            <HeadersList :headers="request.headers" />
-            <BodyViewer :body="request.body" />
-        </div>
+        <TabContainer
+            :tabs="tabs"
+            default-tab="query"
+            @tab-changed="onTabChanged"
+        >
+            <template #query>
+                <QueryParamsViewer :query-string="request.url.query" />
+            </template>
+            <template #headers>
+                <HeadersList :headers="request.headers" />
+            </template>
+            <template #body v-if="request.body">
+                <BodyViewer :body="request.body" />
+            </template>
+            <template #cookies>
+                <CookiesViewer :headers="request.headers" />
+            </template>
+        </TabContainer>
     </div>
 </template>
 
 <script setup lang="ts">
-import CollapsibleSection from './CollapsibleSection.vue'
+import { computed } from 'vue'
+import TabContainer, { type Tab } from './TabContainer.vue'
 import HeadersList from './HeadersList.vue'
 import BodyViewer from './BodyViewer.vue'
-import type { TransactionRequest, TransactionBody } from '@arachne/api-types'
-
-interface Header {
-    name: string
-    value: string
-    sensitive?: boolean
-}
-
-
+import QueryParamsViewer from './QueryParamsViewer.vue'
+import CookiesViewer from './CookiesViewer.vue'
+import type { TransactionRequest } from '@arachne/api-types'
 
 interface Props {
     request: TransactionRequest
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const tabs = computed<Tab[]>(() => {
+    const queryParamsCount = props.request.url.query
+        ? new URLSearchParams(props.request.url.query).size
+        : 0
+
+    const cookiesCount = props.request.headers.filter(
+        (h) => h.name.toLowerCase() === 'cookie'
+    ).length
+
+    const bodySize = props.request.body?.content.size || 0
+
+    const tabs: Tab[] = []
+
+    if (queryParamsCount > 0) {
+        tabs.push({
+            id: 'query',
+            label: 'Query',
+            badge: queryParamsCount.toString(),
+        })
+    }
+
+    if (props.request.headers.length > 0) {
+        tabs.push({
+            id: 'headers',
+            label: 'Headers',
+            badge: props.request.headers.length.toString(),
+        })
+    }
+
+    if (bodySize > 0) {
+        tabs.push({
+            id: 'body',
+            label: 'Body',
+            badge: formatBytes(bodySize),
+        })
+    }
+
+    if (cookiesCount > 0) {
+        tabs.push({
+            id: 'cookies',
+            label: 'Cookies',
+            badge: cookiesCount.toString(),
+        })
+    }
+
+    return tabs
+})
+
+const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
 </script>
 
 <style scoped>
@@ -50,30 +109,15 @@ defineProps<Props>()
     background: var(--surface-section);
     border-bottom: 1px solid var(--surface-border);
     padding: var(--space-sm) var(--space-lg);
+    flex-shrink: 0;
 }
 
 .panel-header h4 {
-    margin: 0;
+    margin: 0 0 var(--space-sm) 0;
     font-size: var(--text-sm);
     font-weight: var(--font-semibold);
     color: var(--text-color);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-}
-
-.panel-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-lg);
-}
-
-.request-line {
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: var(--text-sm);
-    padding: var(--space-sm);
-    background: var(--surface-section);
-    border-radius: var(--radius-sm);
-    border-left: 3px solid var(--primary-color);
-    word-break: break-all;
 }
 </style>

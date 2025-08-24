@@ -52,7 +52,7 @@ const escapeHtml = (text: string): string => {
     overflow: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
-    max-height: 300px;
+    flex: 1;
 }
 
 /* XML/HTML Syntax Highlighting */

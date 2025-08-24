@@ -1,56 +1,36 @@
 <template>
-    <CollapsibleSection 
-        v-if="body"
-        title="Body" 
-        :badge="formatBadge()"
-        badge-class="size"
-        :default-collapsed="defaultCollapsed"
-    >
-        <div class="body-container">
-            <div v-if="body.content.contentType" class="content-type-header">
-                <span class="content-type">{{ body.content.contentType }}</span>
-                <span v-if="body.content.detectedFormat" class="detected-format">
-                    ({{ body.content.detectedFormat }})
-                </span>
-                <span v-if="body.content.truncated" class="truncated-indicator">
-                    TRUNCATED
-                </span>
-            </div>
-            
-            <!-- JSON Content -->
-            <JsonBodyViewer 
-                v-if="isJsonContent" 
-                :content="body.sample" 
-            />
-            
-            <!-- XML/HTML Content -->
-            <XmlBodyViewer 
-                v-else-if="isXmlOrHtmlContent" 
-                :content="body.sample" 
-            />
-            
-            <!-- Form Data Content -->
-            <FormDataViewer 
-                v-else-if="isFormContent" 
-                :content="body.sample" 
-            />
-            
-            <!-- Binary/Image Content -->
-            <BinaryBodyViewer 
-                v-else-if="isBinaryContent" 
-                :content="body.sample"
-                :content-type="body.content.contentType"
-                :content-size="body.content.size"
-                :encoding="body.content.encoding"
-            />
-            
-            <!-- Default Text Content -->
-            <TextBodyViewer 
-                v-else 
-                :content="body.sample" 
-            />
+    <div class="body-container" v-if="body">
+        <div v-if="body.content.contentType" class="content-type-header">
+            <span class="content-type">{{ body.content.contentType }}</span>
+            <span v-if="body.content.detectedFormat" class="detected-format">
+                ({{ body.content.detectedFormat }})
+            </span>
+            <span v-if="body.content.truncated" class="truncated-indicator">
+                TRUNCATED
+            </span>
         </div>
-    </CollapsibleSection>
+
+        <!-- JSON Content -->
+        <JsonBodyViewer v-if="isJsonContent" :content="body.sample" />
+
+        <!-- XML/HTML Content -->
+        <XmlBodyViewer v-else-if="isXmlOrHtmlContent" :content="body.sample" />
+
+        <!-- Form Data Content -->
+        <FormDataViewer v-else-if="isFormContent" :content="body.sample" />
+
+        <!-- Binary/Image Content -->
+        <BinaryBodyViewer
+            v-else-if="isBinaryContent"
+            :content="body.sample"
+            :content-type="body.content.contentType"
+            :content-size="body.content.size"
+            :encoding="body.content.encoding"
+        />
+
+        <!-- Default Text Content -->
+        <TextBodyViewer v-else :content="body.sample" />
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -69,7 +49,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    defaultCollapsed: false
+    defaultCollapsed: false,
 })
 
 // Content type detection
@@ -111,6 +91,8 @@ const formatBadge = (): string => {
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
+    height: 100%;
+    overflow: hidden;
 }
 
 .content-type-header {

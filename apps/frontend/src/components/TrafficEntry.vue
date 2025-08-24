@@ -4,13 +4,16 @@
         :class="{ selected: isSelected }"
         @click="$emit('select', transaction)"
     >
-        <div class="entry-method" :class="`method-${transaction.request.method.toLowerCase()}`">
+        <div class="entry-method" :class="getMethodClass(transaction.request.method)">
             {{ transaction.request.method }}
         </div>
         <div class="entry-url" :title="transaction.request.url.full">
             {{ transaction.request.url.path }}{{ transaction.request.url.query ? '?' + transaction.request.url.query : '' }}
         </div>
-        <div class="entry-status" :class="`status-${Math.floor((transaction.response?.statusCode || 0) / 100)}`">
+        <div 
+            class="entry-status" 
+            :style="{ color: transaction.response?.statusCode ? getStatusTextColor(transaction.response.statusCode) : 'var(--text-color-muted)' }"
+        >
             {{ transaction.response?.statusCode || '-' }}
         </div>
         <div class="entry-size">
@@ -24,6 +27,7 @@
 
 <script setup lang="ts">
 import type { TransactionWithMeta } from '../stores/transactions'
+import { getMethodClass, getStatusTextColor } from '../utils/http-colors'
 
 interface Props {
     transaction: TransactionWithMeta
@@ -76,24 +80,32 @@ function formatSize(bytes: number): string {
 }
 
 .method-get { 
-    background: var(--color-success-50); 
-    color: var(--color-success-700); 
+    background: #e3f2fd; 
+    color: #1976d2; 
 }
 .method-post { 
-    background: var(--color-warning-50); 
-    color: var(--color-warning-700); 
+    background: #e8f5e8; 
+    color: #388e3c; 
 }
 .method-put { 
-    background: var(--color-info-50); 
-    color: var(--color-info-700); 
-}
-.method-delete { 
-    background: var(--color-error-50); 
-    color: var(--color-error-700); 
+    background: #fff3e0; 
+    color: #f57c00; 
 }
 .method-patch { 
-    background: var(--color-neutral-100); 
-    color: var(--color-neutral-700); 
+    background: #fce4ec; 
+    color: #c2185b; 
+}
+.method-delete { 
+    background: #ffebee; 
+    color: #d32f2f; 
+}
+.method-head { 
+    background: #f3e5f5; 
+    color: #7b1fa2; 
+}
+.method-options { 
+    background: #e0f2f1; 
+    color: #00796b; 
 }
 
 .entry-url {
@@ -108,10 +120,7 @@ function formatSize(bytes: number): string {
     font-weight: var(--font-semibold);
 }
 
-.status-2 { color: var(--color-success-600); }
-.status-3 { color: var(--color-info-600); }
-.status-4 { color: var(--color-warning-600); }
-.status-5 { color: var(--color-error-600); }
+
 
 .entry-size, .entry-time {
     text-align: right;

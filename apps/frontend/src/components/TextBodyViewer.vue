@@ -23,7 +23,7 @@ defineProps<Props>()
     overflow: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
-    max-height: 300px;
+    flex: 1;
     color: var(--text-color);
 }
 </style>

@@ -46,7 +46,7 @@ const parsedFormData = computed(() => {
     border: 1px solid var(--surface-border);
     border-radius: var(--radius-sm);
     padding: var(--space-md);
-    max-height: 300px;
+    flex: 1;
     overflow-y: auto;
 }
 

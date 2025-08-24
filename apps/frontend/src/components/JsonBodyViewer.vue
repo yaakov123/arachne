@@ -59,8 +59,8 @@ const escapeHtml = (text: string): string => {
     line-height: var(--leading-snug);
     overflow: auto;
     white-space: pre-wrap;
-    word-wrap: break-word;
-    max-height: 300px;
+    word-wrap: break-word;  
+    flex: 1;
 }
 
 /* JSON Syntax Highlighting */
