@@ -32,8 +32,8 @@ export function parseHostPort(hostHeaderOrAuthority: string): {
 
 export function sanitizeHeaders(
     headers: IncomingHttpHeaders
-): Record<string, string> {
-    const out: Record<string, string> = {}
+): Record<string, string | string[]> {
+    const out: Record<string, string | string[]> = {}
     
     // RFC 7230 Section 6.1 - Hop-by-hop headers that must not be forwarded
     const hopByHopHeaders = new Set([
@@ -82,17 +82,10 @@ export function sanitizeHeaders(
         // Skip headers listed in Connection tokens (custom hop-by-hop headers)
         if (connectionTokens.has(lk)) continue
 
-        // Special handling for Set-Cookie - preserve multiple values separately
-        if (lk === 'set-cookie' && Array.isArray(v)) {
-            // For Set-Cookie, we should preserve the array structure, but our return type
-            // is Record<string, string>, so we'll join them with a special separator
-            // that can be split later if needed
-            out[k] = v.join('\n')
-            continue
-        }
-
+        // Preserve array structure for headers that can have multiple values
+        // This is important for Set-Cookie and other headers that should maintain their array nature
         if (Array.isArray(v)) {
-            out[k] = v.join(', ')
+            out[k] = v
             continue
         }
 

@@ -55,7 +55,7 @@ export class RequestBodyHandler {
             await this.pluginManager.runHook('onRequestBody', reqBodyCtx as any)
 
             // Update headers for new body
-            const updatedHeaders: Record<string, string> = {
+            const updatedHeaders: Record<string, string | string[]> = {
                 'content-length': String(bodyBuf.length)
             }
 
@@ -76,10 +76,10 @@ export class RequestBodyHandler {
 
     updateRequestHeaders(
         headers: Record<string, any>,
-        updatedHeaders: Record<string, string>
+        updatedHeaders: Record<string, string | string[]>
     ): void {
         Object.entries(updatedHeaders).forEach(([key, value]) => {
-            if (value === '') {
+            if (value === '' || (Array.isArray(value) && value.length === 0)) {
                 delete headers[key]
             } else {
                 headers[key] = value

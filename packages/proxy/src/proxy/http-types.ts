@@ -2,12 +2,12 @@ import { IncomingMessage } from 'node:http'
 
 export interface ProcessedRequestBody {
     body?: Buffer
-    updatedHeaders: Record<string, string>
+    updatedHeaders: Record<string, string | string[]>
 }
 
 export interface ProcessedResponseBody {
     body: Buffer
-    headers: Record<string, string>
+    headers: Record<string, string | string[]>
 }
 
 export interface BufferResult {
@@ -23,7 +23,7 @@ export interface StreamBufferOptions {
 export interface BodyProcessingResult {
     body: Buffer
     shouldStream: boolean
-    headers: Record<string, string>
+    headers: Record<string, string | string[]>
 }
 
 export interface UpstreamRequestResult {
