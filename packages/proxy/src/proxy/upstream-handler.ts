@@ -2,6 +2,7 @@ import http, { IncomingMessage, RequestOptions } from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import type { RequestContext } from '../plugins/types'
+import { logger } from '../logger'
 
 export class UpstreamHandler {
     constructor(private onError: (err: unknown, ctx: any) => void) {}
@@ -20,6 +21,7 @@ export class UpstreamHandler {
             })
 
             upstreamReq.on('error', (err) => {
+                logger.logUpstreamError(ctx.id, err, fullUrl.toString())
                 this.onError(err, ctx)
                 reject(err)
             })
@@ -38,11 +40,57 @@ export class UpstreamHandler {
         ctx: RequestContext,
         clientRes: http.ServerResponse
     ): void {
-        this.onError(err, ctx)
-        if (!clientRes.headersSent) {
-            clientRes.writeHead(502, 'Bad Gateway')
+        const responseInfo = {
+            headersSent: clientRes.headersSent,
+            finished: clientRes.finished,
+            destroyed: clientRes.destroyed,
+            writable: clientRes.writable
         }
-        clientRes.end('Upstream error')
+        
+        logger.error('Handling upstream error response', err, {
+            requestId: ctx.id,
+            component: 'upstream-handler',
+            url: ctx.url.toString(),
+            method: ctx.method,
+            hostname: ctx.url.hostname,
+            responseInfo,
+            errorCode: (err as any)?.code,
+            errorErrno: (err as any)?.errno
+        })
+        
+        this.onError(err, ctx)
+        
+        try {
+            if (!clientRes.headersSent && clientRes.writable) {
+                logger.debug('Sending 502 Bad Gateway response for upstream error', {
+                    requestId: ctx.id,
+                    component: 'upstream-handler',
+                    url: ctx.url.toString()
+                })
+                clientRes.writeHead(502, 'Bad Gateway')
+                clientRes.end('Upstream error')
+            } else {
+                logger.debug('Cannot send 502 response for upstream error - headers already sent or not writable', {
+                    requestId: ctx.id,
+                    component: 'upstream-handler',
+                    url: ctx.url.toString(),
+                    responseInfo
+                })
+                
+                // Try to end the response if it's still writable
+                if (clientRes.writable && !clientRes.finished) {
+                    clientRes.end('Upstream error')
+                }
+            }
+        } catch (writeError) {
+            logger.error('Failed to send upstream error response', writeError, {
+                requestId: ctx.id,
+                component: 'upstream-handler',
+                url: ctx.url.toString(),
+                originalError: err.message,
+                responseInfo
+            })
+        }
     }
 
     streamResponse(

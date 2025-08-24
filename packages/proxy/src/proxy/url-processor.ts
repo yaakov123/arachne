@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'node:http'
 import { URL } from 'node:url'
 import { parseHostPort } from './utils'
+import { logger } from '../logger'
 
 export class UrlProcessor {
     static parseRequestUrl(req: IncomingMessage, isHttps: boolean): URL {
@@ -34,10 +35,11 @@ export class UrlProcessor {
         try {
             return this.parseRequestUrl(req, isHttps)
         } catch (error) {
-            console.warn(
-                '[Arachne:Proxy] Origin-form request missing Host header',
-                { url: req.url, headers: req.headers }
-            )
+            logger.warn('Origin-form request missing Host header', {
+                url: req.url,
+                headers: req.headers,
+                component: 'url-processor'
+            })
             throw error
         }
     }

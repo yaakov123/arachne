@@ -1,0 +1,13 @@
+# Logs
+logs/
+*.log
+
+# Build outputs
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# TypeScript build info
+*.tsbuildinfo

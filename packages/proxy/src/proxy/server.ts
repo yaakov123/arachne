@@ -7,6 +7,7 @@ import { PluginManager } from './plugin-manager'
 import { TlsManager } from './tls-manager'
 import { HttpHandler } from './http-handler'
 import { ServerLifecycleManager, type ServerInfo } from './server-lifecycle'
+import { logger } from '../logger'
 
 export interface ProxyOptions {
     host?: string
@@ -62,10 +63,45 @@ export class MitmProxyServer {
         )
 
         this.httpServer.on('clientError', (err, socket) => {
+            const socketInfo = {
+                remoteAddress: (socket as any).remoteAddress,
+                remotePort: (socket as any).remotePort,
+                localAddress: (socket as any).localAddress,
+                localPort: (socket as any).localPort,
+                destroyed: socket.destroyed,
+                readable: socket.readable,
+                writable: socket.writable
+            }
+            
+            logger.error('Client socket error on HTTP server', err, {
+                component: 'proxy-server',
+                socketInfo,
+                errorCode: (err as any)?.code,
+                errorErrno: (err as any)?.errno
+            })
+            
             try {
-                socket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
-            } catch {}
-            this.handleError(err, {})
+                if (!socket.destroyed && socket.writable) {
+                    logger.debug('Sending 400 Bad Request to client socket', {
+                        component: 'proxy-server',
+                        remoteAddress: (socket as any).remoteAddress,
+                        remotePort: (socket as any).remotePort
+                    })
+                    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
+                } else {
+                    logger.debug('Cannot write to client socket - already destroyed or not writable', {
+                        component: 'proxy-server',
+                        socketInfo
+                    })
+                }
+            } catch (writeError) {
+                logger.error('Failed to write error response to client socket', writeError, {
+                    component: 'proxy-server',
+                    originalError: err.message,
+                    socketInfo
+                })
+            }
+            this.handleError(err, { socketInfo })
         })
     }
 
@@ -102,8 +138,17 @@ export class MitmProxyServer {
     }
 
     private handleError(err: unknown, ctx: any): void {
-        this.pluginManager.runHook('onError', { error: err, context: ctx } as any).catch(() => {
-            // Silently handle errors in error handlers
+        logger.error('Proxy error occurred', err, { 
+            component: 'proxy-server',
+            requestId: ctx.id,
+            context: ctx
+        })
+        
+        this.pluginManager.runHook('onError', { error: err, context: ctx } as any).catch((hookErr) => {
+            logger.error('Error in error hook', hookErr, { 
+                component: 'proxy-server',
+                requestId: ctx.id 
+            })
         })
     }
 }

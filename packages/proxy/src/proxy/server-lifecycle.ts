@@ -1,5 +1,6 @@
 import http from 'node:http'
 import { OSProviderFactory } from '@arachne/os'
+import { logger } from '../logger'
 
 export interface ServerInfo {
     host: string
@@ -18,13 +19,20 @@ export class ServerLifecycleManager {
             this.httpServer.listen(port, host, resolve)
         )
         
+        logger.logProxyStart(host, port)
+        
         if (this.osProvider.isSupported()) {
             try {
-                console.log('[Arachne:Proxy] Enabling system proxy...')
+                logger.debug('Enabling system proxy...', { component: 'server-lifecycle', hostname: host, port })
                 await this.osProvider.enableSystemProxy(host, port)
-                console.log('[Arachne:Proxy] Enabled system proxy')
-            } catch {
-                console.warn('Failed to enable system proxy')
+                logger.logSystemProxyEnabled(host, port)
+            } catch (error) {
+                logger.warn('Failed to enable system proxy', { 
+                    component: 'server-lifecycle', 
+                    hostname: host, 
+                    port,
+                    error: error instanceof Error ? error.message : String(error)
+                })
             }
         }
         
@@ -32,7 +40,7 @@ export class ServerLifecycleManager {
     }
 
     async stop(): Promise<void> {
-        console.log('[Arachne:Proxy] Stopping proxy server...')
+        logger.debug('Stopping proxy server...', { component: 'server-lifecycle' })
         
         // Proactively close sockets to avoid hanging on close() due to keep-alive or long-lived tunnels
         const srv = this.httpServer as unknown as {
@@ -42,26 +50,39 @@ export class ServerLifecycleManager {
         
         try {
             srv.closeIdleConnections?.()
-        } catch {}
+        } catch (error) {
+            logger.debug('Error closing idle connections', { 
+                component: 'server-lifecycle',
+                error: error instanceof Error ? error.message : String(error)
+            })
+        }
         
         try {
             srv.closeAllConnections?.()
-        } catch {}
+        } catch (error) {
+            logger.debug('Error closing all connections', { 
+                component: 'server-lifecycle',
+                error: error instanceof Error ? error.message : String(error)
+            })
+        }
         
         if (this.osProvider.isSupported()) {
             try {
-                console.log('[Arachne:Proxy] Disabling system proxy...')
+                logger.debug('Disabling system proxy...', { component: 'server-lifecycle' })
                 await this.osProvider.disableSystemProxy()
-                console.log('[Arachne:Proxy] Disabled system proxy')
-            } catch {
-                console.warn('Failed to disable system proxy')
+                logger.logSystemProxyDisabled()
+            } catch (error) {
+                logger.warn('Failed to disable system proxy', { 
+                    component: 'server-lifecycle',
+                    error: error instanceof Error ? error.message : String(error)
+                })
             }
         }
         await new Promise<void>((resolve, reject) =>
             this.httpServer.close((err) => (err ? reject(err) : resolve()))
         )
         
-        console.log('[Arachne:Proxy] Stopped proxy server')
+        logger.logProxyStop()
         
     }
 }

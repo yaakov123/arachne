@@ -2,12 +2,9 @@ import { CertStore, CertStoreOptions } from './certs/store'
 
 export { MitmProxyServer, type ProxyOptions } from './proxy/server'
 export { CertificateAuthority, type CAOptions } from './certs/ca'
-export { platform, type Platform } from '@arachne/os'
 export * from './plugins/types'
-export { createLoggerPlugin } from './plugins/logger.js'
-export { createDemoRewritePlugin } from './plugins/rewriter.js'
 export { CertStore, type CertStoreOptions } from './certs/store'
-export { enableSystemProxy, disableSystemProxy } from '@arachne/os'
+export { logger, ProxyLogger, type LogContext, type LogLevel } from './logger'
 
 export function getDefaultCertStoreOptions(): CertStoreOptions {
     return {

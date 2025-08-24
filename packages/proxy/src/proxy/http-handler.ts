@@ -7,6 +7,7 @@ import { ContextBuilder } from './context-builder'
 import { RequestBodyHandler } from './request-body-handler'
 import { ResponseBodyHandler } from './response-body-handler'
 import { UpstreamHandler } from './upstream-handler'
+import { logger } from '../logger'
 
 export class HttpHandler {
     private requestBodyHandler: RequestBodyHandler
@@ -29,13 +30,25 @@ export class HttpHandler {
         isHttps: boolean
     ): Promise<void> {
         const id = genId('req')
+        const startTime = Date.now()
 
         try {
             // Parse URL
             const fullUrl = UrlProcessor.buildFullUrl(clientReq, isHttps)
 
+            logger.logRequest(id, clientReq.method || 'UNKNOWN', fullUrl.toString(), {
+                isHttps,
+                hostname: fullUrl.hostname,
+                port: fullUrl.port ? parseInt(fullUrl.port) : (isHttps ? 443 : 80)
+            })
+
             // Check if host should be ignored - if so, create direct tunnel
             if (isHostIgnored(fullUrl.hostname, this.ignoredHosts)) {
+                logger.debug('Request to ignored host, creating direct tunnel', {
+                    requestId: id,
+                    hostname: fullUrl.hostname,
+                    component: 'http-handler'
+                })
                 await this.createDirectTunnel(clientReq, clientRes, fullUrl)
                 return
             }
@@ -75,21 +88,101 @@ export class HttpHandler {
                 reqCtx,
                 clientReq,
                 clientRes,
-                requestBodyToSend
+                requestBodyToSend,
+                startTime
             )
         } catch (error) {
+            const duration = Date.now() - startTime
+            
             if (
                 error instanceof Error &&
                 error.message.includes('Host header')
             ) {
-                clientRes.writeHead(400, 'Bad Request: Missing Host header')
-                clientRes.end()
+                const responseInfo = {
+                    headersSent: clientRes.headersSent,
+                    finished: clientRes.finished,
+                    destroyed: clientRes.destroyed,
+                    writable: clientRes.writable
+                }
+                
+                logger.warn('Bad request: Missing host header', {
+                    requestId: id,
+                    duration,
+                    component: 'http-handler',
+                    url: clientReq.url,
+                    method: clientReq.method,
+                    headers: clientReq.headers,
+                    responseInfo
+                })
+                
+                try {
+                    if (!clientRes.headersSent && clientRes.writable) {
+                        logger.debug('Sending 400 Bad Request response', {
+                            requestId: id,
+                            component: 'http-handler'
+                        })
+                        clientRes.writeHead(400, 'Bad Request: Missing Host header')
+                        clientRes.end()
+                    } else {
+                        logger.debug('Cannot send 400 response - headers already sent or not writable', {
+                            requestId: id,
+                            component: 'http-handler',
+                            responseInfo
+                        })
+                    }
+                } catch (writeError) {
+                    logger.error('Failed to send 400 Bad Request response', writeError, {
+                        requestId: id,
+                        component: 'http-handler',
+                        originalError: error.message,
+                        responseInfo
+                    })
+                }
                 return
             }
+            
+            const responseInfo = {
+                headersSent: clientRes.headersSent,
+                finished: clientRes.finished,
+                destroyed: clientRes.destroyed,
+                writable: clientRes.writable
+            }
+            
+            logger.error('HTTP request handling failed', error, {
+                requestId: id,
+                duration,
+                component: 'http-handler',
+                url: clientReq.url,
+                method: clientReq.method,
+                responseInfo,
+                errorCode: (error as any)?.code,
+                errorErrno: (error as any)?.errno
+            })
+            
             this.onError(error, { id })
-            if (!clientRes.headersSent) {
-                clientRes.writeHead(500, 'Internal Server Error')
-                clientRes.end('Internal server error')
+            
+            try {
+                if (!clientRes.headersSent && clientRes.writable) {
+                    logger.debug('Sending 500 Internal Server Error response', {
+                        requestId: id,
+                        component: 'http-handler'
+                    })
+                    clientRes.writeHead(500, 'Internal Server Error')
+                    clientRes.end('Internal server error')
+                } else {
+                    logger.debug('Cannot send 500 response - headers already sent or not writable', {
+                        requestId: id,
+                        component: 'http-handler',
+                        responseInfo
+                    })
+                }
+            } catch (writeError) {
+                logger.error('Failed to send 500 Internal Server Error response', writeError, {
+                    requestId: id,
+                    component: 'http-handler',
+                    originalError: error instanceof Error ? error.message : String(error),
+                    responseInfo
+                })
             }
         }
     }
@@ -99,7 +192,8 @@ export class HttpHandler {
         reqCtx: RequestContext,
         clientReq: IncomingMessage,
         clientRes: http.ServerResponse,
-        requestBodyToSend?: Buffer
+        requestBodyToSend?: Buffer,
+        startTime?: number
     ): Promise<void> {
         try {
             const upRes = await this.upstreamHandler.sendRequest(
@@ -152,6 +246,10 @@ export class HttpHandler {
                     headers
                 )
             }
+
+            // Log response
+            const duration = startTime ? Date.now() - startTime : undefined
+            logger.logResponse(reqCtx.id, statusCode, duration)
         } catch (err) {
             this.upstreamHandler.handleUpstreamError(
                 err as Error,
@@ -166,7 +264,7 @@ export class HttpHandler {
         clientRes: http.ServerResponse,
         fullUrl: URL
     ): Promise<void> {
-        const port = fullUrl.port || (fullUrl.protocol === 'https:' ? 443 : 80)
+        const port = parseInt(fullUrl.port || '') || (fullUrl.protocol === 'https:' ? 443 : 80)
         const sanitizedHeaders = sanitizeHeaders(clientReq.headers)
         const options = {
             hostname: fullUrl.hostname,
@@ -177,17 +275,92 @@ export class HttpHandler {
         }
 
         const req = http.request(options, (res) => {
+            logger.debug('Direct tunnel HTTP response received', {
+                component: 'http-handler',
+                hostname: fullUrl.hostname,
+                port,
+                statusCode: res.statusCode,
+                statusMessage: res.statusMessage,
+                method: clientReq.method
+            })
+            
             clientRes.writeHead(res.statusCode || 200, res.statusMessage, res.headers)
             res.pipe(clientRes, { end: true })
+            
+            res.on('end', () => {
+                logger.debug('Direct tunnel HTTP response completed', {
+                    component: 'http-handler',
+                    hostname: fullUrl.hostname,
+                    port,
+                    statusCode: res.statusCode
+                })
+            })
         })
 
-        req.on('error', (_err) => {
-            if (!clientRes.headersSent) {
-                clientRes.writeHead(502, 'Bad Gateway')
-                clientRes.end('Error connecting to upstream server')
+        req.on('error', (err) => {
+            const responseInfo = {
+                headersSent: clientRes.headersSent,
+                finished: clientRes.finished,
+                destroyed: clientRes.destroyed,
+                writable: clientRes.writable
+            }
+            
+            logger.error('Direct tunnel connection failed', err, {
+                component: 'http-handler',
+                hostname: fullUrl.hostname,
+                port,
+                method: clientReq.method,
+                url: fullUrl.toString(),
+                responseInfo,
+                errorCode: (err as any)?.code,
+                errorErrno: (err as any)?.errno
+            })
+            
+            try {
+                if (!clientRes.headersSent && clientRes.writable) {
+                    logger.debug('Sending 502 Bad Gateway for direct tunnel error', {
+                        component: 'http-handler',
+                        hostname: fullUrl.hostname,
+                        port
+                    })
+                    clientRes.writeHead(502, 'Bad Gateway')
+                    clientRes.end('Error connecting to upstream server')
+                } else {
+                    logger.debug('Cannot send 502 response for direct tunnel - headers already sent or not writable', {
+                        component: 'http-handler',
+                        hostname: fullUrl.hostname,
+                        port,
+                        responseInfo
+                    })
+                }
+            } catch (writeError) {
+                logger.error('Failed to send 502 Bad Gateway response for direct tunnel', writeError, {
+                    component: 'http-handler',
+                    hostname: fullUrl.hostname,
+                    port,
+                    originalError: err.message,
+                    responseInfo
+                })
             }
         })
 
+        logger.debug('Starting direct tunnel HTTP request', {
+            component: 'http-handler',
+            hostname: fullUrl.hostname,
+            port,
+            method: clientReq.method,
+            path: fullUrl.pathname + fullUrl.search
+        })
+        
         clientReq.pipe(req, { end: true })
+        
+        req.on('finish', () => {
+            logger.debug('Direct tunnel HTTP request sent', {
+                component: 'http-handler',
+                hostname: fullUrl.hostname,
+                port,
+                method: clientReq.method
+            })
+        })
     }
 }
