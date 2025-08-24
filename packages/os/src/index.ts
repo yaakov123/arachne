@@ -27,6 +27,14 @@ export async function uninstallRootCATrust(): Promise<TrustResult> {
     return provider.uninstallRootCATrust()
 }
 
+export async function getTrustInstructions(certPath: string): Promise<{
+    trustCommand: string
+    untrustCommands: string[]
+}> {
+    const provider = OSProviderFactory.create()
+    return provider.getTrustInstructions(certPath)
+}
+
 export function platform(): Platform {
     const provider = OSProviderFactory.create()
     return provider.getPlatform()

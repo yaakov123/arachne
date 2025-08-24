@@ -21,6 +21,10 @@ export interface OSProvider {
     // Certificate trust management
     installRootCATrust(certPath: string): Promise<TrustResult>
     uninstallRootCATrust(): Promise<TrustResult>
+    getTrustInstructions(certPath: string): Promise<{
+        trustCommand: string
+        untrustCommands: string[]
+    }>
     
     // Network process tracking (future functionality)
     getProcessForConnection(localPort: number, remoteHost: string, remotePort: number): Promise<ProcessInfo | null>

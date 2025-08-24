@@ -74,28 +74,42 @@
             </div>
           </div>
           
-          <div class="control-group">
+          <!-- Trust Instructions -->
+          <div v-if="trustInstructions" class="control-group">
             <div class="control-info">
-              <h3>System Trust</h3>
-              <p>Install or remove the Root CA from your system's trust store</p>
+              <h3>System Trust Instructions</h3>
+              <p>Run these commands in your terminal to trust/untrust the Root CA</p>
             </div>
-            <div class="control-actions">
-              <button 
-                class="btn btn-success" 
-                :disabled="trustLoading"
-                @click="trustCA"
-              >
-                <span v-if="trustLoading" class="loading-spinner"></span>
-                Trust CA
-              </button>
-              <button 
-                class="btn btn-warning" 
-                :disabled="trustLoading"
-                @click="untrustCA"
-              >
-                <span v-if="trustLoading" class="loading-spinner"></span>
-                Untrust CA
-              </button>
+            <div class="trust-instructions">
+              <div class="instruction-section">
+                <h4>To Trust the CA:</h4>
+                <div class="command-block">
+                  <code>{{ trustInstructions.trustCommand }}</code>
+                  <button 
+                    class="btn btn-sm btn-outline" 
+                    @click="copyToClipboard(trustInstructions.trustCommand)"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              
+              <div v-if="trustInstructions.untrustCommands.length > 0" class="instruction-section">
+                <h4>To Untrust the CA:</h4>
+                <div v-for="(command, index) in trustInstructions.untrustCommands" :key="index" class="command-block">
+                  <code>{{ command }}</code>
+                  <button 
+                    class="btn btn-sm btn-outline" 
+                    @click="copyToClipboard(command)"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              
+              <div class="instruction-note">
+                <p><strong>Certificate Path:</strong> {{ trustInstructions.certPath }}</p>
+              </div>
             </div>
           </div>
           
@@ -128,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { api } from '@/services/http'
 
 // Proxy state
@@ -143,6 +157,11 @@ const trustLoading = ref(false)
 const caMessage = ref('')
 const caMessageType = ref<'success' | 'error' | 'info'>('info')
 const caCertPem = ref('')
+const trustInstructions = ref<{
+  trustCommand: string
+  untrustCommands: string[]
+  certPath: string
+} | null>(null)
 
 // Proxy methods
 async function checkProxyStatus() {
@@ -212,6 +231,8 @@ async function createCA() {
       if (response.certPem) {
         caCertPem.value = response.certPem
       }
+      // Load trust instructions after CA is created
+      await loadTrustInstructions()
     } else {
       caMessage.value = response.message || 'Failed to create CA'
       caMessageType.value = 'error'
@@ -224,37 +245,18 @@ async function createCA() {
   }
 }
 
-async function trustCA() {
-  trustLoading.value = true
-  caMessage.value = ''
-  
+async function loadTrustInstructions() {
   try {
-    const response = await api.trustCA()
-    caMessage.value = response.message
-    // Treat response as informational since we now provide manual commands
-    caMessageType.value = 'info'
+    const response = await api.getTrustInstructions()
+    if (response.ok) {
+      trustInstructions.value = {
+        trustCommand: response.trustCommand,
+        untrustCommands: response.untrustCommands,
+        certPath: response.certPath
+      }
+    }
   } catch (error) {
-    caMessage.value = error instanceof Error ? error.message : 'Unknown error occurred'
-    caMessageType.value = 'error'
-  } finally {
-    trustLoading.value = false
-  }
-}
-
-async function untrustCA() {
-  trustLoading.value = true
-  caMessage.value = ''
-  
-  try {
-    const response = await api.untrustCA()
-    caMessage.value = response.message
-    // Treat response as informational since we now provide manual commands
-    caMessageType.value = response.ok ? 'success' : 'info'
-  } catch (error) {
-    caMessage.value = error instanceof Error ? error.message : 'Unknown error occurred'
-    caMessageType.value = 'error'
-  } finally {
-    trustLoading.value = false
+    console.warn('Failed to load trust instructions:', error)
   }
 }
 
@@ -265,6 +267,17 @@ async function copyCertToClipboard() {
     caMessageType.value = 'success'
   } catch (error) {
     caMessage.value = 'Failed to copy to clipboard'
+    caMessageType.value = 'error'
+  }
+}
+
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    caMessage.value = 'Command copied to clipboard'
+    caMessageType.value = 'success'
+  } catch (error) {
+    caMessage.value = 'Failed to copy command to clipboard'
     caMessageType.value = 'error'
   }
 }
@@ -280,8 +293,11 @@ async function loadExistingCert() {
 }
 
 // Load cert and proxy status on component mount
-loadExistingCert()
-checkProxyStatus()
+onMounted(async () => {
+  await loadExistingCert()
+  await checkProxyStatus()
+  await loadTrustInstructions()
+})
 </script>
 
 <style scoped>
@@ -538,6 +554,59 @@ checkProxyStatus()
   outline: none;
   border-color: var(--primary-color, #3b82f6);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Trust Instructions Styles */
+.trust-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.instruction-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.instruction-section h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color, #1f2937);
+  margin: 0;
+}
+
+.command-block {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--surface-ground, #f9fafb);
+  border: 1px solid var(--surface-border, #e5e7eb);
+  border-radius: 8px;
+}
+
+.command-block code {
+  flex: 1;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  color: var(--text-color, #1f2937);
+  background: none;
+  padding: 0;
+  word-break: break-all;
+}
+
+.instruction-note {
+  padding: 0.75rem;
+  background: var(--blue-50, #eff6ff);
+  border: 1px solid var(--blue-200, #bfdbfe);
+  border-radius: 8px;
+}
+
+.instruction-note p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--blue-700, #1d4ed8);
 }
 
 @media (max-width: 768px) {

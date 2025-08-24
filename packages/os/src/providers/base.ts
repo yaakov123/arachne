@@ -11,6 +11,10 @@ export abstract class BaseOSProvider implements OSProvider {
     // Certificate trust methods (to be implemented by each platform)
     abstract installRootCATrust(certPath: string): Promise<TrustResult>
     abstract uninstallRootCATrust(): Promise<TrustResult>
+    abstract getTrustInstructions(certPath: string): Promise<{
+        trustCommand: string
+        untrustCommands: string[]
+    }>
 
     // Network process tracking (to be implemented by each platform)
     abstract getProcessForConnection(

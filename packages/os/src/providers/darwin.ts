@@ -128,6 +128,59 @@ export class DarwinOSProvider extends BaseOSProvider {
         }
     }
 
+    async getTrustInstructions(certPath: string): Promise<{
+        trustCommand: string
+        untrustCommands: string[]
+    }> {
+        // Generate trust command
+        const trustArgs = [
+            'add-trusted-cert',
+            '-d',
+            '-r',
+            'trustRoot',
+            '-k',
+            '/Library/Keychains/System.keychain',
+            certPath,
+        ]
+        const trustCommand = `sudo security ${trustArgs.map(this.escapeArg).join(' ')}`
+
+        // Find existing certificates to generate untrust commands
+        const untrustCommands: string[] = []
+        try {
+            const list = await this.runSecurity([
+                'find-certificate',
+                '-a',
+                '-Z',
+                '-c',
+                'Arachne Proxy Root CA',
+                '/Library/Keychains/System.keychain',
+            ])
+            
+            if (list.ok) {
+                const hashes = list.message
+                    .split('\n')
+                    .map((l) => l.match(/SHA-1 hash: ([A-F0-9]+)/)?.[1])
+                    .filter((h): h is string => !!h)
+
+                for (const hash of hashes) {
+                    untrustCommands.push(
+                        `sudo security delete-certificate -Z ${hash} /Library/Keychains/System.keychain`
+                    )
+                }
+            }
+        } catch {
+            // If we can't find existing certs, just provide the generic command
+            untrustCommands.push(
+                'sudo security find-certificate -a -Z -c "Arachne Proxy Root CA" /Library/Keychains/System.keychain'
+            )
+            untrustCommands.push(
+                'sudo security delete-certificate -Z <hash> /Library/Keychains/System.keychain'
+            )
+        }
+
+        return { trustCommand, untrustCommands }
+    }
+
     async uninstallRootCATrust(): Promise<TrustResult> {
         // Find all matching certs by common name in the System keychain
         const list = await this.runSecurity([

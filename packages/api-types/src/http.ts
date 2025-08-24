@@ -96,6 +96,13 @@ export interface CAErrorResponse {
   message: string
 }
 
+export interface CATrustInstructionsResponse {
+  ok: boolean
+  trustCommand: string
+  untrustCommands: string[]
+  certPath: string
+}
+
 export const HttpRoutes = {
   health: '/health',
   inventory: `${API_PREFIX}/inventory`,
@@ -110,4 +117,5 @@ export const HttpRoutes = {
   caCreate: `${API_PREFIX}/ca/create`,
   caTrust: `${API_PREFIX}/ca/trust`,
   caUntrust: `${API_PREFIX}/ca/untrust`,
+  caTrustInstructions: `${API_PREFIX}/ca/trust-instructions`,
 } as const

@@ -10,6 +10,7 @@ import type {
   ProxyStatusResponse,
   CACreateResponse,
   CATrustResponse,
+  CATrustInstructionsResponse,
 } from '@arachne/api-types'
 import { HttpRoutes } from '@arachne/api-types'
 
@@ -112,6 +113,13 @@ export class ApiClient {
 
   async untrustCA(): Promise<CATrustResponse> {
     const { data } = await this.http.post<CATrustResponse>(HttpRoutes.caUntrust, {}, {
+      headers: this.authHeaders(),
+    })
+    return data
+  }
+
+  async getTrustInstructions(): Promise<CATrustInstructionsResponse> {
+    const { data } = await this.http.get<CATrustInstructionsResponse>(HttpRoutes.caTrustInstructions, {
       headers: this.authHeaders(),
     })
     return data

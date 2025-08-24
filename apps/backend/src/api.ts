@@ -10,11 +10,11 @@ import type {
   ProxyStopResponse,
   ProxyErrorResponse,
   CACreateResponse,
-  CATrustResponse,
   CAErrorResponse,
+  CATrustInstructionsResponse,
   ProxyStatusResponse,
 } from '@arachne/api-types'
-import { installRootCATrust, uninstallRootCATrust, type TrustResult } from '@arachne/os'
+import { getTrustInstructions } from '@arachne/os'
 
 interface ApiOptions {
   prefix: string
@@ -140,40 +140,23 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
     }
   })
 
-  app.post(`${prefix}/ca/trust`, { preHandler: auth }, async (_req, rep) => {
+  app.get(`${prefix}/ca/trust-instructions`, { preHandler: auth }, async (_req, rep) => {
     try {
       // Ensure CA exists first
       await ca.ensureRootCA()
-      const result: TrustResult = await installRootCATrust(ca.certStore)
-      const response: CATrustResponse = {
-        ok: result.ok,
-        message: result.message,
-        code: result.code
+      const certPath = ca.certStore.caCertPath()
+      const instructions = await getTrustInstructions(certPath)
+      const response: CATrustInstructionsResponse = {
+        ok: true,
+        trustCommand: instructions.trustCommand,
+        untrustCommands: instructions.untrustCommands,
+        certPath
       }
       rep.send(response)
     } catch (error) {
       const response: CAErrorResponse = {
         ok: false,
-        error: 'Failed to trust Root CA',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      }
-      rep.code(500).send(response)
-    }
-  })
-
-  app.post(`${prefix}/ca/untrust`, { preHandler: auth }, async (_req, rep) => {
-    try {
-      const result: TrustResult = await uninstallRootCATrust()
-      const response: CATrustResponse = {
-        ok: result.ok,
-        message: result.message,
-        code: result.code
-      }
-      rep.send(response)
-    } catch (error) {
-      const response: CAErrorResponse = {
-        ok: false,
-        error: 'Failed to untrust Root CA',
+        error: 'Failed to get trust instructions',
         message: error instanceof Error ? error.message : 'Unknown error'
       }
       rep.code(500).send(response)
