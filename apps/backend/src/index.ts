@@ -10,6 +10,7 @@ import { createRecorderPlugin, FileStorageAdapter } from '@arachne/recorder'
 import { createBroadcastPlugin } from './broadcast-plugin'
 import { WsHub } from './ws-hub'
 import { registerApi } from './api'
+import { logger } from './logger'
 
 function envNum(name: string, def: number): number {
     const v = process.env[name]
@@ -36,6 +37,16 @@ async function main() {
 
     const REC_OUT_DIR = process.env['ARACHNE_REC_OUT_DIR']
     const REC_MAX_BYTES = envNum('ARACHNE_REC_MAX_BYTES', 1024 * 1024)
+
+    logger.info('Starting Arachne backend server', {
+        backendHost: BACKEND_HOST,
+        backendPort: BACKEND_PORT,
+        proxyHost: PROXY_HOST,
+        proxyPort: PROXY_PORT,
+        recMaxBytes: REC_MAX_BYTES,
+        hasToken: !!BACKEND_TOKEN,
+        recOutDir: REC_OUT_DIR
+    })
 
     const app = fastify({ logger: true })
 

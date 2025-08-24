@@ -7,6 +7,7 @@ import type {
 } from '@arachne/proxy'
 import { randomBytes } from 'node:crypto'
 import { WsHub } from './ws-hub'
+import { broadcastLogger, logger } from './logger'
 import type {
     RequestBodyEvent,
     RequestEvent,
@@ -202,6 +203,12 @@ export function createBroadcastPlugin(
             ? opts.maxSampleBytes
             : DEFAULT_MAX
 
+    // Log plugin initialization
+    logger.info('Initializing broadcast plugin', {
+        maxSampleBytes,
+        hubConnected: !!hub
+    })
+
     // Track ongoing transactions for completion events
     const transactions = new Map<string, TransactionState>()
 
@@ -249,6 +256,20 @@ export function createBroadcastPlugin(
                 },
             },
         }
+        // Log the broadcast event
+        broadcastLogger.info('Broadcasting transaction complete event', {
+            eventType: 'transactionComplete',
+            id,
+            method: transaction.method,
+            url: transaction.url.full,
+            statusCode: transaction.statusCode,
+            duration: ev.transaction.timing.duration,
+            requestSize: transaction.requestSize,
+            responseSize: transaction.responseSize,
+            hasRequestBody: transaction.hasRequestBody,
+            hasResponseBody: transaction.hasResponseBody
+        })
+        
         hub.broadcast(ev)
 
         // Clean up transaction state
@@ -287,6 +308,17 @@ export function createBroadcastPlugin(
                 rawHeaders: ctx.headers,
                 clientIp: ctx.clientIp,
             }
+            
+            // Log the broadcast event
+            broadcastLogger.info('Broadcasting request event', {
+                eventType: 'request',
+                id: ctx.id,
+                method: ctx.method,
+                url: parsedURL.full,
+                clientIp: ctx.clientIp,
+                timestamp
+            })
+            
             hub.broadcast(ev)
         },
 
@@ -319,6 +351,17 @@ export function createBroadcastPlugin(
                       }
                     : undefined,
             }
+            
+            // Log the broadcast event
+            broadcastLogger.info('Broadcasting response head event', {
+                eventType: 'responseHead',
+                id: ctx.id,
+                statusCode: ctx.statusCode,
+                statusMessage: ctx.statusMessage,
+                duration: transaction ? timestamp - transaction.requestStartTime : undefined,
+                timestamp
+            })
+            
             hub.broadcast(ev)
         },
 
@@ -344,6 +387,17 @@ export function createBroadcastPlugin(
                 content,
                 sample,
             }
+            
+            // Log the broadcast event
+            broadcastLogger.info('Broadcasting request body event', {
+                eventType: 'requestBody',
+                id: ctx.id,
+                contentType: content.contentType,
+                size: content.size,
+                detectedFormat: content.detectedFormat,
+                truncated: content.truncated
+            })
+            
             hub.broadcast(ev)
         },
 
@@ -369,6 +423,17 @@ export function createBroadcastPlugin(
                 content,
                 sample,
             }
+            
+            // Log the broadcast event
+            broadcastLogger.info('Broadcasting response body event', {
+                eventType: 'responseBody',
+                id: ctx.id,
+                contentType: content.contentType,
+                size: content.size,
+                detectedFormat: content.detectedFormat,
+                truncated: content.truncated
+            })
+            
             hub.broadcast(ev)
         },
 
@@ -389,6 +454,16 @@ export function createBroadcastPlugin(
                     stack: err instanceof Error ? err.stack : undefined,
                     phase: 'connection' as const, // Could be enhanced based on context
                 }
+                
+                // Log the broadcast event
+                broadcastLogger.error('Broadcasting error event', {
+                    eventType: 'error',
+                    id: ev.id,
+                    message: ev.message,
+                    phase: ev.phase,
+                    contextId: ctx?.id
+                })
+                
                 hub.broadcast(ev)
 
                 // Complete transaction if we have an ID

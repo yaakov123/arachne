@@ -19,10 +19,12 @@
     "@arachne/recorder": "*",
     "@fastify/cors": "^11.1.0",
     "@fastify/websocket": "^11.2.0",
-    "fastify": "^5.5.0"
+    "fastify": "^5.5.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/winston": "^2.4.4",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   }
