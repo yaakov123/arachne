@@ -22,7 +22,7 @@ const transactionsStore = useTransactionsStore()
 
 <style scoped>
 .request-response-viewer {
-    height: 40vh;
+    height: 100%;
     background: var(--surface-card);
     margin: 0 var(--space-sm) var(--space-sm) var(--space-sm);
     border-radius: var(--radius-lg);

@@ -23,7 +23,7 @@ const transactionsStore = useTransactionsStore()
 
 <style scoped>
 .traffic-list {
-    flex: 1;
+    height: 100%;
     display: flex;
     flex-direction: column;
     background: var(--surface-card);

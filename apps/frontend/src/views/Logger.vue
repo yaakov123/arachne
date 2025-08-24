@@ -3,20 +3,39 @@
         <HostsSidebar />
         
         <main class="logger-main">
-            <TrafficList />
-            <RequestResponseViewer />
+            <div ref="trafficListContainer" class="traffic-list-container">
+                <TrafficList />
+            </div>
+            <template v-if="transactionsStore.selectedTransaction">
+                <Resizer 
+                    direction="vertical"
+                    :first-element="trafficListContainer"
+                    :second-element="requestResponseContainer"
+                    :min-size="150"
+                    :initial-first-size="400"
+                    :initial-second-size="300"
+                />
+                <div ref="requestResponseContainer" class="request-response-container">
+                    <RequestResponseViewer />
+                </div>
+            </template>
         </main>
     </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import HostsSidebar from '../components/HostsSidebar.vue'
 import TrafficList from '../components/TrafficList.vue'
 import RequestResponseViewer from '../components/RequestResponseViewer.vue'
+import Resizer from '../components/Resizer.vue'
 import { useTransactionsStore } from '../stores/transactions'
 
 const transactionsStore = useTransactionsStore()
+
+// Element references
+const trafficListContainer = ref<HTMLElement>()
+const requestResponseContainer = ref<HTMLElement>()
 
 // Lifecycle
 onMounted(async () => {
@@ -46,4 +65,18 @@ onUnmounted(() => {
     flex-direction: column;
     overflow: hidden;
 }
+
+.traffic-list-container {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* Take full height when no resizer is present */
+}
+
+.request-response-container {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
 </style>
