@@ -129,13 +129,13 @@ onMounted(() => {
 }
 
 .resizer--vertical {
-    height: 8px;
+    height: 6px;
     cursor: row-resize;
     flex-direction: row;
 }
 
 .resizer--horizontal {
-    width: 8px;
+    width: 6px;
     cursor: col-resize;
     flex-direction: column;
 }
@@ -150,22 +150,24 @@ onMounted(() => {
 
 .resizer__handle {
     background: var(--text-color-muted, #6b7280);
-    border-radius: 2px;
+    border-radius: 1px;
     transition: background-color 0.2s ease;
+    opacity: 0.8;
 }
 
 .resizer--vertical .resizer__handle {
-    width: 40px;
-    height: 3px;
+    width: 24px;
+    height: 2px;
 }
 
 .resizer--horizontal .resizer__handle {
-    width: 3px;
-    height: 40px;
+    width: 2px;
+    height: 24px;
 }
 
 .resizer:hover .resizer__handle,
 .resizer--resizing .resizer__handle {
     background: white;
+    opacity: 1;
 }
 </style>
