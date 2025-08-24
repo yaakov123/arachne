@@ -1,15 +1,14 @@
 <template>
     <div class="app-shell">
         <header class="app-header">
-            <div class="logo">
-                <h1>Arachne</h1>
-            </div>
+
             <nav class="main-nav">
                 <RouterLink to="/">Traffic Logger</RouterLink>
-                <RouterLink to="/settings">Settings</RouterLink>
             </nav>
             <div class="header-actions">
-                <ThemeToggle />
+                <RouterLink to="/settings" class="settings-icon" title="Settings">
+                    <Settings :size="16" />
+                </RouterLink>
             </div>
         </header>
         
@@ -21,7 +20,7 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import { Settings } from 'lucide-vue-next'
 </script>
 
 <style scoped>
@@ -38,8 +37,8 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1.5rem;
-    height: 64px;
+    padding: 0 0.75rem;
+    height: 32px;
     background-color: var(--surface-card, #ffffff);
     border-bottom: 1px solid var(--surface-border, #dee2e6);
     flex-shrink: 0;
@@ -47,7 +46,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 
 .logo h1 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1rem;
     font-weight: 600;
 }
 
@@ -60,7 +59,8 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
     color: var(--text-color, #495057);
     text-decoration: none;
     font-weight: 500;
-    padding: 0.5rem 0;
+    font-size: 0.875rem;
+    padding: 0.25rem 0;
     border-bottom: 2px solid transparent;
     transition: all 0.2s ease;
 }
@@ -76,6 +76,26 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
     align-items: center;
     gap: 1rem;
 }
+
+.settings-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    color: var(--text-color-secondary, #6c757d);
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.settings-icon:hover {
+    color: var(--primary-color, #3B82F6);
+    background-color: var(--surface-hover, #f8f9fa);
+}
+
+
 
 /* Main content area - will expand to fill available space */
 .app-content {

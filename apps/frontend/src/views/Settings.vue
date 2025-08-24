@@ -6,6 +6,26 @@
     </div>
 
     <div class="settings-content">
+      <!-- Appearance Section -->
+      <div class="settings-section">
+        <div class="section-header">
+          <h2>Appearance</h2>
+          <p>Customize the application's visual appearance</p>
+        </div>
+        
+        <div class="section-content">
+          <div class="control-group">
+            <div class="control-info">
+              <h3>Theme</h3>
+              <p>Switch between light and dark mode</p>
+            </div>
+            <div class="control-actions">
+              <ThemeToggle />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Proxy Management Section -->
       <div class="settings-section">
         <div class="section-header">
@@ -148,6 +168,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api } from '@/services/http'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 // Proxy state
 const proxyLoading = ref(false)

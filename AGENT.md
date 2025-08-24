@@ -35,8 +35,7 @@ This is a TypeScript monorepo for web traffic analysis via MITM proxy, consistin
 
 ### Applications (`apps/`)
 - **`@arachne/backend`** - Fastify server with WebSocket hub, integrates proxy + recorder, provides REST API
-- **`@arachne/frontend`** - Vue 3 SPA with PrimeVue components for traffic analysis UI
-
+- **`@arachne/frontend`** - Vue 3 SPA
 ### Key Architecture Patterns
 
 **Plugin System**: The proxy uses a plugin architecture where traffic events (connect, request, response) flow through registered plugins. The recorder plugin writes to NDJSON files, while the broadcast plugin sends real-time data to connected WebSocket clients.
@@ -50,7 +49,7 @@ This is a TypeScript monorepo for web traffic analysis via MITM proxy, consistin
 ## Technology Stack
 
 - **Build**: Turbo (orchestration), Vite (frontend), tsx (backend dev)
-- **Frontend**: Vue 3, PrimeVue UI, Pinia (state), Vue Router, Axios
+- **Frontend**: Vue 3, Pinia (state), Vue Router, Axios
 - **Backend**: Fastify, WebSockets, node-forge (certificates)
 - **Testing**: Vitest for unit tests, custom e2e setup
 - **Linting**: ESLint with TypeScript and Vue support
