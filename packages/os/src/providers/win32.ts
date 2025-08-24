@@ -1,5 +1,5 @@
 import { BaseOSProvider } from './base.js'
-import type { ProcessInfo, TrustResult } from '../types.js'
+import type { ProcessInfo } from '../types.js'
 
 export class Win32OSProvider extends BaseOSProvider {
     protected platformName = 'win32' as const
@@ -12,20 +12,16 @@ export class Win32OSProvider extends BaseOSProvider {
         console.warn('[Arachne] System proxy not supported on Windows yet')
     }
 
-    async installRootCATrust(_certPath: string): Promise<TrustResult> {
+
+    async getTrustInstructions(certPath: string): Promise<{ trustCommand: string; untrustCommands: string[] }> {
         return {
-            ok: false,
-            message:
-                'Windows trust installation not implemented yet. Please import the CA into Trusted Root Certification Authorities manually.',
+            trustCommand: this.getWin32InstallInstructions(certPath),
+            untrustCommands: [],
         }
     }
 
-    async uninstallRootCATrust(): Promise<TrustResult> {
-        return {
-            ok: false,
-            message:
-                'Windows trust removal not implemented. Please remove the CA from the Trusted Root Certification Authorities store manually.',
-        }
+    private getWin32InstallInstructions(certPath: string): string {
+        return `certutil -addstore "TrustedPublisher" "${certPath}"`
     }
 
     async getProcessForConnection(

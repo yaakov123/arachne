@@ -107,26 +107,7 @@ export class DarwinOSProvider extends BaseOSProvider {
         }
     }
 
-    async installRootCATrust(certPath: string): Promise<TrustResult> {
-        // Provide manual command for user to run instead of automated installation
-        const args = [
-            'add-trusted-cert',
-            '-d',
-            '-r',
-            'trustRoot',
-            '-k',
-            '/Library/Keychains/System.keychain',
-            certPath,
-        ]
 
-        const command = `sudo security ${args.map(this.escapeArg).join(' ')}`
-        
-        return {
-            ok: false,
-            message: `To trust the Root CA certificate, please run this command in your terminal:\n\n${command}\n\nThis will add the certificate to your System keychain and mark it as trusted for SSL.`,
-            code: null,
-        }
-    }
 
     async getTrustInstructions(certPath: string): Promise<{
         trustCommand: string
@@ -181,47 +162,6 @@ export class DarwinOSProvider extends BaseOSProvider {
         return { trustCommand, untrustCommands }
     }
 
-    async uninstallRootCATrust(): Promise<TrustResult> {
-        // Find all matching certs by common name in the System keychain
-        const list = await this.runSecurity([
-            'find-certificate',
-            '-a',
-            '-Z',
-            '-c',
-            'Arachne Proxy Root CA',
-            '/Library/Keychains/System.keychain',
-        ])
-        if (!list.ok) {
-            return {
-                ok: false,
-                message: `To remove Arachne Root CA certificates, please run:\n\nsudo security find-certificate -a -Z -c "Arachne Proxy Root CA" /Library/Keychains/System.keychain\n\nThen for each SHA-1 hash found, run:\nsudo security delete-certificate -Z <hash> /Library/Keychains/System.keychain`,
-                code: list.code,
-            }
-        }
-
-        const hashes = list.message
-            .split('\n')
-            .map((l) => l.match(/SHA-1 hash: ([A-F0-9]+)/)?.[1])
-            .filter((h): h is string => !!h)
-
-        if (hashes.length === 0) {
-            return {
-                ok: true,
-                message: 'No matching Arachne Root CA found in System keychain.',
-            }
-        }
-
-        // Provide manual commands for each certificate found
-        const commands = hashes.map(h => 
-            `sudo security delete-certificate -Z ${h} /Library/Keychains/System.keychain`
-        ).join('\n')
-
-        return {
-            ok: false,
-            message: `Found ${hashes.length} Arachne Root CA certificate(s). To remove them, please run these commands in your terminal:\n\n${commands}`,
-            code: null,
-        }
-    }
 
     async getProcessForConnection(
         _localPort: number,

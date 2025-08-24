@@ -1,5 +1,5 @@
 import { platform } from 'node:os'
-import type { OSProvider, ProcessInfo, TrustResult, Platform } from '../types.js'
+import type { OSProvider, ProcessInfo, Platform } from '../types.js'
 
 export abstract class BaseOSProvider implements OSProvider {
     protected abstract platformName: Platform
@@ -8,9 +8,7 @@ export abstract class BaseOSProvider implements OSProvider {
     abstract enableSystemProxy(host: string, port: number): Promise<void>
     abstract disableSystemProxy(): Promise<void>
 
-    // Certificate trust methods (to be implemented by each platform)
-    abstract installRootCATrust(certPath: string): Promise<TrustResult>
-    abstract uninstallRootCATrust(): Promise<TrustResult>
+
     abstract getTrustInstructions(certPath: string): Promise<{
         trustCommand: string
         untrustCommands: string[]

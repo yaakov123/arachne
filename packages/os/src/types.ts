@@ -18,9 +18,7 @@ export interface OSProvider {
     enableSystemProxy(host: string, port: number): Promise<void>
     disableSystemProxy(): Promise<void>
     
-    // Certificate trust management
-    installRootCATrust(certPath: string): Promise<TrustResult>
-    uninstallRootCATrust(): Promise<TrustResult>
+
     getTrustInstructions(certPath: string): Promise<{
         trustCommand: string
         untrustCommands: string[]
