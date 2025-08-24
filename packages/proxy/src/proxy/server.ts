@@ -7,6 +7,8 @@ import { PluginManager } from './plugin-manager'
 import { TlsManager } from './tls-manager'
 import { HttpHandler } from './http-handler'
 import { ServerLifecycleManager, type ServerInfo } from './server-lifecycle'
+import { WebSocketHandler } from '../websocket/handler.js'
+import { isWebSocketUpgrade } from '../websocket/utils.js'
 import { logger } from '../logger'
 
 export interface ProxyOptions {
@@ -24,6 +26,7 @@ export class MitmProxyServer {
     private pluginManager: PluginManager
     private tlsManager: TlsManager
     private httpHandler: HttpHandler
+    private webSocketHandler: WebSocketHandler
     private lifecycleManager: ServerLifecycleManager
 
     constructor(private opts: ProxyOptions = {}) {
@@ -43,6 +46,12 @@ export class MitmProxyServer {
             this.handleError.bind(this),
             opts.ignoredHosts
         )
+        
+        this.webSocketHandler = new WebSocketHandler(
+            this.pluginManager,
+            this.handleError.bind(this),
+            { ignoredHosts: opts.ignoredHosts }
+        )
 
         this.httpServer = http.createServer((req, res) => {
             this.httpHandler.handleHttpRequest(req, res, false).catch((err) =>
@@ -52,13 +61,28 @@ export class MitmProxyServer {
 
         this.lifecycleManager = new ServerLifecycleManager(this.httpServer)
 
-        // HTTPS tunneling via CONNECT
+        // HTTPS tunneling via CONNECT and WebSocket upgrades
         this.httpServer.on(
             'connect',
             (req: IncomingMessage, clientSocket: net.Socket, head: Buffer) => {
                 this.tlsManager.handleConnect(req, clientSocket, head).catch((err) =>
                     this.handleError(err, {})
                 )
+            }
+        )
+
+        // WebSocket upgrade handling
+        this.httpServer.on(
+            'upgrade',
+            (req: IncomingMessage, clientSocket: net.Socket, head: Buffer) => {
+                if (isWebSocketUpgrade(req)) {
+                    this.webSocketHandler.handleWebSocketUpgrade(req, clientSocket, head).catch((err) =>
+                        this.handleError(err, { url: req.url, host: req.headers.host })
+                    )
+                } else {
+                    // Handle other upgrade requests
+                    clientSocket.end('HTTP/1.1 501 Not Implemented\r\n\r\n')
+                }
             }
         )
 
@@ -112,6 +136,8 @@ export class MitmProxyServer {
     }
 
     async stop(): Promise<void> {
+        // Stop WebSocket handler first to close all WS connections
+        await this.webSocketHandler.stop()
         return await this.lifecycleManager.stop()
     }
 
@@ -135,6 +161,12 @@ export class MitmProxyServer {
 
     addPlugin(p: ProxyPlugin): void {
         this.pluginManager.addPlugin(p)
+    }
+
+    getWebSocketStats(): { activeConnections: number } {
+        return {
+            activeConnections: this.webSocketHandler.getActiveConnectionCount()
+        }
     }
 
     private handleError(err: unknown, ctx: any): void {

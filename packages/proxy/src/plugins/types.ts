@@ -51,8 +51,38 @@ export interface ConnectContext {
     clientIp?: string
 }
 
+export interface WebSocketUpgradeContext {
+    id: string
+    isHttps: boolean
+    url: URL
+    method: string
+    headers: Record<string, string | string[]>
+    clientIp?: string
+    // WebSocket specific properties
+    protocols?: string[]
+    extensions?: string[]
+}
+
+export interface WebSocketMessageContext extends WebSocketUpgradeContext {
+    connectionId: string
+    direction: 'client-to-server' | 'server-to-client'
+    messageType: 'text' | 'binary' | 'ping' | 'pong' | 'close'
+    payload: Buffer
+    // For text messages, decoded content
+    textContent?: string
+    timestamp: number
+}
+
+export interface WebSocketCloseContext extends WebSocketUpgradeContext {
+    connectionId: string
+    code?: number
+    reason?: string
+    timestamp: number
+}
+
 export interface ProxyPlugin {
     name: string
+    // HTTP/HTTPS hooks
     onConnect?(ctx: ConnectContext): HookResult
     onRequest?(ctx: RequestContext): HookResult
     onResponse?(ctx: ResponseContext): HookResult
@@ -62,5 +92,10 @@ export interface ProxyPlugin {
     // Called exactly once when the response is complete (after onResponseBody if body exists, or immediately if no body)
     onResponseComplete?(ctx: ResponseContext): HookResult
 
-    onError?(err: unknown, ctx: Partial<RequestContext & ConnectContext>): void
+    // WebSocket hooks
+    onWebSocketUpgrade?(ctx: WebSocketUpgradeContext): HookResult
+    onWebSocketMessage?(ctx: WebSocketMessageContext): HookResult
+    onWebSocketClose?(ctx: WebSocketCloseContext): HookResult
+
+    onError?(err: unknown, ctx: Partial<RequestContext & ConnectContext & WebSocketUpgradeContext>): void
 }

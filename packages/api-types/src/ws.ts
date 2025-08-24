@@ -9,6 +9,9 @@ export type BackendEvent =
     | ResponseBodyEvent
     | ErrorEvent
     | TransactionCompleteEvent
+    | WebSocketUpgradeEvent
+    | WebSocketMessageEvent
+    | WebSocketCloseEvent
 
 export interface BaseEvent {
     type:
@@ -18,6 +21,9 @@ export interface BaseEvent {
         | 'responseBody'
         | 'error'
         | 'transactionComplete'
+        | 'webSocketUpgrade'
+        | 'webSocketMessage'
+        | 'webSocketClose'
     id: string // proxy ctx.id
     ts: string // ISO timestamp
 }
@@ -155,6 +161,32 @@ export interface TransactionCompleteEvent extends BaseEvent {
     type: 'transactionComplete'
     transaction: TransactionData
     dependencies?: TransactionDependency[]
+}
+
+export interface WebSocketUpgradeEvent extends BaseEvent {
+    type: 'webSocketUpgrade'
+    url: RequestURL
+    protocols: string[]
+    headers: DisplayHeader[]
+    connectionId: string
+}
+
+export interface WebSocketMessageEvent extends BaseEvent {
+    type: 'webSocketMessage'
+    connectionId: string
+    direction: 'client-to-server' | 'server-to-client'
+    messageType: 'text' | 'binary' | 'ping' | 'pong' | 'close'
+    content: ContentInfo
+    sample: string
+    timestamp: number
+}
+
+export interface WebSocketCloseEvent extends BaseEvent {
+    type: 'webSocketClose'
+    connectionId: string
+    code?: number
+    reason?: string
+    timestamp: number
 }
 
 export interface ClientHello {

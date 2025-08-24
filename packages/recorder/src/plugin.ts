@@ -4,6 +4,9 @@ import type {
     ResponseContext,
     RequestBodyContext,
     ResponseBodyContext,
+    WebSocketUpgradeContext,
+    WebSocketMessageContext,
+    WebSocketCloseContext,
 } from '@arachne/proxy'
 import type { RecorderOptions, StorageAdapter } from './types.js'
 import { FileStorageAdapter } from './storage/file.js'
@@ -48,6 +51,22 @@ export function createRecorderPlugin(
             )
             storage.recordResponseBody?.(ctx, sample)
         },
+        // WebSocket hooks
+        async onWebSocketUpgrade(ctx: WebSocketUpgradeContext) {
+            storage.recordWebSocketUpgrade?.(ctx)
+        },
+        async onWebSocketMessage(ctx: WebSocketMessageContext) {
+            const sample = webSocketMessageToSampleString(
+                ctx.payload,
+                ctx.messageType,
+                ctx.textContent,
+                maxCaptureBytes
+            )
+            storage.recordWebSocketMessage?.(ctx, sample)
+        },
+        async onWebSocketClose(ctx: WebSocketCloseContext) {
+            storage.recordWebSocketClose?.(ctx)
+        },
         // Intentionally no-op; could add logging here later
         onError(_err: unknown, _ctx: unknown) {},
     }
@@ -75,4 +94,34 @@ function bodyToSampleString(
         }
     }
     return 'base64:' + slice.toString('base64')
+}
+
+function webSocketMessageToSampleString(
+    payload: Buffer,
+    messageType: 'text' | 'binary' | 'ping' | 'pong' | 'close',
+    textContent?: string,
+    max = DEFAULT_MAX
+): string {
+    // For ping, pong, and close frames, return a simple indicator
+    if (messageType === 'ping') return '[PING]'
+    if (messageType === 'pong') return '[PONG]'
+    if (messageType === 'close') return '[CLOSE]'
+    
+    // For text messages, use the decoded text content if available
+    if (messageType === 'text' && textContent !== undefined) {
+        return textContent.length > max 
+            ? textContent.slice(0, max) + '...[truncated]'
+            : textContent
+    }
+    
+    // For binary messages or when text decoding failed, use base64 with prefix
+    const base64 = payload.toString('base64')
+    if (base64.length > max) {
+        // Estimate character count for truncated base64
+        const truncatedBytes = Math.floor((max - 20) * 3 / 4) // Account for base64 expansion
+        const truncated = payload.slice(0, truncatedBytes).toString('base64')
+        return `base64:${truncated}...[truncated]`
+    }
+    
+    return `base64:${base64}`
 }

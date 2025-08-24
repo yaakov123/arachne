@@ -4,6 +4,9 @@ import type {
     ResponseContext,
     RequestBodyContext,
     ResponseBodyContext,
+    WebSocketUpgradeContext,
+    WebSocketMessageContext,
+    WebSocketCloseContext,
 } from '@arachne/proxy'
 import { randomBytes } from 'node:crypto'
 import { WsHub } from './ws-hub'
@@ -14,6 +17,9 @@ import type {
     ResponseBodyEvent,
     ResponseHeadEvent,
     TransactionCompleteEvent,
+    WebSocketUpgradeEvent,
+    WebSocketMessageEvent,
+    WebSocketCloseEvent,
     DisplayHeader,
     ContentInfo,
     RequestURL,
@@ -146,6 +152,82 @@ function bodyToContentInfo(
                 contentEncoding.toLowerCase()
             )
         ),
+    }
+
+    return { content, sample }
+}
+
+function webSocketMessageToContentInfo(
+    payload: Buffer,
+    messageType: 'text' | 'binary' | 'ping' | 'pong' | 'close',
+    textContent?: string,
+    max = DEFAULT_MAX
+): { content: ContentInfo; sample: string } {
+    // Handle control frames
+    if (messageType === 'ping') {
+        return {
+            content: {
+                size: payload.length,
+                sampleSize: payload.length,
+                truncated: false,
+                detectedFormat: 'text',
+                encoding: 'utf8'
+            },
+            sample: '[PING]'
+        }
+    }
+    
+    if (messageType === 'pong') {
+        return {
+            content: {
+                size: payload.length,
+                sampleSize: payload.length,
+                truncated: false,
+                detectedFormat: 'text',
+                encoding: 'utf8'
+            },
+            sample: '[PONG]'
+        }
+    }
+    
+    if (messageType === 'close') {
+        return {
+            content: {
+                size: payload.length,
+                sampleSize: payload.length,
+                truncated: false,
+                detectedFormat: 'text',
+                encoding: 'utf8'
+            },
+            sample: '[CLOSE]'
+        }
+    }
+
+    const truncated = payload.length > max
+    const slice = truncated ? payload.subarray(0, max) : payload
+
+    let sample: string
+    let encoding: 'utf8' | 'base64' = 'base64'
+    let detectedFormat: ContentInfo['detectedFormat'] = 'binary'
+
+    // For text messages, try to use the decoded content
+    if (messageType === 'text' && textContent !== undefined) {
+        sample = truncated ? textContent.slice(0, max) + '...[truncated]' : textContent
+        encoding = 'utf8'
+        detectedFormat = detectContentFormat(undefined, sample)
+    } else {
+        // For binary messages, use base64
+        sample = 'base64:' + slice.toString('base64')
+        encoding = 'base64'
+        detectedFormat = 'binary'
+    }
+
+    const content: ContentInfo = {
+        size: payload.length,
+        sampleSize: encoding === 'utf8' ? sample.length : slice.length,
+        truncated,
+        detectedFormat,
+        encoding
     }
 
     return { content, sample }
@@ -451,6 +533,102 @@ export function createBroadcastPlugin(
         async onResponseComplete(ctx: ResponseContext) {
             // Response is fully processed - send transaction complete event
             completeTransaction(ctx.id)
+        },
+
+        async onWebSocketUpgrade(ctx: WebSocketUpgradeContext) {
+            // Convert URL to RequestURL format
+            const url: RequestURL = {
+                full: ctx.url.toString(),
+                protocol: ctx.url.protocol,
+                host: ctx.url.hostname,
+                port: ctx.url.port ? parseInt(ctx.url.port) : undefined,
+                path: ctx.url.pathname,
+                query: ctx.url.search,
+                fragment: ctx.url.hash
+            }
+
+            // Convert headers to DisplayHeader format
+            const headers: DisplayHeader[] = Object.entries(ctx.headers).flatMap(([name, value]) => {
+                const values = Array.isArray(value) ? value : [value]
+                return values.map(v => ({
+                    name,
+                    value: v,
+                    sensitive: SENSITIVE_HEADERS.has(name.toLowerCase())
+                }))
+            })
+
+            const ev: WebSocketUpgradeEvent = {
+                type: 'webSocketUpgrade',
+                id: ctx.id,
+                ts: nowIso(),
+                url,
+                protocols: ctx.protocols || [],
+                headers,
+                connectionId: ctx.id
+            }
+            
+            broadcastLogger.info('Broadcasting WebSocket upgrade event', {
+                eventType: 'webSocketUpgrade',
+                id: ctx.id,
+                url: ctx.url.toString(),
+                protocols: ctx.protocols
+            })
+            
+            hub.broadcast(ev)
+        },
+
+        async onWebSocketMessage(ctx: WebSocketMessageContext) {
+            const { content, sample } = webSocketMessageToContentInfo(
+                ctx.payload,
+                ctx.messageType,
+                ctx.textContent,
+                maxSampleBytes
+            )
+
+            const ev: WebSocketMessageEvent = {
+                type: 'webSocketMessage',
+                id: ctx.id,
+                ts: nowIso(),
+                connectionId: ctx.connectionId,
+                direction: ctx.direction,
+                messageType: ctx.messageType,
+                content,
+                sample,
+                timestamp: ctx.timestamp
+            }
+            
+            broadcastLogger.debug('Broadcasting WebSocket message event', {
+                eventType: 'webSocketMessage',
+                id: ctx.id,
+                connectionId: ctx.connectionId,
+                direction: ctx.direction,
+                messageType: ctx.messageType,
+                size: content.size
+            })
+            
+            hub.broadcast(ev)
+        },
+
+        async onWebSocketClose(ctx: WebSocketCloseContext) {
+            const ev: WebSocketCloseEvent = {
+                type: 'webSocketClose',
+                id: ctx.id,
+                ts: nowIso(),
+                connectionId: ctx.connectionId,
+                code: ctx.code,
+                reason: ctx.reason,
+                timestamp: ctx.timestamp
+            }
+            
+            broadcastLogger.info('Broadcasting WebSocket close event', {
+                eventType: 'webSocketClose',
+                id: ctx.id,
+                connectionId: ctx.connectionId,
+                code: ctx.code,
+                reason: ctx.reason
+            })
+            
+            hub.broadcast(ev)
         },
 
         onError(err: unknown, ctx: Partial<RequestContext>) {

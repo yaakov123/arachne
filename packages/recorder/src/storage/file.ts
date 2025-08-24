@@ -6,10 +6,14 @@ import type {
     InventoryTree,
     HostRecord,
     EndpointRecord,
+    WebSocketConnectionRecord,
     RequestContext,
     ResponseContext,
     RequestBodyContext,
     ResponseBodyContext,
+    WebSocketUpgradeContext,
+    WebSocketMessageContext,
+    WebSocketCloseContext,
 } from '../types.js'
 
 export interface FileAdapterOptions {
@@ -43,9 +47,30 @@ interface MutableEndpointAggregate {
     interactions: Map<string, MutableInteraction>
 }
 
+interface MutableWebSocketMessage {
+    id: string
+    timestamp: number
+    direction: 'client-to-server' | 'server-to-client'
+    messageType: 'text' | 'binary' | 'ping' | 'pong' | 'close'
+    size: number
+    payload?: string
+}
+
+interface MutableWebSocketConnection {
+    id: string
+    url: string
+    protocols: string[]
+    startTime: number
+    endTime?: number
+    state: 'open' | 'closed'
+    messageCount: number
+    messages: Map<string, MutableWebSocketMessage>
+}
+
 interface MutableHostAggregate {
     host: string
     endpoints: Map<EndpointKey, MutableEndpointAggregate>
+    websockets: Map<string, MutableWebSocketConnection>
 }
 
 export class FileStorageAdapter implements StorageAdapter {
@@ -136,6 +161,45 @@ export class FileStorageAdapter implements StorageAdapter {
         void this.enqueueWriteHost(host)
     }
 
+    recordWebSocketUpgrade(ctx: WebSocketUpgradeContext): void {
+        const now = Date.now()
+        const host = ctx.url.hostname
+        const wsConnection = this.getWebSocketConnection(host, ctx.id, ctx.url.toString(), ctx.protocols || [])
+        wsConnection.startTime = now
+        wsConnection.state = 'open'
+
+        void this.enqueueWriteHost(host)
+    }
+
+    recordWebSocketMessage(ctx: WebSocketMessageContext, sample: string): void {
+        const host = ctx.url.hostname
+        const wsConnection = this.getWebSocketConnection(host, ctx.connectionId, ctx.url.toString(), ctx.protocols || [])
+        
+        const messageId = `${ctx.connectionId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const message: MutableWebSocketMessage = {
+            id: messageId,
+            timestamp: ctx.timestamp,
+            direction: ctx.direction,
+            messageType: ctx.messageType,
+            size: ctx.payload.length,
+            payload: sample
+        }
+
+        wsConnection.messages.set(messageId, message)
+        wsConnection.messageCount += 1
+
+        void this.enqueueWriteHost(host)
+    }
+
+    recordWebSocketClose(ctx: WebSocketCloseContext): void {
+        const host = ctx.url.hostname
+        const wsConnection = this.getWebSocketConnection(host, ctx.connectionId, ctx.url.toString(), ctx.protocols || [])
+        wsConnection.endTime = ctx.timestamp
+        wsConnection.state = 'closed'
+
+        void this.enqueueWriteHost(host)
+    }
+
     // Ensure a MutableInteraction exists for this endpoint and context id
     private ensureInteraction(
         ep: MutableEndpointAggregate,
@@ -189,7 +253,7 @@ export class FileStorageAdapter implements StorageAdapter {
     ): MutableEndpointAggregate {
         let hostAgg = this.hosts.get(host)
         if (!hostAgg) {
-            hostAgg = { host, endpoints: new Map() }
+            hostAgg = { host, endpoints: new Map(), websockets: new Map() }
             this.hosts.set(host, hostAgg)
         }
         const key: EndpointKey = `${method} ${path}`
@@ -206,6 +270,34 @@ export class FileStorageAdapter implements StorageAdapter {
             hostAgg.endpoints.set(key, ep)
         }
         return ep
+    }
+
+    private getWebSocketConnection(
+        host: string,
+        connectionId: string,
+        url: string,
+        protocols: string[]
+    ): MutableWebSocketConnection {
+        let hostAgg = this.hosts.get(host)
+        if (!hostAgg) {
+            hostAgg = { host, endpoints: new Map(), websockets: new Map() }
+            this.hosts.set(host, hostAgg)
+        }
+        
+        let wsConnection = hostAgg.websockets.get(connectionId)
+        if (!wsConnection) {
+            wsConnection = {
+                id: connectionId,
+                url,
+                protocols,
+                startTime: 0,
+                state: 'open',
+                messageCount: 0,
+                messages: new Map(),
+            }
+            hostAgg.websockets.set(connectionId, wsConnection)
+        }
+        return wsConnection
     }
 
     private serializeHostAggregate(agg: MutableHostAggregate): HostRecord {
@@ -228,7 +320,36 @@ export class FileStorageAdapter implements StorageAdapter {
             }
             endpointsObj[key] = rec
         }
-        return { host: agg.host, endpoints: endpointsObj }
+
+        const websocketsObj: HostRecord['websockets'] = {}
+        for (const [key, ws] of agg.websockets) {
+            const rec: WebSocketConnectionRecord = {
+                id: ws.id,
+                url: ws.url,
+                protocols: ws.protocols,
+                startTime: new Date(ws.startTime).toISOString(),
+                endTime: ws.endTime ? new Date(ws.endTime).toISOString() : undefined,
+                state: ws.state,
+                messageCount: ws.messageCount,
+                messages: [...ws.messages.values()]
+                    .sort((a, b) => a.timestamp - b.timestamp)
+                    .map((m) => ({
+                        id: m.id,
+                        timestamp: new Date(m.timestamp).toISOString(),
+                        direction: m.direction,
+                        messageType: m.messageType,
+                        size: m.size,
+                        payload: m.payload,
+                    })),
+            }
+            websocketsObj[key] = rec
+        }
+
+        return { 
+            host: agg.host, 
+            endpoints: endpointsObj,
+            websockets: websocketsObj
+        }
     }
 
     private async enqueueWriteHost(host: string): Promise<void> {
