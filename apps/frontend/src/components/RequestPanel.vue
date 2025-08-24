@@ -6,7 +6,6 @@
         <TabContainer
             :tabs="tabs"
             default-tab="query"
-            @tab-changed="onTabChanged"
         >
             <template #query>
                 <QueryParamsViewer :query-string="request.url.query" />

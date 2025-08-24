@@ -4,7 +4,7 @@
             <h4>Response</h4>
         </div>
         <div v-if="response" class="response-content">
-            <TabContainer :tabs="tabs" default-tab="headers" @tab-changed="onTabChanged">
+            <TabContainer :tabs="tabs" default-tab="headers">
                 <template #headers>
                     <HeadersList :headers="response.headers" />
                 </template>
