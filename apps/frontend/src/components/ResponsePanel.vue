@@ -14,6 +14,9 @@
                 <template #cookies>
                     <CookiesViewer :headers="response.headers" />
                 </template>
+                <template #raw>
+                    <RawViewer :response="response" />
+                </template>
             </TabContainer>
         </div>
         <div v-else class="no-response">
@@ -28,6 +31,7 @@ import TabContainer, { type Tab } from './TabContainer.vue'
 import HeadersList from './HeadersList.vue'
 import BodyViewer from './BodyViewer.vue'
 import CookiesViewer from './CookiesViewer.vue'
+import RawViewer from './RawViewer.vue'
 import type { TransactionResponse } from '@arachne/api-types'
 
 interface Props {
@@ -73,6 +77,12 @@ const tabs = computed<Tab[]>(() => {
             badge: cookiesCount.toString(),
         })
     }
+
+    // Always show Raw tab
+    tabs.push({
+        id: 'raw',
+        label: 'Raw',
+    })
 
     return tabs
 })
