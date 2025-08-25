@@ -165,13 +165,13 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 ### Phase 4: File Organization & Type Safety (Week 4)
 
 **Step 4.1: Reorganize Utility Files**
-- [ ] Split `utils.ts` and `proxy-utils.ts` into:
+- [x] Split `utils.ts` and `proxy-utils.ts` into:
   - `src/proxy/utils/headers.ts` - header sanitization, parsing
   - `src/proxy/utils/sockets.ts` - socket info, network utilities
   - `src/proxy/utils/body.ts` - body reading, encoding/decoding
   - `src/proxy/utils/ids.ts` - ID generation and correlation
-- [ ] Update all imports to use new file structure
-- [ ] Remove duplicate socket info gathering code
+- [x] Update all imports to use new file structure
+- [x] Remove duplicate socket info gathering code
 
 **Step 4.2: Improve Type Safety**
 - [ ] Define `ErrorContext` union type for error handlers
@@ -223,7 +223,6 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 - [ ] Plugin compatibility tests for new hook timing
 - [ ] Build system tests for proper package exports
 
-### Risk Mitigation
 
 **Breaking Changes:**
 - Hook timing changes may affect existing plugins
@@ -232,18 +231,7 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 
 **Mitigation:**
 - Maintain backward compatibility adapters where possible
-- Add feature flags for gradual rollout
 - Comprehensive testing before each phase
 - Clear migration documentation
-
-### Success Metrics
-
-- [ ] 100% error responses use unified helpers
-- [ ] 0 empty catch blocks remain (in proxy core modules)
-- [ ] All logs traceable through correlation IDs
-- [ ] Memory usage stable under load
-- [ ] Plugin hook timing predictable and documented
-- [ ] Build time and package size improvements
-- [ ] Developer debugging experience improved
 
 

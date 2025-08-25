@@ -2,13 +2,14 @@ import http, { IncomingMessage } from 'node:http'
 import net from 'node:net'
 import { CertificateAuthority } from '../certs/ca'
 import type { CertStoreOptions } from '../certs/store'
-import type { ProxyPlugin } from '../plugins/types'
+import type { ProxyPlugin, ErrorContext } from '../plugins/types'
 import { PluginManager } from './plugin-manager'
 import { TlsManager } from './tls-manager'
 import { HttpHandler } from './http-handler'
 import { ServerLifecycleManager, type ServerInfo } from './server-lifecycle'
-import { parseHostPort, getSocketInfo } from './utils'
-import { createCorrelationId } from './correlation'
+import { parseHostPort } from './utils/headers'
+import { getSocketInfo } from './utils/sockets'
+import { createCorrelationId } from './utils/ids'
 import { sendErrorResponse, sendWebSocketErrorResponse } from './error-responses'
 import { WebSocketHandler } from './websocket-handler'
 import { safeSocketEnd } from './cleanup'
@@ -92,8 +93,8 @@ export class MitmProxyServer {
             logger.error('Client socket error on HTTP server', err, {
                 component: 'proxy-server',
                 socketInfo,
-                errorCode: (err as any)?.code,
-                errorErrno: (err as any)?.errno
+                errorCode: (err as NodeJS.ErrnoException)?.code,
+                errorErrno: (err as NodeJS.ErrnoException)?.errno
             })
             
             sendErrorResponse(socket as net.Socket, 400, 'Bad Request', undefined, logger, {
@@ -221,18 +222,13 @@ export class MitmProxyServer {
     
 
 
-    private handleError(err: unknown, ctx: any): void {
+    private handleError(err: unknown, ctx: ErrorContext): void {
         logger.error('Proxy error occurred', err, { 
             component: 'proxy-server',
             requestId: ctx.id,
             context: ctx
         })
         
-        this.pluginManager.runHook('onError', { error: err, context: ctx } as any).catch((hookErr) => {
-            logger.error('Error in error hook', hookErr, { 
-                component: 'proxy-server',
-                requestId: ctx.id 
-            })
-        })
+        this.pluginManager.runErrorHooks(err, ctx)
     }
 }

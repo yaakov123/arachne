@@ -3,11 +3,13 @@ import https from 'node:https'
 import net from 'node:net'
 import { pipeline } from 'node:stream'
 import { promisify } from 'node:util'
-import { sanitizeHeaders } from './utils'
-import { generateId } from './correlation'
+import { sanitizeHeaders } from './utils/headers'
+import { generateId } from './utils/ids'
+import { getSocketInfo } from './utils/sockets'
 import { safeSocketEnd } from './cleanup'
 import { logger } from '../logger'
 import { USER_AGENT, PROXY_AGENT_HEADER } from './constants'
+import { ErrorContext } from '../plugins/types'
 
 const pipelineAsync = promisify(pipeline)
 
@@ -31,7 +33,7 @@ export interface ConnectTunnelResult {
 
 export class TunnelHandler {
     constructor(
-        private onError: (err: unknown, ctx: any) => void
+        private onError: (err: unknown, ctx: ErrorContext) => void
     ) {}
 
     /**
@@ -95,7 +97,7 @@ export class TunnelHandler {
                         hostname,
                         port,
                         statusCode: res.statusCode,
-                        errorCode: (pipelineError as any)?.code
+                        errorCode: (pipelineError as NodeJS.ErrnoException)?.code
                     })
                 })
             })
@@ -115,8 +117,8 @@ export class TunnelHandler {
                     port,
                     method: clientReq.method,
                     responseInfo,
-                    errorCode: (err as any)?.code,
-                    errorErrno: (err as any)?.errno
+                    errorCode: (err as NodeJS.ErrnoException)?.code,
+                    errorErrno: (err as NodeJS.ErrnoException)?.errno
                 })
                 
                 try {
@@ -200,7 +202,7 @@ export class TunnelHandler {
             component: 'tunnel-handler',
             hostname,
             port,
-            clientRemoteAddress: (clientSocket as any).remoteAddress,
+            clientSocketInfo: getSocketInfo(clientSocket),
             headLength: head?.length || 0
         })
         
@@ -214,9 +216,8 @@ export class TunnelHandler {
                         component: 'tunnel-handler',
                         hostname,
                         port,
-                        clientRemoteAddress: (clientSocket as any).remoteAddress,
-                        upstreamLocalAddress: (upstreamSocket as any).localAddress,
-                        upstreamLocalPort: (upstreamSocket as any).localPort
+                        clientSocketInfo: getSocketInfo(clientSocket),
+                        upstreamSocketInfo: getSocketInfo(upstreamSocket)
                     })
                     
                     // Send successful connection response
@@ -243,7 +244,7 @@ export class TunnelHandler {
                         component: 'tunnel-handler',
                         hostname,
                         port,
-                        clientRemoteAddress: (clientSocket as any).remoteAddress
+                        clientSocketInfo: getSocketInfo(clientSocket)
                     })
                     
                     // Use pipeline for both directions with better error handling
@@ -254,7 +255,7 @@ export class TunnelHandler {
                             hostname,
                             port,
                             direction: 'client-to-upstream',
-                            errorCode: (err as any)?.code
+                            errorCode: (err as NodeJS.ErrnoException)?.code
                         })
                     })
                     
@@ -265,7 +266,7 @@ export class TunnelHandler {
                             hostname,
                             port,
                             direction: 'upstream-to-client',
-                            errorCode: (err as any)?.code
+                            errorCode: (err as NodeJS.ErrnoException)?.code
                         })
                     })
                     
@@ -284,16 +285,14 @@ export class TunnelHandler {
                 
                 upstreamSocket.on('error', (err) => {
                     const clientSocketInfo = {
-                        remoteAddress: (clientSocket as any).remoteAddress,
-                        remotePort: (clientSocket as any).remotePort,
+                        clientSocketInfo: getSocketInfo(clientSocket),
                         destroyed: clientSocket.destroyed,
                         readable: clientSocket.readable,
                         writable: clientSocket.writable
                     }
                     
                     const upstreamSocketInfo = {
-                        remoteAddress: (upstreamSocket as any).remoteAddress,
-                        remotePort: (upstreamSocket as any).remotePort,
+                        upstreamSocketInfo: getSocketInfo(upstreamSocket),
                         destroyed: upstreamSocket.destroyed,
                         readable: upstreamSocket.readable,
                         writable: upstreamSocket.writable
@@ -317,7 +316,7 @@ export class TunnelHandler {
                                 component: 'tunnel-handler',
                                 hostname,
                                 port,
-                                clientRemoteAddress: (clientSocket as any).remoteAddress
+                                clientSocketInfo: getSocketInfo(clientSocket)
                             })
                             clientSocket.write(
                                 'HTTP/1.1 502 Bad Gateway\r\n' +
@@ -363,7 +362,7 @@ export class TunnelHandler {
                         hostname,
                         port,
                         reason,
-                        clientRemoteAddress: (clientSocket as any).remoteAddress,
+                        clientSocketInfo: getSocketInfo(clientSocket),
                         upstreamDestroyed: upstreamSocket.destroyed
                     })
                     try {
@@ -389,15 +388,14 @@ export class TunnelHandler {
                         component: 'tunnel-handler',
                         hostname,
                         port,
-                        clientRemoteAddress: (clientSocket as any).remoteAddress
+                        clientSocketInfo: getSocketInfo(clientSocket)
                     })
                 })
             })
             
         } catch (err) {
             const clientSocketInfo = {
-                remoteAddress: (clientSocket as any).remoteAddress,
-                remotePort: (clientSocket as any).remotePort,
+                clientSocketInfo: getSocketInfo(clientSocket),
                 destroyed: clientSocket.destroyed,
                 readable: clientSocket.readable,
                 writable: clientSocket.writable
@@ -422,7 +420,7 @@ export class TunnelHandler {
                         component: 'tunnel-handler',
                         hostname,
                         port,
-                        clientRemoteAddress: (clientSocket as any).remoteAddress
+                        clientSocketInfo: getSocketInfo(clientSocket)
                     })
                     safeSocketEnd(clientSocket, {
                         requestId,

@@ -1,6 +1,6 @@
 import { IncomingMessage } from 'node:http'
 import { URL } from 'node:url'
-import { parseHostPort } from './utils'
+import { parseHostPort } from './utils/headers'
 import { logger } from '../logger'
 
 export class UrlProcessor {

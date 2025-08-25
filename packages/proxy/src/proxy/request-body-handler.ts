@@ -3,11 +3,13 @@ import type { RequestContext, RequestBodyContext } from '../plugins/types'
 import type { PluginManager } from './plugin-manager'
 import { 
     getNumericHeader, 
-    headerToString, 
+    headerToString 
+} from './utils/headers'
+import { 
     readStreamToBuffer, 
     decodeBody,
     MAX_BODY_SIZE 
-} from './proxy-utils'
+} from './utils/body'
 import type { ProcessedRequestBody } from './http-types'
 
 export class RequestBodyHandler {
@@ -48,11 +50,11 @@ export class RequestBodyHandler {
                 contentEncoding: reqEnc,
                 setBody: (b: Buffer | string) => {
                     bodyBuf = Buffer.isBuffer(b) ? b : Buffer.from(b)
-                    ;(reqBodyCtx as any).body = bodyBuf
+                    reqBodyCtx.body = bodyBuf
                 },
             })
 
-            await this.pluginManager.runHook('onRequestBody', reqBodyCtx as any)
+            await this.pluginManager.runHook('onRequestBody', reqBodyCtx)
 
             // Update headers for new body
             const updatedHeaders: Record<string, string | string[]> = {
@@ -75,7 +77,7 @@ export class RequestBodyHandler {
     }
 
     updateRequestHeaders(
-        headers: Record<string, any>,
+        headers: Record<string, string | string[]>,
         updatedHeaders: Record<string, string | string[]>
     ): void {
         Object.entries(updatedHeaders).forEach(([key, value]) => {

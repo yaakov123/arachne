@@ -3,12 +3,14 @@ import type { ResponseContext, ResponseBodyContext } from '../plugins/types'
 import type { PluginManager } from './plugin-manager'
 import { 
     getNumericHeader, 
-    headerToString, 
+    headerToString 
+} from './utils/headers'
+import { 
     readStreamToBuffer, 
     decodeBody,
     MAX_BODY_SIZE 
-} from './proxy-utils'
-import { sanitizeHeaders } from './utils'
+} from './utils/body'
+import { sanitizeHeaders } from './utils/headers'
 import type { ProcessedResponseBody } from './http-types'
 
 export class ResponseBodyHandler {
@@ -76,9 +78,9 @@ export class ResponseBodyHandler {
             await this.pluginManager.runHook('onResponseBody', resBodyCtx)
 
             // Prepare headers for uncompressed, rewritten body
-            const headersOut = sanitizeHeaders(ctx.responseHeaders as any)
+            const headersOut = sanitizeHeaders(ctx.responseHeaders)
             delete headersOut['content-encoding']
-            delete (headersOut as any)['transfer-encoding']
+            delete headersOut['transfer-encoding']
             headersOut['content-length'] = String(bodyBuf.length)
 
             return {

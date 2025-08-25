@@ -1,8 +1,8 @@
-import { IncomingMessage, RequestOptions } from 'node:http'
+import { IncomingMessage } from 'node:http'
 import { URL } from 'node:url'
-import type { RequestContext, ResponseContext } from '../plugins/types'
-import { sanitizeHeaders } from './utils'
-import { getRemote } from './proxy-utils'
+import type { RequestContext, ResponseContext, RequestOptions } from '../plugins/types'
+import { sanitizeHeaders } from './utils/headers'
+import { getRemote } from './utils/sockets'
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
 
 export class ContextBuilder {
@@ -15,10 +15,10 @@ export class ContextBuilder {
     ): RequestContext {
         const sanitizedHeaders = sanitizeHeaders(req.headers)
         const requestOptions: RequestOptions = {
-            protocol: url.protocol,
+            protocol: url.protocol as 'http:' | 'https:',
             hostname: url.hostname,
             port: Number(url.port) || (url.protocol === 'https:' ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT),
-            method: req.method,
+            method: req.method || 'GET',
             path: `${url.pathname}${url.search}`,
             headers: sanitizedHeaders,
         }
@@ -31,7 +31,7 @@ export class ContextBuilder {
             method: req.method || 'GET',
             headers: sanitizedHeaders,
             clientIp: getRemote(req.socket),
-            requestOptions: requestOptions as any,
+            requestOptions,
         }
     }
 
@@ -43,17 +43,19 @@ export class ContextBuilder {
             ...reqCtx,
             statusCode: response.statusCode || 0,
             statusMessage: response.statusMessage,
-            responseHeaders: { ...(response.headers as any) },
+            responseHeaders: Object.fromEntries(
+                Object.entries(response.headers).filter(([_, value]) => value !== undefined)
+            ) as Record<string, string | string[]>,
         }
     }
 
     static createRequestOptions(
         url: URL,
         method: string,
-        headers: Record<string, any>
+        headers: Record<string, string | string[]>
     ): RequestOptions {
         return {
-            protocol: url.protocol,
+            protocol: url.protocol as 'http:' | 'https:',
             hostname: url.hostname,
             port: Number(url.port) || (url.protocol === 'https:' ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT),
             method,

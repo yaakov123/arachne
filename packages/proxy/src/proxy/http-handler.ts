@@ -1,9 +1,9 @@
 import http, { IncomingMessage } from 'node:http'
-import { isHostIgnored } from './utils'
-import { createCorrelationId, extendCorrelationId, type CorrelationId } from './correlation'
+import { isHostIgnored } from './utils/headers'
+import { createCorrelationId, extendCorrelationId, type CorrelationId } from './utils/ids'
 import { sendHttpErrorResponse } from './error-responses'
 import type { PluginManager } from './plugin-manager'
-import type { RequestContext } from '../plugins/types'
+import type { RequestContext, ErrorContext } from '../plugins/types'
 import { UrlProcessor } from './url-processor'
 import { ContextBuilder } from './context-builder'
 import { RequestBodyHandler } from './request-body-handler'
@@ -21,7 +21,7 @@ export class HttpHandler {
 
     constructor(
         private pluginManager: PluginManager,
-        private onError: (err: unknown, ctx: any) => void,
+        private onError: (err: unknown, ctx: ErrorContext) => void,
         private ignoredHosts?: string[],
         maxBodySize?: number
     ) {
@@ -139,8 +139,8 @@ export class HttpHandler {
                 component: 'http-handler',
                 url: clientReq.url,
                 method: clientReq.method,
-                errorCode: (error as any)?.code,
-                errorErrno: (error as any)?.errno
+                errorCode: (error as NodeJS.ErrnoException)?.code,
+                errorErrno: (error as NodeJS.ErrnoException)?.errno
             })
             
             this.onError(error, { id })
@@ -209,7 +209,7 @@ export class HttpHandler {
                 
                 const headers =
                     this.responseBodyHandler.prepareStreamingHeaders(
-                        resCtx.responseHeaders as any
+                        resCtx.responseHeaders
                     )
                 
                 // Set up completion hook to fire after streaming finishes

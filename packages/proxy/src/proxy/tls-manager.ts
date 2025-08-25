@@ -2,11 +2,11 @@ import http, { IncomingMessage } from 'node:http'
 import net from 'node:net'
 import tls from 'node:tls'
 import { CertificateAuthority } from '../certs/ca'
-import type { ConnectContext } from '../plugins/types'
-import { parseHostPort, isHostIgnored } from './utils'
-import { createCorrelationId } from './correlation'
+import type { ConnectContext, ErrorContext } from '../plugins/types'
+import { parseHostPort, isHostIgnored } from './utils/headers'
+import { createCorrelationId } from './utils/ids'
 import { sendErrorResponse, sendConnectSuccessResponse } from './error-responses'
-import { getRemote } from './proxy-utils'
+import { getRemote, getSocketInfo } from './utils/sockets'
 import { PluginManager } from './plugin-manager'
 import { HttpHandler } from './http-handler'
 import { WebSocketHandler } from './websocket-handler'
@@ -23,7 +23,7 @@ export class TlsManager {
         private pluginManager: PluginManager,
         private httpHandler: HttpHandler,
         private webSocketHandler: WebSocketHandler,
-        private onError: (err: unknown, ctx: any) => void,
+        private onError: (err: unknown, ctx: ErrorContext) => void,
         private ignoredHosts?: string[]
     ) {
         this.tunnelHandler = new TunnelHandler(onError)
@@ -107,23 +107,15 @@ export class TlsManager {
         })
         
         httpOverTls.on('clientError', (err, socket) => {
-            const socketInfo = {
-                remoteAddress: (socket as any).remoteAddress,
-                remotePort: (socket as any).remotePort,
-                localAddress: (socket as any).localAddress,
-                localPort: (socket as any).localPort,
-                destroyed: socket.destroyed,
-                readable: socket.readable,
-                writable: socket.writable
-            }
+            const socketInfo = getSocketInfo(socket as net.Socket)
             
             logger.error('Client error on HTTPS over TLS connection', err, {
                 requestId: correlation.full,
                 hostname,
                 component: 'tls-manager',
                 socketInfo,
-                errorCode: (err as any)?.code,
-                errorErrno: (err as any)?.errno
+                errorCode: (err as NodeJS.ErrnoException)?.code,
+                errorErrno: (err as NodeJS.ErrnoException)?.errno
             })
             
             sendErrorResponse(socket as net.Socket, 400, 'Bad Request', undefined, logger, {
@@ -151,14 +143,14 @@ export class TlsManager {
                 const name = servername || hostname
                 this.ca
                     .getSecureContextForHost(name)
-                    .then((sc) => cb(null as any, sc))
+                    .then((sc) => cb(null, sc))
                     .catch((e) => {
                         logger.error('SNI callback failed', e, {
                             requestId: correlation.full,
                             hostname: name,
                             component: 'tls-manager'
                         })
-                        cb(e as any, undefined as any)
+                        cb(e, undefined)
                     })
             },
             // Fallback context in case SNI is missing

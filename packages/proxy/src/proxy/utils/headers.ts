@@ -1,5 +1,4 @@
 import { IncomingHttpHeaders } from 'node:http'
-import net from 'node:net'
 
 export function parseHostPort(hostHeaderOrAuthority: string): {
     hostname: string
@@ -112,24 +111,25 @@ export function isHostIgnored(hostname: string, ignoredHosts?: string[]): boolea
     })
 }
 
-export interface SocketInfo {
-    remoteAddress?: string
-    remotePort?: number
-    localAddress?: string
-    localPort?: number
-    destroyed: boolean
-    readable: boolean
-    writable: boolean
+export function getNumericHeader(
+    h: string | string[] | number | undefined
+): number | undefined {
+    if (typeof h === 'number') return h
+    if (typeof h === 'string') {
+        const n = parseInt(h, 10)
+        return isNaN(n) ? undefined : n
+    }
+    if (Array.isArray(h)) {
+        for (const v of h) {
+            const n = parseInt(v, 10)
+            if (!isNaN(n)) return n
+        }
+    }
+    return undefined
 }
 
-export function getSocketInfo(socket: net.Socket): SocketInfo {
-    return {
-        remoteAddress: socket.remoteAddress,
-        remotePort: socket.remotePort,
-        localAddress: socket.localAddress,
-        localPort: socket.localPort,
-        destroyed: socket.destroyed,
-        readable: socket.readable,
-        writable: socket.writable
-    }
+export function headerToString(h: string | string[] | undefined): string | undefined {
+    if (typeof h === 'string') return h
+    if (Array.isArray(h)) return h[0]
+    return undefined
 }

@@ -92,8 +92,8 @@ export function createTunnelCleanup(
                     resourceType: type,
                     resourceName: name || `${type}-${resources.indexOf({ type, resource, name })}`,
                     error: error instanceof Error ? error.message : String(error),
-                    errorCode: (error as any)?.code,
-                    errorErrno: (error as any)?.errno
+                    errorCode: (error as NodeJS.ErrnoException)?.code,
+                    errorErrno: (error as NodeJS.ErrnoException)?.errno
                 })
             }
         }
@@ -181,8 +181,8 @@ export function safeSocketEnd(
             hostname,
             port,
             error: error instanceof Error ? error.message : String(error),
-            errorCode: (error as any)?.code,
-            errorErrno: (error as any)?.errno,
+            errorCode: (error as NodeJS.ErrnoException)?.code,
+            errorErrno: (error as NodeJS.ErrnoException)?.errno,
             socketDestroyed: socket.destroyed,
             socketWritable: socket.writable,
             socketReadable: socket.readable

@@ -1,6 +1,6 @@
 import http from 'node:http'
 import net from 'node:net'
-import { SocketInfo, getSocketInfo } from './utils'
+import { SocketInfo, getSocketInfo } from './utils/sockets'
 import { USER_AGENT, PROXY_AGENT_HEADER } from './constants'
 
 export interface ErrorResponseOptions {

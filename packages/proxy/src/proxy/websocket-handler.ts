@@ -3,12 +3,13 @@ import https from 'node:https'
 import net from 'node:net'
 import { pipeline } from 'node:stream'
 import { promisify } from 'node:util'
-import { isHostIgnored, sanitizeHeaders } from './utils'
-import { createCorrelationId, extendCorrelationId, parseCorrelationId } from './correlation'
+import { isHostIgnored, sanitizeHeaders } from './utils/headers'
+import { createCorrelationId, extendCorrelationId, parseCorrelationId } from './utils/ids'
 import { logger } from '../logger'
 import { sendWebSocketErrorResponse } from './error-responses'
 import { createSocketCleanup, safeSocketEnd } from './cleanup'
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
+import { ErrorContext } from '../plugins/types'
 
 const pipelineAsync = promisify(pipeline)
 
@@ -40,7 +41,7 @@ interface WebSocketTunnelOptions {
 
 export class WebSocketHandler {
     constructor(
-        private onError: (err: unknown, ctx: any) => void
+        private onError: (err: unknown, ctx: ErrorContext) => void
     ) {}
 
     async handleUpgrade(
@@ -185,8 +186,8 @@ export class WebSocketHandler {
                     hostname,
                     port,
                     component: 'websocket-handler',
-                    errorCode: (err as any)?.code,
-                    errorErrno: (err as any)?.errno,
+                    errorCode: (err as NodeJS.ErrnoException)?.code,
+                    errorErrno: (err as NodeJS.ErrnoException)?.errno,
                     tunnelType
                 })
                 
@@ -264,7 +265,7 @@ export class WebSocketHandler {
                 ...logContext,
                 component: 'websocket-handler',
                 direction: 'client-to-upstream',
-                errorCode: (err as any)?.code
+                errorCode: (err as NodeJS.ErrnoException)?.code
             })
         })
         
@@ -273,7 +274,7 @@ export class WebSocketHandler {
                 ...logContext,
                 component: 'websocket-handler',
                 direction: 'upstream-to-client',
-                errorCode: (err as any)?.code
+                errorCode: (err as NodeJS.ErrnoException)?.code
             })
         })
         
