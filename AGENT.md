@@ -30,7 +30,6 @@ This is a TypeScript monorepo for web traffic analysis via MITM proxy, consistin
 
 ### Core Packages (`packages/`)
 - **`@arachne/proxy`** - HTTP/HTTPS MITM proxy with plugin system and certificate authority management
-- **`@arachne/recorder`** - Plugin that writes structured NDJSON traffic logs to disk
 - **`@arachne/api-types`** - Shared TypeScript interfaces for HTTP and WebSocket communication
 
 ### Applications (`apps/`)

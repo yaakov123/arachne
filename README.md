@@ -3,9 +3,7 @@
 Tools for capturing and analyzing web traffic via a local MITM proxy. This monorepo contains:
 
 - a pluggable HTTP/HTTPS proxy (`@arachne/proxy`)
-- a recorder that writes structured NDJSON traffic logs (`@arachne/recorder`)
-- a small React demo app (`@arachne/app`)
-- shared utilities (`@arachne/shared`)
+
 
 ## Structure
 
@@ -23,20 +21,13 @@ arachne/
 ## What is Arachne?
 
 - **Goal**: Make it easy to intercept, inspect, and persist HTTP/HTTPS traffic from a local machine for debugging, QA, and analysis.
-- **How**: A local man-in-the-middle proxy that issues per-host certificates from a generated root CA, plus a recorder that outputs newline-delimited JSON (NDJSON) event streams.
+- **How**: A local man-in-the-middle proxy that issues per-host certificates from a generated root CA
 
 ## Packages
 
 - **`@arachne/proxy`** (`packages/proxy/`)
     - A fully-fledged HTTP/HTTPS MITM proxy with a plugin API.
-    - Generates a root CA and on-the-fly per-host certs. Includes CLI to init/install CA and start the proxy.
-
-- **`@arachne/recorder`** (`packages/recorder/`)
-    - Provides a `traffic-recorder` plugin that writes NDJSON records for connect, request, response, and optionally bodies.
-    - Helper `startRecorderProxy()` to boot a proxy with the recorder attached and manage lifecycle.
-
-- **`@arachne/app`** (`packages/app/`)
-    - Small React demo showcasing the monorepo wiring. Not required for proxy/recorder usage.
+    - Generates a root CA and on-the-fly per-host certs.
 
 - **`@arachne/shared`** (`packages/shared/`)
     - Shared types/utilities used by other packages.
@@ -45,7 +36,6 @@ arachne/
 
 1. You run the proxy locally and configure your browser/system to use it.
 2. The proxy intercepts traffic and emits events to plugins.
-3. The recorder plugin writes a normalized NDJSON log to disk for later analysis.
 
 ## Getting Started
 

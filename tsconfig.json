@@ -19,7 +19,6 @@
     "files": [],
     "references": [
         { "path": "./packages/proxy" },
-        { "path": "./packages/recorder" },
         { "path": "./packages/api-types" },
         { "path": "./apps/backend" },
         { "path": "./apps/frontend" }
