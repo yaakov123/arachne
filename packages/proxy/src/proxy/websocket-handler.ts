@@ -3,6 +3,7 @@ import https from 'node:https'
 import net from 'node:net'
 import { genId, isHostIgnored, sanitizeHeaders } from './utils'
 import { logger } from '../logger'
+import { sendWebSocketErrorResponse } from './error-responses'
 
 export interface WebSocketUpgradeOptions {
     hostname: string
@@ -70,18 +71,24 @@ export class WebSocketHandler {
             
             this.onError(err, { id: upgradeId, hostname })
             
+            sendWebSocketErrorResponse(clientSocket, 500, 'Internal Server Error', undefined, logger, {
+                requestId: upgradeId,
+                component: 'websocket-handler',
+                hostname,
+                port,
+                originalError: err instanceof Error ? err.message : String(err)
+            })
+            
             try {
-                if (!clientSocket.destroyed && clientSocket.writable) {
-                    clientSocket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
-                    clientSocket.end()
-                }
-            } catch (writeError) {
-                logger.error('Failed to send 500 response for WebSocket upgrade error', writeError, {
+                clientSocket.end()
+            } catch (endError) {
+                logger.debug('Failed to end socket after WebSocket upgrade error', {
                     requestId: upgradeId,
                     connectId,
                     hostname,
                     port,
-                    component: 'websocket-handler'
+                    component: 'websocket-handler',
+                    error: endError instanceof Error ? endError.message : String(endError)
                 })
             }
             
@@ -223,7 +230,14 @@ export class WebSocketHandler {
                             port,
                             component: 'websocket-handler'
                         })
-                        clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n')
+                        
+                        sendWebSocketErrorResponse(clientSocket, 502, 'Bad Gateway', undefined, logger, {
+                            requestId: upgradeId,
+                            component: 'websocket-handler',
+                            hostname,
+                            port,
+                            originalError: 'Upstream connection failed'
+                        })
                         clientSocket.end()
                     }
                 } catch (writeError) {
@@ -343,11 +357,16 @@ export class WebSocketHandler {
                         component: 'websocket-handler'
                     })
                     
+                    sendWebSocketErrorResponse(clientSocket, 502, 'Bad Gateway', undefined, logger, {
+                        requestId: upgradeId,
+                        component: 'websocket-handler',
+                        hostname,
+                        port,
+                        originalError: 'Upstream WebSocket upgrade failed'
+                    })
+                    
                     try {
-                        if (!clientSocket.destroyed && clientSocket.writable) {
-                            clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n')
-                            clientSocket.end()
-                        }
+                        clientSocket.end()
                     } catch {}
                     
                     resolve({ success: false, error: err })
@@ -369,11 +388,16 @@ export class WebSocketHandler {
                 component: 'websocket-handler'
             })
             
+            sendWebSocketErrorResponse(clientSocket, 500, 'Internal Server Error', undefined, logger, {
+                requestId: upgradeId,
+                component: 'websocket-handler',
+                hostname,
+                port,
+                originalError: err instanceof Error ? err.message : String(err)
+            })
+            
             try {
-                if (!clientSocket.destroyed && clientSocket.writable) {
-                    clientSocket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
-                    clientSocket.end()
-                }
+                clientSocket.end()
             } catch {}
             
             return { success: false, error: err as Error }

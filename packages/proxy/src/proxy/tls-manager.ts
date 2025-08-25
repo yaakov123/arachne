@@ -3,7 +3,8 @@ import net from 'node:net'
 import tls from 'node:tls'
 import { CertificateAuthority } from '../certs/ca'
 import type { ConnectContext } from '../plugins/types'
-import { genId, parseHostPort, isHostIgnored, sendErrorResponse } from './utils'
+import { genId, parseHostPort, isHostIgnored } from './utils'
+import { sendErrorResponse, sendConnectSuccessResponse } from './error-responses'
 import { getRemote } from './proxy-utils'
 import { PluginManager } from './plugin-manager'
 import { HttpHandler } from './http-handler'
@@ -68,18 +69,12 @@ export class TlsManager {
         await this.pluginManager.runHook('onConnect', ctx)
 
         // Inform client to start TLS handshake through us
-        logger.debug('Sending CONNECT response to client', {
+        sendConnectSuccessResponse(clientSocket, logger, {
             requestId: id,
-            hostname,
             component: 'tls-manager',
-                                        clientRemoteAddress: (clientSocket as any).remoteAddress
+            hostname,
+            port
         })
-        
-        clientSocket.write(
-            'HTTP/1.1 200 Connection Established\r\n' +
-                'Proxy-Agent: Arachne-Proxy/0.1\r\n' +
-                '\r\n'
-        )
 
         if (head && head.length) {
             logger.debug('Unshifting HEAD data back to client socket', {

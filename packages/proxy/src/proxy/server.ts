@@ -7,7 +7,8 @@ import { PluginManager } from './plugin-manager'
 import { TlsManager } from './tls-manager'
 import { HttpHandler } from './http-handler'
 import { ServerLifecycleManager, type ServerInfo } from './server-lifecycle'
-import { genId, parseHostPort, sendErrorResponse, getSocketInfo } from './utils'
+import { genId, parseHostPort, getSocketInfo } from './utils'
+import { sendErrorResponse, sendWebSocketErrorResponse } from './error-responses'
 import { WebSocketHandler } from './websocket-handler'
 import { logger } from '../logger'
 
@@ -80,7 +81,7 @@ export class MitmProxyServer {
         )
 
         this.httpServer.on('clientError', (err, socket) => {
-            const socketInfo = getSocketInfo(socket)
+            const socketInfo = getSocketInfo(socket as net.Socket)
             
             logger.error('Client socket error on HTTP server', err, {
                 component: 'proxy-server',
@@ -89,7 +90,7 @@ export class MitmProxyServer {
                 errorErrno: (err as any)?.errno
             })
             
-            sendErrorResponse(socket, 400, 'Bad Request', undefined, logger, {
+            sendErrorResponse(socket as net.Socket, 400, 'Bad Request', undefined, logger, {
                 component: 'proxy-server',
                 originalError: err.message,
                 socketInfo
@@ -137,6 +138,8 @@ export class MitmProxyServer {
         head: Buffer
     ): Promise<void> {
         const id = genId('ws-http')
+        let hostname = 'unknown'
+        let targetPort = 80
         
         try {
             // Extract hostname from request
@@ -147,13 +150,19 @@ export class MitmProxyServer {
                     component: 'proxy-server',
                     url: req.url
                 })
-                clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
+                
+                sendErrorResponse(clientSocket, 400, 'Bad Request', undefined, logger, {
+                    requestId: id,
+                    component: 'proxy-server',
+                    originalError: 'Missing Host header'
+                })
                 clientSocket.end()
                 return
             }
             
-            const { hostname, port } = parseHostPort(hostHeader)
-            const targetPort = port || 80
+            const parsed = parseHostPort(hostHeader)
+            hostname = parsed.hostname
+            targetPort = parsed.port || 80
             
             logger.debug('HTTP WebSocket upgrade request received', {
                 requestId: id,
@@ -181,15 +190,21 @@ export class MitmProxyServer {
             
             this.handleError(err, { id })
             
+            sendWebSocketErrorResponse(clientSocket, 500, 'Internal Server Error', undefined, logger, {
+                requestId: id,
+                component: 'proxy-server',
+                hostname,
+                port: targetPort,
+                originalError: err instanceof Error ? err.message : String(err)
+            })
+            
             try {
-                if (!clientSocket.destroyed && clientSocket.writable) {
-                    clientSocket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
-                    clientSocket.end()
-                }
-            } catch (writeError) {
-                logger.error('Failed to send 500 response for HTTP WebSocket upgrade error', writeError, {
+                clientSocket.end()
+            } catch (endError) {
+                logger.debug('Failed to end socket after HTTP WebSocket upgrade error', {
                     requestId: id,
-                    component: 'proxy-server'
+                    component: 'proxy-server',
+                    error: endError instanceof Error ? endError.message : String(endError)
                 })
             }
         }

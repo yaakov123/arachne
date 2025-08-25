@@ -1,5 +1,6 @@
 import http, { IncomingMessage } from 'node:http'
-import { genId, isHostIgnored, sendHttpErrorResponse } from './utils'
+import { genId, isHostIgnored } from './utils'
+import { sendHttpErrorResponse } from './error-responses'
 import type { PluginManager } from './plugin-manager'
 import type { RequestContext } from '../plugins/types'
 import { UrlProcessor } from './url-processor'
