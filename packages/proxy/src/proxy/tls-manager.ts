@@ -15,17 +15,16 @@ import { createServerCleanup } from './cleanup'
 import { logger } from '../logger'
 
 export class TlsManager {
-    private webSocketHandler: WebSocketHandler
     private tunnelHandler: TunnelHandler
     
     constructor(
         private ca: CertificateAuthority,
         private pluginManager: PluginManager,
         private httpHandler: HttpHandler,
+        private webSocketHandler: WebSocketHandler,
         private onError: (err: unknown, ctx: any) => void,
         private ignoredHosts?: string[]
     ) {
-        this.webSocketHandler = new WebSocketHandler(onError)
         this.tunnelHandler = new TunnelHandler(onError)
     }
 

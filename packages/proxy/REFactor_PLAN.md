@@ -129,10 +129,10 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 - [x] Ensure consistent socket destruction and error handling
 
 **Step 2.3: Consolidate WebSocket Handling**
-- [ ] Extract shared WebSocket tunnel logic from `websocket-handler.ts`
-- [ ] Create single `handleWebSocketUpgrade()` method
-- [ ] Remove duplicate header formatting and piping code
-- [ ] Use single WebSocket handler instance across HTTP/HTTPS
+- [x] Extract shared WebSocket tunnel logic from `websocket-handler.ts`
+- [x] Create single `handleWebSocketUpgrade()` method
+- [x] Remove duplicate header formatting and piping code
+- [x] Use single WebSocket handler instance across HTTP/HTTPS
 
 ### Phase 3: Configuration & Constants (Week 3)
 

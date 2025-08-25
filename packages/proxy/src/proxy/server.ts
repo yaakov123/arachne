@@ -52,6 +52,7 @@ export class MitmProxyServer {
             this.ca,
             this.pluginManager,
             this.httpHandler,
+            this.webSocketHandler,
             this.handleError.bind(this),
             opts.ignoredHosts
         )

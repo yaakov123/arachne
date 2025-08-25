@@ -25,6 +25,18 @@ export interface WebSocketUpgradeResult {
     error?: Error
 }
 
+interface WebSocketTunnelOptions {
+    req: IncomingMessage
+    clientSocket: net.Socket
+    head: Buffer
+    hostname: string
+    port: number
+    isHttps: boolean
+    upgradeId: string
+    connectId?: string
+    useProxyHeaders: boolean
+}
+
 export class WebSocketHandler {
     constructor(
         private onError: (err: unknown, ctx: any) => void
@@ -59,8 +71,10 @@ export class WebSocketHandler {
         })
         
         try {
-            // Check if host should be ignored - if so, create direct WebSocket tunnel
-            if (isHostIgnored(hostname, ignoredHosts)) {
+            // Use shared tunnel creation logic
+            const useProxyHeaders = !isHostIgnored(hostname, ignoredHosts)
+            
+            if (!useProxyHeaders) {
                 logger.debug('Creating direct WebSocket tunnel for ignored host', {
                     requestId: upgradeId,
                     connectId,
@@ -68,11 +82,19 @@ export class WebSocketHandler {
                     port,
                     component: 'websocket-handler'
                 })
-                return await this.createDirectTunnel(req, clientSocket, head, hostname, port, isHttps, upgradeId, connectId)
             }
             
-            // Create upstream WebSocket connection
-            return await this.createProxiedTunnel(req, clientSocket, head, hostname, port, isHttps, upgradeId, connectId)
+            return await this.createWebSocketTunnel({
+                req,
+                clientSocket,
+                head,
+                hostname,
+                port,
+                isHttps,
+                upgradeId,
+                connectId,
+                useProxyHeaders
+            })
             
         } catch (err) {
             logger.error('WebSocket upgrade handling failed', err, {
@@ -104,18 +126,11 @@ export class WebSocketHandler {
         }
     }
 
-    private async createProxiedTunnel(
-        req: IncomingMessage,
-        clientSocket: net.Socket,
-        head: Buffer,
-        hostname: string,
-        port: number,
-        isHttps: boolean,
-        upgradeId: string,
-        connectId?: string
-    ): Promise<WebSocketUpgradeResult> {
-        // Prepare headers for upstream request
-        const upstreamHeaders = sanitizeHeaders(req.headers)
+    private async createWebSocketTunnel(options: WebSocketTunnelOptions): Promise<WebSocketUpgradeResult> {
+        const { req, clientSocket, head, hostname, port, isHttps, upgradeId, connectId, useProxyHeaders } = options
+        
+        // Prepare headers - use sanitized headers for proxy mode, original for direct mode
+        const upstreamHeaders = useProxyHeaders ? sanitizeHeaders(req.headers) : req.headers
         
         const requestModule = isHttps ? https : http
         const upstreamReq = requestModule.request({
@@ -126,158 +141,61 @@ export class WebSocketHandler {
             headers: upstreamHeaders
         })
         
+        const tunnelType = useProxyHeaders ? 'proxied' : 'direct'
+        
         return new Promise((resolve) => {
             upstreamReq.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
-                logger.debug('Upstream WebSocket upgrade successful', {
+                logger.debug(`${tunnelType} WebSocket tunnel upgrade successful`, {
                     requestId: upgradeId,
                     connectId,
                     hostname,
                     port,
                     isHttps,
                     component: 'websocket-handler',
-                    statusCode: upstreamRes.statusCode
+                    statusCode: upstreamRes.statusCode,
+                    tunnelType
                 })
                 
-                // Forward upgrade response to client
-                const responseHeaders = Object.entries(upstreamRes.headers)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join('\r\n')
-                
-                const upgradeResponse = 
-                    `HTTP/1.1 ${upstreamRes.statusCode} ${upstreamRes.statusMessage}\r\n` +
-                    responseHeaders + '\r\n\r\n'
-                
-                clientSocket.write(upgradeResponse)
-                
-                // Forward any initial upstream data
-                if (upstreamHead && upstreamHead.length > 0) {
-                    logger.debug('Forwarding initial upstream WebSocket data', {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler',
-                        dataLength: upstreamHead.length
-                    })
-                    clientSocket.write(upstreamHead)
-                }
-                
-                logger.debug('Starting bidirectional WebSocket data piping', {
+                // Forward upgrade response to client using shared method
+                this.forwardUpgradeResponse(clientSocket, upstreamRes, upstreamHead, {
                     requestId: upgradeId,
                     connectId,
                     hostname,
                     port,
-                    component: 'websocket-handler'
+                    tunnelType
                 })
                 
-                // Use pipeline for both directions with better error handling
-                const clientToUpstream = pipelineAsync(clientSocket, upstreamSocket).catch((err) => {
-                    logger.error('Client to upstream pipeline error in WebSocket tunnel', err, {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler',
-                        direction: 'client-to-upstream',
-                        errorCode: (err as any)?.code
-                    })
-                })
-                
-                const upstreamToClient = pipelineAsync(upstreamSocket, clientSocket).catch((err) => {
-                    logger.error('Upstream to client pipeline error in WebSocket tunnel', err, {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler',
-                        direction: 'upstream-to-client',
-                        errorCode: (err as any)?.code
-                    })
-                })
-                
-                // Wait for both pipelines to complete
-                Promise.allSettled([clientToUpstream, upstreamToClient]).then(() => {
-                    logger.debug('WebSocket tunnel pipelines completed', {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler'
-                    })
-                })
-                
-                // Handle cleanup
-                const cleanup = createSocketCleanup(upstreamSocket, {
+                // Setup bidirectional data piping using shared method
+                this.setupTunnelPiping(clientSocket, upstreamSocket, {
                     requestId: upgradeId,
-                    component: 'websocket-handler',
+                    connectId,
                     hostname,
-                    port
-                })
-                
-                clientSocket.on('close', () => cleanup('client-close'))
-                clientSocket.on('end', () => cleanup('client-end'))
-                upstreamSocket.on('close', () => cleanup('upstream-close'))
-                upstreamSocket.on('end', () => cleanup('upstream-end'))
-                
-                upstreamSocket.on('error', (err) => {
-                    logger.error('Upstream WebSocket socket error', err, {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler'
-                    })
-                    cleanup('upstream-error')
+                    port,
+                    tunnelType
                 })
                 
                 resolve({ success: true })
             })
             
             upstreamReq.on('error', (err) => {
-                logger.error('WebSocket upgrade request failed', err, {
+                logger.error(`${tunnelType} WebSocket tunnel failed`, err, {
                     requestId: upgradeId,
                     connectId,
                     hostname,
                     port,
                     component: 'websocket-handler',
                     errorCode: (err as any)?.code,
-                    errorErrno: (err as any)?.errno
+                    errorErrno: (err as any)?.errno,
+                    tunnelType
                 })
                 
-                try {
-                    if (!clientSocket.destroyed && clientSocket.writable) {
-                        logger.debug('Sending 502 Bad Gateway for WebSocket upgrade error', {
-                            requestId: upgradeId,
-                            connectId,
-                            hostname,
-                            port,
-                            component: 'websocket-handler'
-                        })
-                        
-                        sendWebSocketErrorResponse(clientSocket, 502, 'Bad Gateway', undefined, logger, {
-                            requestId: upgradeId,
-                            component: 'websocket-handler',
-                            hostname,
-                            port,
-                            originalError: 'Upstream connection failed'
-                        })
-                        safeSocketEnd(clientSocket, {
-                            requestId: upgradeId,
-                            component: 'websocket-handler',
-                            hostname,
-                            port
-                        })
-                    }
-                } catch (writeError) {
-                    logger.error('Failed to send 502 response for WebSocket upgrade error', writeError, {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler',
-                        originalError: err.message
-                    })
-                }
+                this.handleTunnelError(clientSocket, err, {
+                    requestId: upgradeId,
+                    connectId,
+                    hostname,
+                    port,
+                    tunnelType
+                })
                 
                 resolve({ success: false, error: err })
             })
@@ -287,185 +205,145 @@ export class WebSocketHandler {
             
             // Forward any initial client data
             if (head && head.length > 0) {
-                logger.debug('Forwarding initial client WebSocket data', {
+                logger.debug(`Forwarding initial client WebSocket data for ${tunnelType} tunnel`, {
                     requestId: upgradeId,
                     connectId,
                     hostname,
                     port,
                     component: 'websocket-handler',
-                    dataLength: head.length
+                    dataLength: head.length,
+                    tunnelType
                 })
                 upstreamReq.write(head)
             }
         })
     }
 
-    private async createDirectTunnel(
-        req: IncomingMessage,
+    private forwardUpgradeResponse(
+        clientSocket: net.Socket, 
+        upstreamRes: IncomingMessage, 
+        upstreamHead: Buffer,
+        logContext: { requestId: string; connectId?: string; hostname: string; port: number; tunnelType: string }
+    ): void {
+        // Format and send upgrade response
+        const responseHeaders = Object.entries(upstreamRes.headers)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\r\n')
+        
+        const upgradeResponse = 
+            `HTTP/1.1 ${upstreamRes.statusCode} ${upstreamRes.statusMessage}\r\n` +
+            responseHeaders + '\r\n\r\n'
+        
+        clientSocket.write(upgradeResponse)
+        
+        // Forward any initial upstream data
+        if (upstreamHead && upstreamHead.length > 0) {
+            logger.debug(`Forwarding initial upstream WebSocket data for ${logContext.tunnelType} tunnel`, {
+                ...logContext,
+                component: 'websocket-handler',
+                dataLength: upstreamHead.length
+            })
+            clientSocket.write(upstreamHead)
+        }
+    }
+
+    private setupTunnelPiping(
         clientSocket: net.Socket,
-        head: Buffer,
-        hostname: string,
-        port: number,
-        isHttps: boolean,
-        upgradeId: string,
-        connectId?: string
-    ): Promise<WebSocketUpgradeResult> {
-        logger.debug('Creating direct WebSocket tunnel for ignored host', {
-            requestId: upgradeId,
-            connectId,
-            hostname,
-            port,
+        upstreamSocket: net.Socket,
+        logContext: { requestId: string; connectId?: string; hostname: string; port: number; tunnelType: string }
+    ): void {
+        logger.debug(`Starting bidirectional WebSocket data piping for ${logContext.tunnelType} tunnel`, {
+            ...logContext,
             component: 'websocket-handler'
         })
         
-        try {
-            const requestModule = isHttps ? https : http
-            const upstreamReq = requestModule.request({
-                hostname,
-                port,
-                method: req.method,
-                path: req.url,
-                headers: req.headers // Use original headers for direct tunnel
+        // Use pipeline for both directions with proper error handling
+        const clientToUpstream = pipelineAsync(clientSocket, upstreamSocket).catch((err) => {
+            logger.error(`Client to upstream pipeline error in ${logContext.tunnelType} WebSocket tunnel`, err, {
+                ...logContext,
+                component: 'websocket-handler',
+                direction: 'client-to-upstream',
+                errorCode: (err as any)?.code
             })
-            
-            return new Promise((resolve) => {
-                upstreamReq.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
-                    logger.debug('Direct WebSocket tunnel upgrade successful', {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler',
-                        statusCode: upstreamRes.statusCode
-                    })
-                    
-                    // Forward upgrade response to client
-                    const responseHeaders = Object.entries(upstreamRes.headers)
-                        .map(([key, value]) => `${key}: ${value}`)
-                        .join('\r\n')
-                    
-                    const upgradeResponse = 
-                        `HTTP/1.1 ${upstreamRes.statusCode} ${upstreamRes.statusMessage}\r\n` +
-                        responseHeaders + '\r\n\r\n'
-                    
-                    clientSocket.write(upgradeResponse)
-                    
-                    // Forward any initial data
-                    if (upstreamHead && upstreamHead.length > 0) {
-                        clientSocket.write(upstreamHead)
-                    }
-                    
-                    // Use pipeline for both directions with better error handling
-                    const clientToUpstream = pipelineAsync(clientSocket, upstreamSocket).catch((err) => {
-                        logger.error('Client to upstream pipeline error in direct WebSocket tunnel', err, {
-                            requestId: upgradeId,
-                            connectId,
-                            hostname,
-                            port,
-                            component: 'websocket-handler',
-                            direction: 'client-to-upstream',
-                            errorCode: (err as any)?.code
-                        })
-                    })
-                    
-                    const upstreamToClient = pipelineAsync(upstreamSocket, clientSocket).catch((err) => {
-                        logger.error('Upstream to client pipeline error in direct WebSocket tunnel', err, {
-                            requestId: upgradeId,
-                            connectId,
-                            hostname,
-                            port,
-                            component: 'websocket-handler',
-                            direction: 'upstream-to-client',
-                            errorCode: (err as any)?.code
-                        })
-                    })
-                    
-                    // Wait for both pipelines to complete
-                    Promise.allSettled([clientToUpstream, upstreamToClient]).then(() => {
-                        logger.debug('Direct WebSocket tunnel pipelines completed', {
-                            requestId: upgradeId,
-                            connectId,
-                            hostname,
-                            port,
-                            component: 'websocket-handler'
-                        })
-                    })
-                    
-                    // Cleanup handlers
-                    const cleanup = createSocketCleanup(upstreamSocket, {
-                        requestId: upgradeId,
-                        component: 'websocket-handler',
-                        hostname,
-                        port
-                    })
-                    
-                    clientSocket.on('close', cleanup)
-                    clientSocket.on('end', cleanup)
-                    upstreamSocket.on('close', cleanup)
-                    upstreamSocket.on('end', cleanup)
-                    
-                    resolve({ success: true })
-                })
-                
-                upstreamReq.on('error', (err) => {
-                    logger.error('Direct WebSocket tunnel failed', err, {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler'
-                    })
-                    
-                    sendWebSocketErrorResponse(clientSocket, 502, 'Bad Gateway', undefined, logger, {
-                        requestId: upgradeId,
-                        component: 'websocket-handler',
-                        hostname,
-                        port,
-                        originalError: 'Upstream WebSocket upgrade failed'
-                    })
-                    
-                    safeSocketEnd(clientSocket, {
-                        requestId: upgradeId,
-                        component: 'websocket-handler',
-                        hostname,
-                        port
-                    })
-                    
-                    resolve({ success: false, error: err })
-                })
-                
-                upstreamReq.end()
-                
-                if (head && head.length > 0) {
-                    upstreamReq.write(head)
-                }
+        })
+        
+        const upstreamToClient = pipelineAsync(upstreamSocket, clientSocket).catch((err) => {
+            logger.error(`Upstream to client pipeline error in ${logContext.tunnelType} WebSocket tunnel`, err, {
+                ...logContext,
+                component: 'websocket-handler',
+                direction: 'upstream-to-client',
+                errorCode: (err as any)?.code
             })
-            
-        } catch (err) {
-            logger.error('Direct WebSocket tunnel setup failed', err, {
-                requestId: upgradeId,
-                connectId,
-                hostname,
-                port,
+        })
+        
+        // Wait for both pipelines to complete
+        Promise.allSettled([clientToUpstream, upstreamToClient]).then(() => {
+            logger.debug(`${logContext.tunnelType} WebSocket tunnel pipelines completed`, {
+                ...logContext,
                 component: 'websocket-handler'
             })
-            
-            sendWebSocketErrorResponse(clientSocket, 500, 'Internal Server Error', undefined, logger, {
-                requestId: upgradeId,
-                component: 'websocket-handler',
-                hostname,
-                port,
-                originalError: err instanceof Error ? err.message : String(err)
+        })
+        
+        // Setup cleanup handlers using shared cleanup
+        const cleanup = createSocketCleanup(upstreamSocket, {
+            requestId: logContext.requestId,
+            component: 'websocket-handler',
+            hostname: logContext.hostname,
+            port: logContext.port
+        })
+        
+        // Handle socket events consistently
+        clientSocket.on('close', () => cleanup('client-close'))
+        clientSocket.on('end', () => cleanup('client-end'))
+        upstreamSocket.on('close', () => cleanup('upstream-close'))
+        upstreamSocket.on('end', () => cleanup('upstream-end'))
+        
+        upstreamSocket.on('error', (err) => {
+            logger.error(`Upstream WebSocket socket error in ${logContext.tunnelType} tunnel`, err, {
+                ...logContext,
+                component: 'websocket-handler'
             })
-            
-            safeSocketEnd(clientSocket, {
-                requestId: upgradeId,
+            cleanup('upstream-error')
+        })
+    }
+
+    private handleTunnelError(
+        clientSocket: net.Socket,
+        err: Error,
+        logContext: { requestId: string; connectId?: string; hostname: string; port: number; tunnelType: string }
+    ): void {
+        try {
+            if (!clientSocket.destroyed && clientSocket.writable) {
+                logger.debug(`Sending 502 Bad Gateway for ${logContext.tunnelType} WebSocket upgrade error`, {
+                    ...logContext,
+                    component: 'websocket-handler'
+                })
+                
+                const errorMessage = logContext.tunnelType === 'direct' 
+                    ? 'Upstream WebSocket upgrade failed'
+                    : 'Upstream connection failed'
+                
+                sendWebSocketErrorResponse(clientSocket, 502, 'Bad Gateway', undefined, logger, {
+                    requestId: logContext.requestId,
+                    component: 'websocket-handler',
+                    hostname: logContext.hostname,
+                    port: logContext.port,
+                    originalError: errorMessage
+                })
+                
+                safeSocketEnd(clientSocket, {
+                    requestId: logContext.requestId,
+                    component: 'websocket-handler',
+                    hostname: logContext.hostname,
+                    port: logContext.port
+                })
+            }
+        } catch (writeError) {
+            logger.error(`Failed to send 502 response for ${logContext.tunnelType} WebSocket upgrade error`, writeError, {
+                ...logContext,
                 component: 'websocket-handler',
-                hostname,
-                port
+                originalError: err.message
             })
-            
-            return { success: false, error: err as Error }
         }
     }
 }

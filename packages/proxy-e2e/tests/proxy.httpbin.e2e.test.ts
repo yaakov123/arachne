@@ -370,7 +370,7 @@ describe('HTTP Proxy plugin integration with real traffic', () => {
             
             expect(res.status).toBe(200)
             expect(duration).toBeGreaterThan(900) // Should take at least ~1 second
-            expect(duration).toBeLessThan(3000) // But not too long (allowing for network latency)
+            expect(duration).toBeLessThan(10_000) // But not too long (allowing for network latency)
         } finally {
             await proxy.stop()
         }
