@@ -10,12 +10,10 @@ The backend application is a Fastify-based server that integrates the MITM proxy
 - **MitmProxyServer** - Embedded proxy server with plugins
 - **WsHub** - WebSocket connection manager with broadcasting capabilities
 - **BroadcastPlugin** - Proxy plugin that sends real-time traffic to WebSocket clients
-- **RecorderPlugin** - Proxy plugin that persists traffic to storage
-- **HTTP API** - RESTful endpoints for accessing recorded traffic and proxy configuration
 
 ### Plugin Integration Pattern
 ```
-HTTP Traffic → MITM Proxy → [BroadcastPlugin, RecorderPlugin] → [WebSockets, Storage]
+HTTP Traffic → MITM Proxy → [BroadcastPlugin] → [WebSockets, Storage]
 ```
 
 ## Development Rules
@@ -60,7 +58,6 @@ broadcast(ev: BackendEvent) {
 ```
 
 ### Plugin Development Pattern
-- **Plugin Order**: Broadcast plugin should come before recorder plugin to catch interceptions
 - **Transaction Tracking**: Maintain request-response state for completion events
 - **Content Analysis**: Detect content types and formats for better UI display
 - **Header Sensitivity**: Mark sensitive headers for special UI treatment
@@ -198,7 +195,6 @@ async function main() {
     // Components
     const app = fastify({ logger: true })
     const hub = new WsHub()
-    const storage = new FileStorageAdapter({ outDir: REC_OUT_DIR })
     const ca = new CertificateAuthority({ store })
     
     // Setup
@@ -208,14 +204,13 @@ async function main() {
     
     // Plugins
     const broadcastPlugin = createBroadcastPlugin({ hub })
-    const { plugin: recorderPlugin } = createRecorderPlugin({ storage })
     
     // Start
     await app.listen({ port: BACKEND_PORT })
     const proxy = new MitmProxyServer({ 
         port: PROXY_PORT, 
         ca, 
-        plugins: [broadcastPlugin, recorderPlugin] 
+        plugins: [broadcastPlugin] 
     })
     await proxy.start()
 }

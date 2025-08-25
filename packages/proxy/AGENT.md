@@ -127,7 +127,6 @@ src/
 const proxy = new MitmProxyServer({
     plugins: [
         createLoggerPlugin({ level: 'info' }),
-        createRecorderPlugin({ storage: myStorage })
     ]
 })
 ```

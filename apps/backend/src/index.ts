@@ -71,7 +71,6 @@ async function main() {
         hub.handleConnection(wsAny)
     })
 
-    // Recorder storage and plugin
 
     // Broadcast plugin
     const broadcastPlugin = createBroadcastPlugin({

@@ -20,7 +20,7 @@ import type {
 } from '@arachne/api-types'
 // import { ReverseLookupDependencyDetector } from './dependency-analyzer'
 
-const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap, aligns with recorder default
+const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
 
 // Sensitive headers that should be marked for special handling in UI
 const SENSITIVE_HEADERS = new Set([

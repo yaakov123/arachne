@@ -33,11 +33,11 @@ This is a TypeScript monorepo for web traffic analysis via MITM proxy, consistin
 - **`@arachne/api-types`** - Shared TypeScript interfaces for HTTP and WebSocket communication
 
 ### Applications (`apps/`)
-- **`@arachne/backend`** - Fastify server with WebSocket hub, integrates proxy + recorder, provides REST API
+- **`@arachne/backend`** - Fastify server with WebSocket hub, integrates proxy, provides REST API
 - **`@arachne/frontend`** - Vue 3 SPA
 ### Key Architecture Patterns
 
-**Plugin System**: The proxy uses a plugin architecture where traffic events (connect, request, response) flow through registered plugins. The recorder plugin writes to NDJSON files, while the broadcast plugin sends real-time data to connected WebSocket clients.
+**Plugin System**: The proxy uses a plugin architecture where traffic events (connect, request, response) flow through registered plugins. The broadcast plugin sends real-time data to connected WebSocket clients.
 
 **Certificate Management**: The proxy generates a root CA and issues per-host certificates on-the-fly for HTTPS interception. CA can be installed to system trust store.
 
@@ -64,6 +64,6 @@ Backend accepts these environment variables:
 
 ## Development Notes
 
-- The backend integrates proxy + recorder + WebSocket broadcasting in a single process
+- The backend integrates proxy + WebSocket broadcasting in a single process
 - Frontend connects via WebSocket to receive real-time traffic updates
 - HTTPS interception requires trusting the generated root CA certificate
