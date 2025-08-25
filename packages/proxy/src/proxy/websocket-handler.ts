@@ -1,10 +1,14 @@
 import http, { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
+import { pipeline } from 'node:stream'
+import { promisify } from 'node:util'
 import { isHostIgnored, sanitizeHeaders } from './utils'
 import { createCorrelationId, extendCorrelationId, parseCorrelationId } from './correlation'
 import { logger } from '../logger'
 import { sendWebSocketErrorResponse } from './error-responses'
+
+const pipelineAsync = promisify(pipeline)
 
 export interface WebSocketUpgradeOptions {
     hostname: string
@@ -171,9 +175,41 @@ export class WebSocketHandler {
                     component: 'websocket-handler'
                 })
                 
-                // Pipe both directions for WebSocket data
-                clientSocket.pipe(upstreamSocket, { end: true })
-                upstreamSocket.pipe(clientSocket, { end: true })
+                // Use pipeline for both directions with better error handling
+                const clientToUpstream = pipelineAsync(clientSocket, upstreamSocket).catch((err) => {
+                    logger.error('Client to upstream pipeline error in WebSocket tunnel', err, {
+                        requestId: upgradeId,
+                        connectId,
+                        hostname,
+                        port,
+                        component: 'websocket-handler',
+                        direction: 'client-to-upstream',
+                        errorCode: (err as any)?.code
+                    })
+                })
+                
+                const upstreamToClient = pipelineAsync(upstreamSocket, clientSocket).catch((err) => {
+                    logger.error('Upstream to client pipeline error in WebSocket tunnel', err, {
+                        requestId: upgradeId,
+                        connectId,
+                        hostname,
+                        port,
+                        component: 'websocket-handler',
+                        direction: 'upstream-to-client',
+                        errorCode: (err as any)?.code
+                    })
+                })
+                
+                // Wait for both pipelines to complete
+                Promise.allSettled([clientToUpstream, upstreamToClient]).then(() => {
+                    logger.debug('WebSocket tunnel pipelines completed', {
+                        requestId: upgradeId,
+                        connectId,
+                        hostname,
+                        port,
+                        component: 'websocket-handler'
+                    })
+                })
                 
                 // Handle cleanup
                 const cleanup = (reason: string) => {
@@ -336,9 +372,41 @@ export class WebSocketHandler {
                         clientSocket.write(upstreamHead)
                     }
                     
-                    // Pipe both directions
-                    clientSocket.pipe(upstreamSocket, { end: true })
-                    upstreamSocket.pipe(clientSocket, { end: true })
+                    // Use pipeline for both directions with better error handling
+                    const clientToUpstream = pipelineAsync(clientSocket, upstreamSocket).catch((err) => {
+                        logger.error('Client to upstream pipeline error in direct WebSocket tunnel', err, {
+                            requestId: upgradeId,
+                            connectId,
+                            hostname,
+                            port,
+                            component: 'websocket-handler',
+                            direction: 'client-to-upstream',
+                            errorCode: (err as any)?.code
+                        })
+                    })
+                    
+                    const upstreamToClient = pipelineAsync(upstreamSocket, clientSocket).catch((err) => {
+                        logger.error('Upstream to client pipeline error in direct WebSocket tunnel', err, {
+                            requestId: upgradeId,
+                            connectId,
+                            hostname,
+                            port,
+                            component: 'websocket-handler',
+                            direction: 'upstream-to-client',
+                            errorCode: (err as any)?.code
+                        })
+                    })
+                    
+                    // Wait for both pipelines to complete
+                    Promise.allSettled([clientToUpstream, upstreamToClient]).then(() => {
+                        logger.debug('Direct WebSocket tunnel pipelines completed', {
+                            requestId: upgradeId,
+                            connectId,
+                            hostname,
+                            port,
+                            component: 'websocket-handler'
+                        })
+                    })
                     
                     // Cleanup handlers
                     const cleanup = () => {

@@ -114,12 +114,12 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 ### Phase 2: Stream Management & Memory Safety (Week 2)
 
 **Step 2.1: Replace Manual Piping with stream.pipeline**
-- [ ] Replace `stream.pipe()` calls in:
-  - `tunnel-handler.ts:74, 137, 226-227`
-  - `websocket-handler.ts:159-160, 317-318`
-  - `upstream-handler.ts:33, 104`
-- [ ] Add proper error handling and cleanup with `stream.pipeline`
-- [ ] Implement backpressure handling
+- [x] Replace `stream.pipe()` calls in:
+  - `tunnel-handler.ts:75, 138, 227-228` → replaced with `pipelineAsync()` and proper error handling
+  - `websocket-handler.ts:175-176, 340-341` → replaced with bidirectional `pipelineAsync()` calls
+  - `upstream-handler.ts:33, 118` → replaced with `pipelineAsync()` and error handling
+- [x] Add proper error handling and cleanup with `stream.pipeline`
+- [x] Implement backpressure handling
 
 **Step 2.2: Standardize Cleanup Patterns**
 - [ ] Create shared `createTunnelCleanup()` helper

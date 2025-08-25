@@ -26,48 +26,6 @@
         </div>
       </div>
 
-      <!-- Proxy Management Section -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h2>Proxy Server</h2>
-          <p>Control the MITM proxy server</p>
-        </div>
-        
-        <div class="section-content">
-          <div class="control-group">
-            <div class="control-info">
-              <h3>Proxy Status</h3>
-              <p>Start or stop the proxy server to intercept HTTP/HTTPS traffic</p>
-              <div class="status-indicator">
-                <span class="status-dot" :class="{ 'running': proxyRunning, 'stopped': !proxyRunning }"></span>
-                <span class="status-text">{{ proxyRunning ? 'Running' : 'Stopped' }}</span>
-              </div>
-            </div>
-            <div class="control-actions">
-              <button 
-                class="btn btn-primary" 
-                :disabled="proxyLoading || proxyRunning"
-                @click="startProxy"
-              >
-                <span v-if="proxyLoading" class="loading-spinner"></span>
-                Start Proxy
-              </button>
-              <button 
-                class="btn btn-secondary" 
-                :disabled="proxyLoading || !proxyRunning"
-                @click="stopProxy"
-              >
-                <span v-if="proxyLoading" class="loading-spinner"></span>
-                Stop Proxy
-              </button>
-            </div>
-          </div>
-          
-          <div v-if="proxyMessage" class="message" :class="proxyMessageType">
-            {{ proxyMessage }}
-          </div>
-        </div>
-      </div>
 
       <!-- Certificate Authority Section -->
       <div class="settings-section">
@@ -170,11 +128,7 @@ import { ref, onMounted } from 'vue'
 import { api } from '@/services/http'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
-// Proxy state
-const proxyLoading = ref(false)
-const proxyMessage = ref('')
-const proxyMessageType = ref<'success' | 'error' | 'info'>('info')
-const proxyRunning = ref(false)
+
 
 // CA state
 const caLoading = ref(false)
@@ -189,60 +143,7 @@ const trustInstructions = ref<{
   certPath: string
 } | null>(null)
 
-// Proxy methods
-async function checkProxyStatus() {
-  try {
-    const response = await api.getProxyStatus()
-    proxyRunning.value = response.isRunning
-  } catch (error) {
-    // Silently fail - assume proxy is not running
-    proxyRunning.value = false
-  }
-}
 
-async function startProxy() {
-  proxyLoading.value = true
-  proxyMessage.value = ''
-  
-  try {
-    const response = await api.startProxy()
-    if (response.ok) {
-      proxyMessage.value = response.message
-      proxyMessageType.value = 'success'
-      await checkProxyStatus() // Update status after starting
-    } else {
-      proxyMessage.value = response.message || 'Failed to start proxy'
-      proxyMessageType.value = 'error'
-    }
-  } catch (error) {
-    proxyMessage.value = error instanceof Error ? error.message : 'Unknown error occurred'
-    proxyMessageType.value = 'error'
-  } finally {
-    proxyLoading.value = false
-  }
-}
-
-async function stopProxy() {
-  proxyLoading.value = true
-  proxyMessage.value = ''
-  
-  try {
-    const response = await api.stopProxy()
-    if (response.ok) {
-      proxyMessage.value = response.message
-      proxyMessageType.value = 'success'
-      await checkProxyStatus() // Update status after stopping
-    } else {
-      proxyMessage.value = response.message || 'Failed to stop proxy'
-      proxyMessageType.value = 'error'
-    }
-  } catch (error) {
-    proxyMessage.value = error instanceof Error ? error.message : 'Unknown error occurred'
-    proxyMessageType.value = 'error'
-  } finally {
-    proxyLoading.value = false
-  }
-}
 
 // CA methods
 async function checkCAStatus() {
@@ -330,11 +231,10 @@ async function loadExistingCert() {
   }
 }
 
-// Load cert and proxy status on component mount
+// Load cert status on component mount
 onMounted(async () => {
   await checkCAStatus()
   await loadExistingCert()
-  await checkProxyStatus()
   // Only load trust instructions if CA exists
   if (caExists.value) {
     await loadTrustInstructions()

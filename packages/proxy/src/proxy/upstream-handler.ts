@@ -1,8 +1,12 @@
 import http, { IncomingMessage, RequestOptions } from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
+import { pipeline } from 'node:stream'
+import { promisify } from 'node:util'
 import type { RequestContext } from '../plugins/types'
 import { logger } from '../logger'
+
+const pipelineAsync = promisify(pipeline)
 
 export class UpstreamHandler {
     constructor(private onError: (err: unknown, ctx: any) => void) {}
@@ -29,8 +33,17 @@ export class UpstreamHandler {
             if (requestBodyToSend) {
                 upstreamReq.end(requestBodyToSend)
             } else {
-                // Stream request body
-                clientReq.pipe(upstreamReq)
+                // Stream request body using pipeline for better error handling
+                pipelineAsync(clientReq, upstreamReq).catch((pipelineError) => {
+                    logger.error('Request body pipeline error', pipelineError, {
+                        requestId: ctx.id,
+                        component: 'upstream-handler',
+                        url: fullUrl.toString(),
+                        method: ctx.method,
+                        errorCode: (pipelineError as any)?.code
+                    })
+                    reject(pipelineError)
+                })
             }
         })
     }
@@ -103,19 +116,27 @@ export class UpstreamHandler {
     ): void {
         clientRes.writeHead(statusCode, statusMessage, headers)
         
-        // Set up completion tracking
+        // Set up completion tracking and use pipeline for better error handling
         if (onComplete) {
-            const cleanup = () => {
+            pipelineAsync(upstreamResponse, clientRes).then(() => {
                 onComplete()
-            }
-            
-            clientRes.on('finish', cleanup)
-            clientRes.on('close', cleanup)
-            clientRes.on('error', cleanup)
-            upstreamResponse.on('error', cleanup)
+            }).catch((pipelineError) => {
+                logger.error('Response streaming pipeline error', pipelineError, {
+                    component: 'upstream-handler',
+                    statusCode,
+                    errorCode: (pipelineError as any)?.code
+                })
+                onComplete()
+            })
+        } else {
+            pipelineAsync(upstreamResponse, clientRes).catch((pipelineError) => {
+                logger.error('Response streaming pipeline error', pipelineError, {
+                    component: 'upstream-handler',
+                    statusCode,
+                    errorCode: (pipelineError as any)?.code
+                })
+            })
         }
-        
-        upstreamResponse.pipe(clientRes)
     }
 
     sendBufferedResponse(

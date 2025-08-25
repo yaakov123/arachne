@@ -6,6 +6,7 @@
                 <RouterLink to="/">Traffic Logger</RouterLink>
             </nav>
             <div class="header-actions">
+                <ProxyToggle />
                 <RouterLink to="/settings" class="settings-icon" title="Settings">
                     <Settings :size="16" />
                 </RouterLink>
@@ -21,6 +22,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { Settings } from 'lucide-vue-next'
+import ProxyToggle from '@/components/ProxyToggle.vue'
 </script>
 
 <style scoped>

@@ -1,9 +1,13 @@
 import http, { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
+import { pipeline } from 'node:stream'
+import { promisify } from 'node:util'
 import { sanitizeHeaders } from './utils'
 import { generateId } from './correlation'
 import { logger } from '../logger'
+
+const pipelineAsync = promisify(pipeline)
 
 export interface TunnelOptions {
     hostname: string
@@ -72,15 +76,24 @@ export class TunnelHandler {
                 })
                 
                 clientRes.writeHead(res.statusCode || 200, res.statusMessage, res.headers)
-                res.pipe(clientRes, { end: true })
                 
-                res.on('end', () => {
+                // Use pipeline for better error handling and backpressure
+                pipelineAsync(res, clientRes).then(() => {
                     logger.debug('Direct HTTP tunnel response completed', {
                         requestId,
                         component: 'tunnel-handler',
                         hostname,
                         port,
                         statusCode: res.statusCode
+                    })
+                }).catch((pipelineError) => {
+                    logger.error('Direct HTTP tunnel pipeline error', pipelineError, {
+                        requestId,
+                        component: 'tunnel-handler',
+                        hostname,
+                        port,
+                        statusCode: res.statusCode,
+                        errorCode: (pipelineError as any)?.code
                     })
                 })
             })
@@ -135,15 +148,23 @@ export class TunnelHandler {
                 }
             })
             
-            clientReq.pipe(req, { end: true })
-            
-            req.on('finish', () => {
+            // Use pipeline for request body streaming with better error handling
+            pipelineAsync(clientReq, req).then(() => {
                 logger.debug('Direct HTTP tunnel request sent', {
                     requestId,
                     component: 'tunnel-handler',
                     hostname,
                     port,
                     method: clientReq.method
+                })
+            }).catch((pipelineError) => {
+                logger.error('Direct HTTP tunnel request pipeline error', pipelineError, {
+                    requestId,
+                    component: 'tunnel-handler',
+                    hostname,
+                    port,
+                    method: clientReq.method,
+                    errorCode: (pipelineError as any)?.code
                 })
             })
 
@@ -223,9 +244,38 @@ export class TunnelHandler {
                         clientRemoteAddress: (clientSocket as any).remoteAddress
                     })
                     
-                    // Pipe both directions
-                    clientSocket.pipe(upstreamSocket, { end: true })
-                    upstreamSocket.pipe(clientSocket, { end: true })
+                    // Use pipeline for both directions with better error handling
+                    const clientToUpstream = pipelineAsync(clientSocket, upstreamSocket).catch((err) => {
+                        logger.error('Client to upstream pipeline error in CONNECT tunnel', err, {
+                            requestId,
+                            component: 'tunnel-handler',
+                            hostname,
+                            port,
+                            direction: 'client-to-upstream',
+                            errorCode: (err as any)?.code
+                        })
+                    })
+                    
+                    const upstreamToClient = pipelineAsync(upstreamSocket, clientSocket).catch((err) => {
+                        logger.error('Upstream to client pipeline error in CONNECT tunnel', err, {
+                            requestId,
+                            component: 'tunnel-handler',
+                            hostname,
+                            port,
+                            direction: 'upstream-to-client',
+                            errorCode: (err as any)?.code
+                        })
+                    })
+                    
+                    // Wait for both pipelines to complete
+                    Promise.allSettled([clientToUpstream, upstreamToClient]).then(() => {
+                        logger.debug('CONNECT tunnel pipelines completed', {
+                            requestId,
+                            component: 'tunnel-handler',
+                            hostname,
+                            port
+                        })
+                    })
                     
                     resolve({ success: true })
                 })
