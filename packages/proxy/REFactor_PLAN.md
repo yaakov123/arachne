@@ -137,10 +137,10 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 ### Phase 3: Configuration & Constants (Week 3)
 
 **Step 3.1: Centralize Constants**
-- [ ] Create `src/proxy/constants.ts`
-- [ ] Move "Arachne-Proxy/0.1" string to read from package.json
-- [ ] Centralize default ports, timeouts, and other magic numbers
-- [ ] Add version detection from package.json
+- [x] Create `src/proxy/constants.ts`
+- [x] Move "Arachne-Proxy/0.1" string to read from package.json
+- [x] Centralize default ports, timeouts, and other magic numbers
+- [x] Add version detection from package.json
 
 **Step 3.2: Expand ProxyOptions Interface**
 - [ ] Add configuration options:

@@ -2,6 +2,16 @@ import winston from 'winston'
 import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
+import { 
+    SERVICE_NAME, 
+    DEFAULT_LOG_LEVEL, 
+    LOG_FILE_MAX_SIZE, 
+    LOG_MAX_FILES,
+    DEFAULT_LOG_DIR,
+    PROXY_LOG_FILENAME,
+    ERROR_LOG_FILENAME,
+    COMPONENTS
+} from './proxy/constants'
 
 export interface LogContext {
     requestId?: string
@@ -30,27 +40,27 @@ class ProxyLogger {
 
         // Configure winston logger
         this.logger = winston.createLogger({
-            level: 'info',
+            level: DEFAULT_LOG_LEVEL,
             format: winston.format.combine(
                 winston.format.timestamp(),
                 winston.format.errors({ stack: true }),
                 winston.format.json()
             ),
-            defaultMeta: { service: 'arachne-proxy' },
+            defaultMeta: { service: SERVICE_NAME },
             transports: [
                 // File transport for all logs
                 new winston.transports.File({
-                    filename: path.join(this.logDir, 'proxy.log'),
-                    maxsize: 10 * 1024 * 1024, // 10MB
-                    maxFiles: 5,
+                    filename: path.join(this.logDir, PROXY_LOG_FILENAME),
+                    maxsize: LOG_FILE_MAX_SIZE,
+                    maxFiles: LOG_MAX_FILES,
                     tailable: true
                 }),
                 // Separate file for errors
                 new winston.transports.File({
-                    filename: path.join(this.logDir, 'proxy-error.log'),
+                    filename: path.join(this.logDir, ERROR_LOG_FILENAME),
                     level: 'error',
-                    maxsize: 10 * 1024 * 1024, // 10MB
-                    maxFiles: 5,
+                    maxsize: LOG_FILE_MAX_SIZE,
+                    maxFiles: LOG_MAX_FILES,
                     tailable: true
                 }),
                 // Console output with simple format
@@ -83,7 +93,7 @@ class ProxyLogger {
     }
 
     private createLogDirectoryPath(): string {
-        return path.join(process.cwd(), 'logs')
+        return path.join(process.cwd(), DEFAULT_LOG_DIR)
     }
 
     private ensureLogDirectory(): void {
@@ -136,7 +146,7 @@ class ProxyLogger {
             requestId,
             method,
             url,
-            component: 'http-handler',
+            component: COMPONENTS.HTTP_HANDLER,
             ...context
         })
     }
@@ -146,7 +156,7 @@ class ProxyLogger {
             requestId,
             statusCode,
             duration,
-            component: 'http-handler',
+            component: COMPONENTS.HTTP_HANDLER,
             ...context
         })
     }
@@ -156,7 +166,7 @@ class ProxyLogger {
             requestId,
             hostname,
             port,
-            component: 'tls-manager',
+            component: COMPONENTS.TLS_MANAGER,
             ...context
         })
     }
@@ -165,7 +175,7 @@ class ProxyLogger {
         this.error('Upstream request failed', error, {
             requestId,
             url,
-            component: 'upstream-handler',
+            component: COMPONENTS.UPSTREAM_HANDLER,
             ...context
         })
     }
@@ -174,13 +184,13 @@ class ProxyLogger {
         this.info('Proxy server started', {
             hostname: host,
             port,
-            component: 'server-lifecycle'
+            component: COMPONENTS.SERVER_LIFECYCLE
         })
     }
 
     public logProxyStop(): void {
         this.info('Proxy server stopped', {
-            component: 'server-lifecycle'
+            component: COMPONENTS.SERVER_LIFECYCLE
         })
     }
 
@@ -188,13 +198,13 @@ class ProxyLogger {
         this.info('System proxy enabled', {
             hostname: host,
             port,
-            component: 'server-lifecycle'
+            component: COMPONENTS.SERVER_LIFECYCLE
         })
     }
 
     public logSystemProxyDisabled(): void {
         this.info('System proxy disabled', {
-            component: 'server-lifecycle'
+            component: COMPONENTS.SERVER_LIFECYCLE
         })
     }
 }

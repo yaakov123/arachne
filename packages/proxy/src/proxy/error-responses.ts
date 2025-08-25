@@ -1,6 +1,7 @@
 import http from 'node:http'
 import net from 'node:net'
 import { SocketInfo, getSocketInfo } from './utils'
+import { USER_AGENT, PROXY_AGENT_HEADER } from './constants'
 
 export interface ErrorResponseOptions {
     requestId?: string
@@ -222,7 +223,7 @@ export function sendConnectSuccessResponse(
         if (!socket.destroyed && socket.writable) {
             const response = 
                 'HTTP/1.1 200 Connection Established\r\n' +
-                'Proxy-Agent: Arachne-Proxy/0.1\r\n' +
+                `${PROXY_AGENT_HEADER}: ${USER_AGENT}\r\n` +
                 '\r\n'
             
             if (logger && options) {

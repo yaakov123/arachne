@@ -13,6 +13,7 @@ import { sendErrorResponse, sendWebSocketErrorResponse } from './error-responses
 import { WebSocketHandler } from './websocket-handler'
 import { safeSocketEnd } from './cleanup'
 import { logger } from '../logger'
+import { DEFAULT_PROXY_HOST, DEFAULT_PROXY_PORT, DEFAULT_HTTP_PORT } from './constants'
 
 export interface ProxyOptions {
     host?: string
@@ -106,8 +107,8 @@ export class MitmProxyServer {
     }
 
     async start(): Promise<ServerInfo> {
-        const host = this.opts.host ?? '127.0.0.1'
-        const port = this.opts.port ?? 8899
+        const host = this.opts.host ?? DEFAULT_PROXY_HOST
+        const port = this.opts.port ?? DEFAULT_PROXY_PORT
         return await this.lifecycleManager.start(host, port)
     }
 
@@ -145,7 +146,7 @@ export class MitmProxyServer {
         const correlation = createCorrelationId('ws-http')
         const id = correlation.full
         let hostname = 'unknown'
-        let targetPort = 80
+        let targetPort = DEFAULT_HTTP_PORT
         
         try {
             // Extract hostname from request
@@ -173,7 +174,7 @@ export class MitmProxyServer {
             
             const parsed = parseHostPort(hostHeader)
             hostname = parsed.hostname
-            targetPort = parsed.port || 80
+            targetPort = parsed.port || DEFAULT_HTTP_PORT
             
             logger.debug('HTTP WebSocket upgrade request received', {
                 requestId: id,

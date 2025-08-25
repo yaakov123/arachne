@@ -13,6 +13,7 @@ import { WebSocketHandler } from './websocket-handler'
 import { TunnelHandler } from './tunnel-handler'
 import { createServerCleanup } from './cleanup'
 import { logger } from '../logger'
+import { DEFAULT_HTTPS_PORT } from './constants'
 
 export class TlsManager {
     private tunnelHandler: TunnelHandler
@@ -35,7 +36,7 @@ export class TlsManager {
     ): Promise<void> {
         const correlation = createCorrelationId('conn')
         const { hostname, port } = parseHostPort(String(req.url || ''))
-        const connectPort = port || 443
+        const connectPort = port || DEFAULT_HTTPS_PORT
 
         const ctx: ConnectContext = {
             id: correlation.full,

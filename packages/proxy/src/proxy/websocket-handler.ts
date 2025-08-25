@@ -8,6 +8,7 @@ import { createCorrelationId, extendCorrelationId, parseCorrelationId } from './
 import { logger } from '../logger'
 import { sendWebSocketErrorResponse } from './error-responses'
 import { createSocketCleanup, safeSocketEnd } from './cleanup'
+import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
 
 const pipelineAsync = promisify(pipeline)
 
@@ -57,7 +58,7 @@ export class WebSocketHandler {
                 : createCorrelationId('ws'))
         
         const upgradeId = correlation.full
-        const { hostname, port = options.isHttps ? 443 : 80, isHttps, ignoredHosts, connectId } = options
+        const { hostname, port = options.isHttps ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT, isHttps, ignoredHosts, connectId } = options
         
         logger.debug('WebSocket upgrade request received', {
             requestId: upgradeId,

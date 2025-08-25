@@ -7,6 +7,7 @@ import { sanitizeHeaders } from './utils'
 import { generateId } from './correlation'
 import { safeSocketEnd } from './cleanup'
 import { logger } from '../logger'
+import { USER_AGENT, PROXY_AGENT_HEADER } from './constants'
 
 const pipelineAsync = promisify(pipeline)
 
@@ -221,7 +222,7 @@ export class TunnelHandler {
                     // Send successful connection response
                     clientSocket.write(
                         'HTTP/1.1 200 Connection Established\r\n' +
-                            'Proxy-Agent: Arachne-Proxy/0.1\r\n' +
+                            `${PROXY_AGENT_HEADER}: ${USER_AGENT}\r\n` +
                             '\r\n'
                     )
                     

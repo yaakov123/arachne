@@ -3,6 +3,7 @@ import { URL } from 'node:url'
 import type { RequestContext, ResponseContext } from '../plugins/types'
 import { sanitizeHeaders } from './utils'
 import { getRemote } from './proxy-utils'
+import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
 
 export class ContextBuilder {
     static buildRequestContext(
@@ -16,7 +17,7 @@ export class ContextBuilder {
         const requestOptions: RequestOptions = {
             protocol: url.protocol,
             hostname: url.hostname,
-            port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
+            port: Number(url.port) || (url.protocol === 'https:' ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT),
             method: req.method,
             path: `${url.pathname}${url.search}`,
             headers: sanitizedHeaders,
@@ -54,7 +55,7 @@ export class ContextBuilder {
         return {
             protocol: url.protocol,
             hostname: url.hostname,
-            port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
+            port: Number(url.port) || (url.protocol === 'https:' ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT),
             method,
             path: `${url.pathname}${url.search}`,
             headers,

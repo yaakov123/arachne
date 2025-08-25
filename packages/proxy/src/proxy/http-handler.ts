@@ -11,6 +11,7 @@ import { ResponseBodyHandler } from './response-body-handler'
 import { UpstreamHandler } from './upstream-handler'
 import { TunnelHandler } from './tunnel-handler'
 import { logger } from '../logger'
+import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
 
 export class HttpHandler {
     private requestBodyHandler: RequestBodyHandler
@@ -49,7 +50,7 @@ export class HttpHandler {
             logger.logRequest(id, clientReq.method || 'UNKNOWN', fullUrl.toString(), {
                 isHttps,
                 hostname: fullUrl.hostname,
-                port: fullUrl.port ? parseInt(fullUrl.port) : (isHttps ? 443 : 80)
+                port: fullUrl.port ? parseInt(fullUrl.port) : (isHttps ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT)
             })
 
             // Check if host should be ignored - if so, create direct tunnel
@@ -61,7 +62,7 @@ export class HttpHandler {
                 })
                 await this.tunnelHandler.createHttpTunnel(clientReq, clientRes, {
                     hostname: fullUrl.hostname,
-                    port: parseInt(fullUrl.port || '') || (fullUrl.protocol === 'https:' ? 443 : 80),
+                    port: parseInt(fullUrl.port || '') || (fullUrl.protocol === 'https:' ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT),
                     isHttps: fullUrl.protocol === 'https:',
                     requestId: id,
                     path: fullUrl.pathname + fullUrl.search

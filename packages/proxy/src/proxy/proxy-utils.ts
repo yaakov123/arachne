@@ -1,7 +1,9 @@
 import net from 'node:net'
 import zlib from 'node:zlib'
+import { MAX_BODY_SIZE } from './constants'
 
-export const MAX_BODY_SIZE = 100 * 1024 * 1024 // 100MB safety limit
+// Re-export for backward compatibility
+export { MAX_BODY_SIZE }
 
 export function getRemote(s: net.Socket): string | undefined {
     const a = s.remoteAddress

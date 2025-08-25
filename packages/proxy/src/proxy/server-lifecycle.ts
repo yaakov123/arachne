@@ -1,6 +1,7 @@
 import http from 'node:http'
 import { OSProviderFactory } from '@arachne/os'
 import { logger } from '../logger'
+import { DEFAULT_PROXY_HOST, DEFAULT_PROXY_PORT } from './constants'
 
 export interface ServerInfo {
     host: string
@@ -14,7 +15,7 @@ export class ServerLifecycleManager {
         private httpServer: http.Server,
     ) {}
 
-    async start(host: string = '127.0.0.1', port: number = 8899): Promise<ServerInfo> {
+    async start(host: string = DEFAULT_PROXY_HOST, port: number = DEFAULT_PROXY_PORT): Promise<ServerInfo> {
         await new Promise<void>((resolve) =>
             this.httpServer.listen(port, host, resolve)
         )
