@@ -106,10 +106,10 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 - [x] Add `parentId` field to all contexts for linking flows
 
 **Step 1.4: Fix MAX_BODY_SIZE Documentation**
-- [ ] Correct comment in `proxy-utils.ts:4` (100MB not 2MB)
-- [ ] Add `maxBodySize` to `ProxyOptions` interface
-- [ ] Make body size limit configurable throughout codebase
-- [ ] Update all references to use configurable value
+- [x] Correct comment in `proxy-utils.ts:4` (100MB not 2MB)
+- [x] Add `maxBodySize` to `ProxyOptions` interface
+- [x] Make body size limit configurable throughout codebase
+- [x] Update all references to use configurable value
 
 ### Phase 2: Stream Management & Memory Safety (Week 2)
 
@@ -213,7 +213,7 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 - [ ] All logs include hierarchical request correlation IDs
 - [ ] Header sanitation is RFC-compliant and protocol-specific
 - [ ] Shared tunnel cleanup replaces all duplicate code
-- [ ] `MAX_BODY_SIZE` configurable with accurate documentation
+- [x] `MAX_BODY_SIZE` configurable with accurate documentation
 - [ ] No unused code or types remain
 
 **Verification Steps:**

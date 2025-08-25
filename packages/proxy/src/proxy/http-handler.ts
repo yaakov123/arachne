@@ -21,10 +21,11 @@ export class HttpHandler {
     constructor(
         private pluginManager: PluginManager,
         private onError: (err: unknown, ctx: any) => void,
-        private ignoredHosts?: string[]
+        private ignoredHosts?: string[],
+        maxBodySize?: number
     ) {
-        this.requestBodyHandler = new RequestBodyHandler(pluginManager)
-        this.responseBodyHandler = new ResponseBodyHandler(pluginManager)
+        this.requestBodyHandler = new RequestBodyHandler(pluginManager, maxBodySize)
+        this.responseBodyHandler = new ResponseBodyHandler(pluginManager, maxBodySize)
         this.upstreamHandler = new UpstreamHandler(onError)
         this.tunnelHandler = new TunnelHandler(onError)
     }

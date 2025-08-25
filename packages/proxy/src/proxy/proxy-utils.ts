@@ -1,7 +1,7 @@
 import net from 'node:net'
 import zlib from 'node:zlib'
 
-const MAX_BODY_SIZE = 100 * 1024 * 1024 // 2MB safety limit
+export const MAX_BODY_SIZE = 100 * 1024 * 1024 // 100MB safety limit
 
 export function getRemote(s: net.Socket): string | undefined {
     const a = s.remoteAddress
@@ -34,14 +34,15 @@ export function headerToString(h: string | string[] | undefined): string | undef
 
 export async function readStreamToBuffer(
     stream: NodeJS.ReadableStream,
-    expectedLength: number
+    expectedLength: number,
+    maxBodySize: number = MAX_BODY_SIZE
 ): Promise<Buffer> {
     const chunks: Buffer[] = []
     let total = 0
     for await (const chunk of stream as AsyncIterable<Buffer>) {
         const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
         total += buf.length
-        if (total > MAX_BODY_SIZE) throw new Error('Body too large')
+        if (total > maxBodySize) throw new Error('Body too large')
         chunks.push(buf)
     }
     const out = Buffer.concat(chunks, total)
@@ -77,4 +78,3 @@ export async function decodeBody(buf: Buffer, encoding?: string): Promise<Buffer
     return buf
 }
 
-export { MAX_BODY_SIZE }

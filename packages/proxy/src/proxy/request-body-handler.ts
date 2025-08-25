@@ -11,7 +11,7 @@ import {
 import type { ProcessedRequestBody } from './http-types'
 
 export class RequestBodyHandler {
-    constructor(private pluginManager: PluginManager) {}
+    constructor(private pluginManager: PluginManager, private maxBodySize: number = MAX_BODY_SIZE) {}
 
     canBuffer(method: string, contentLength: number | undefined, hasHook: boolean): boolean {
         const hasRequestBody = !['GET', 'HEAD'].includes(method.toUpperCase())
@@ -20,7 +20,7 @@ export class RequestBodyHandler {
             hasRequestBody &&
             typeof contentLength === 'number' &&
             contentLength > 0 &&
-            contentLength <= MAX_BODY_SIZE
+            contentLength <= this.maxBodySize
         )
     }
 
@@ -37,7 +37,7 @@ export class RequestBodyHandler {
         }
 
         try {
-            const buffered = await readStreamToBuffer(req, reqContentLength as number)
+            const buffered = await readStreamToBuffer(req, reqContentLength as number, this.maxBodySize)
             const reqEnc = headerToString(req.headers['content-encoding'])
             const decoded = await decodeBody(buffered, reqEnc)
             

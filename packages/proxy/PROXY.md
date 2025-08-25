@@ -16,7 +16,7 @@ Key classes and functions referenced below:
 
 Constants of note:
 
-- `MAX_BODY_SIZE = 2 * 1024 * 1024` (2MB safety limit for buffering bodies)
+- `MAX_BODY_SIZE = 100 * 1024 * 1024` (100MB safety limit for buffering bodies)
 
 ## Overview
 
@@ -113,7 +113,7 @@ After this point, decrypted HTTPS requests are processed exactly like HTTP reque
 
 ## Body handling and decoding
 
-- Buffering is opt-in based on plugin presence and size constraints (`MAX_BODY_SIZE = 2MB`).
+- Buffering is opt-in based on plugin presence and size constraints (`MAX_BODY_SIZE = 100MB` by default, configurable via `ProxyOptions.maxBodySize`).
 - `decodeBody()` supports `gzip`, `deflate`, and `br` via Node `zlib`. Unknown encodings are passed through unchanged.
 - If buffering fails for any reason, the proxy falls back to streaming to preserve functionality.
 
@@ -163,7 +163,7 @@ HTTPS (CONNECT):
 
 ## Notes and limitations
 
-- Body buffering capped at 2MB to avoid memory pressure. Larger bodies are streamed.
+- Body buffering capped at 100MB by default (configurable) to avoid memory pressure. Larger bodies are streamed.
 - If `Content-Length` is absent on request, request bodies are streamed (no buffering) to avoid indefinite reads.
 - When response bodies are buffered and modified, they are sent uncompressed with a recalculated `Content-Length`.
 - The proxy does not currently manipulate HTTP/2; ALPN is pinned to HTTP/1.1.

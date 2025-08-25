@@ -12,7 +12,7 @@ import { sanitizeHeaders } from './utils'
 import type { ProcessedResponseBody } from './http-types'
 
 export class ResponseBodyHandler {
-    constructor(private pluginManager: PluginManager) {}
+    constructor(private pluginManager: PluginManager, private maxBodySize: number = MAX_BODY_SIZE) {}
 
     canBuffer(
         response: IncomingMessage, 
@@ -31,7 +31,7 @@ export class ResponseBodyHandler {
             !isBodyless &&
             ((typeof resContentLength === 'number' &&
                 resContentLength >= 0 &&
-                resContentLength <= MAX_BODY_SIZE) ||
+                resContentLength <= this.maxBodySize) ||
                 typeof resContentLength === 'undefined')
         )
     }
@@ -56,7 +56,8 @@ export class ResponseBodyHandler {
                 response,
                 typeof resContentLength === 'number'
                     ? resContentLength
-                    : MAX_BODY_SIZE + 1
+                    : this.maxBodySize + 1,
+                this.maxBodySize
             )
             
             const decoded = await decodeBody(raw, resContentEncoding)

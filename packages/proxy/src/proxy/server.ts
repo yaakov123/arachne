@@ -20,6 +20,7 @@ export interface ProxyOptions {
     certStore?: CertStoreOptions
     plugins?: ProxyPlugin[]
     ignoredHosts?: string[]
+    maxBodySize?: number
 }
 
 export class MitmProxyServer {
@@ -38,7 +39,8 @@ export class MitmProxyServer {
         this.httpHandler = new HttpHandler(
             this.pluginManager,
             this.handleError.bind(this),
-            opts.ignoredHosts
+            opts.ignoredHosts,
+            opts.maxBodySize
         )
         
         this.webSocketHandler = new WebSocketHandler(
