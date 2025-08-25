@@ -115,3 +115,148 @@ export function isHostIgnored(hostname: string, ignoredHosts?: string[]): boolea
         return normalizedHostname.endsWith('.' + normalizedIgnored)
     })
 }
+
+export interface SocketInfo {
+    remoteAddress?: string
+    remotePort?: number
+    localAddress?: string
+    localPort?: number
+    destroyed: boolean
+    readable: boolean
+    writable: boolean
+}
+
+export function getSocketInfo(socket: any): SocketInfo {
+    return {
+        remoteAddress: socket.remoteAddress,
+        remotePort: socket.remotePort,
+        localAddress: socket.localAddress,
+        localPort: socket.localPort,
+        destroyed: socket.destroyed,
+        readable: socket.readable,
+        writable: socket.writable
+    }
+}
+
+export interface ErrorResponseOptions {
+    requestId?: string
+    component?: string
+    hostname?: string
+    port?: number
+    originalError?: string
+    socketInfo?: SocketInfo
+}
+
+export function sendErrorResponse(
+    socket: any,
+    statusCode: number,
+    statusMessage: string,
+    body?: string,
+    logger?: any,
+    options?: ErrorResponseOptions
+): boolean {
+    try {
+        if (!socket.destroyed && socket.writable) {
+            const response = body 
+                ? `HTTP/1.1 ${statusCode} ${statusMessage}\r\nContent-Type: text/plain\r\nContent-Length: ${body.length}\r\n\r\n${body}`
+                : `HTTP/1.1 ${statusCode} ${statusMessage}\r\n\r\n`
+            
+            if (logger && options) {
+                logger.debug(`Sending ${statusCode} ${statusMessage} response`, {
+                    requestId: options.requestId,
+                    component: options.component,
+                    hostname: options.hostname,
+                    port: options.port,
+                    remoteAddress: socket.remoteAddress,
+                    remotePort: socket.remotePort
+                })
+            }
+            
+            socket.write(response)
+            return true
+        } else {
+            if (logger && options) {
+                logger.debug(`Cannot send ${statusCode} response - socket already destroyed or not writable`, {
+                    requestId: options.requestId,
+                    component: options.component,
+                    hostname: options.hostname,
+                    port: options.port,
+                    socketInfo: getSocketInfo(socket)
+                })
+            }
+            return false
+        }
+    } catch (writeError) {
+        if (logger && options) {
+            logger.error(`Failed to send ${statusCode} ${statusMessage} response`, writeError, {
+                requestId: options.requestId,
+                component: options.component,
+                hostname: options.hostname,
+                port: options.port,
+                originalError: options.originalError,
+                socketInfo: getSocketInfo(socket)
+            })
+        }
+        return false
+    }
+}
+
+export function sendHttpErrorResponse(
+    res: any,
+    statusCode: number,
+    statusMessage: string,
+    body?: string,
+    logger?: any,
+    options?: ErrorResponseOptions
+): boolean {
+    const responseInfo = {
+        headersSent: res.headersSent,
+        finished: res.finished,
+        destroyed: res.destroyed,
+        writable: res.writable
+    }
+    
+    try {
+        if (!res.headersSent && res.writable) {
+            if (logger && options) {
+                logger.debug(`Sending ${statusCode} ${statusMessage} response`, {
+                    requestId: options.requestId,
+                    component: options.component,
+                    hostname: options.hostname,
+                    port: options.port
+                })
+            }
+            
+            res.writeHead(statusCode, statusMessage)
+            if (body) {
+                res.end(body)
+            } else {
+                res.end()
+            }
+            return true
+        } else {
+            if (logger && options) {
+                logger.debug(`Cannot send ${statusCode} response - headers already sent or not writable`, {
+                    requestId: options.requestId,
+                    component: options.component,
+                    hostname: options.hostname,
+                    port: options.port,
+                    responseInfo
+                })
+            }
+            return false
+        }
+    } catch (writeError) {
+        if (logger && options) {
+            logger.error(`Failed to send ${statusCode} ${statusMessage} response`, writeError, {
+                requestId: options.requestId,
+                component: options.component,
+                hostname: options.hostname,
+                port: options.port,
+                originalError: options.originalError,
+                responseInfo
+            })
+        }
+        return false
+    }
+}

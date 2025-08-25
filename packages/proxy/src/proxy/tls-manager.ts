@@ -1,23 +1,30 @@
 import http, { IncomingMessage } from 'node:http'
-import https from 'node:https'
 import net from 'node:net'
 import tls from 'node:tls'
 import { CertificateAuthority } from '../certs/ca'
 import type { ConnectContext } from '../plugins/types'
-import { genId, parseHostPort, isHostIgnored, sanitizeHeaders } from './utils'
+import { genId, parseHostPort, isHostIgnored, sendErrorResponse } from './utils'
 import { getRemote } from './proxy-utils'
 import { PluginManager } from './plugin-manager'
 import { HttpHandler } from './http-handler'
+import { WebSocketHandler } from './websocket-handler'
+import { TunnelHandler } from './tunnel-handler'
 import { logger } from '../logger'
 
 export class TlsManager {
+    private webSocketHandler: WebSocketHandler
+    private tunnelHandler: TunnelHandler
+    
     constructor(
         private ca: CertificateAuthority,
         private pluginManager: PluginManager,
         private httpHandler: HttpHandler,
         private onError: (err: unknown, ctx: any) => void,
         private ignoredHosts?: string[]
-    ) {}
+    ) {
+        this.webSocketHandler = new WebSocketHandler(onError)
+        this.tunnelHandler = new TunnelHandler(onError)
+    }
 
     async handleConnect(
         req: IncomingMessage,
@@ -50,7 +57,11 @@ export class TlsManager {
                 hostname,
                 component: 'tls-manager'
             })
-            await this.createDirectTunnel(clientSocket, hostname, connectPort, head)
+            await this.tunnelHandler.createConnectTunnel(clientSocket, {
+                hostname,
+                port: connectPort,
+                requestId: id
+            }, head)
             return
         }
         
@@ -88,9 +99,14 @@ export class TlsManager {
         
         // Handle WebSocket upgrades through HTTPS tunnel
         httpOverTls.on('upgrade', (req, socket, head) => {
-            this.handleWebSocketUpgrade(req, socket as net.Socket, head, id, hostname).catch((err) =>
-                this.onError(err, { id, hostname })
-            )
+            this.webSocketHandler.handleUpgrade(req, socket as net.Socket, head, {
+                hostname,
+                port: connectPort,
+                isHttps: true,
+                ignoredHosts: this.ignoredHosts,
+                requestId: genId('ws'),
+                connectId: id
+            }).catch((err) => this.onError(err, { id, hostname }))
         })
         
         httpOverTls.on('clientError', (err, socket) => {
@@ -113,33 +129,13 @@ export class TlsManager {
                 errorErrno: (err as any)?.errno
             })
             
-            try {
-                if (!socket.destroyed && socket.writable) {
-                    logger.debug('Sending 400 Bad Request to TLS client socket', {
-                        requestId: id,
-                        hostname,
-                        component: 'tls-manager',
-                        remoteAddress: (socket as any).remoteAddress,
-                        remotePort: (socket as any).remotePort
-                    })
-                    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
-                } else {
-                    logger.debug('Cannot write to TLS client socket - already destroyed or not writable', {
-                        requestId: id,
-                        hostname,
-                        component: 'tls-manager',
-                        socketInfo
-                    })
-                }
-            } catch (writeError) {
-                logger.error('Failed to write 400 response to TLS client socket', writeError, {
-                    requestId: id,
-                    hostname,
-                    component: 'tls-manager',
-                    originalError: err.message,
-                    socketInfo
-                })
-            }
+            sendErrorResponse(socket, 400, 'Bad Request', undefined, logger, {
+                requestId: id,
+                component: 'tls-manager',
+                hostname,
+                originalError: err.message,
+                socketInfo
+            })
             
             this.onError(err, { id, hostname })
         })
@@ -203,499 +199,7 @@ export class TlsManager {
         clientSocket.on('end', cleanup)
     }
 
-    private async createDirectTunnel(
-        clientSocket: net.Socket,
-        hostname: string,
-        port: number,
-        head: Buffer
-    ): Promise<void> {
-        try {
-            const upstreamSocket = new net.Socket()
-            
-            upstreamSocket.connect(port, hostname, () => {
-                logger.debug('Direct tunnel connection established', {
-                    component: 'tls-manager',
-                    hostname,
-                    port,
-                    clientRemoteAddress: (clientSocket as any).remoteAddress,
-                    upstreamLocalAddress: (upstreamSocket as any).localAddress,
-                    upstreamLocalPort: (upstreamSocket as any).localPort
-                })
-                
-                // Send successful connection response
-                clientSocket.write(
-                    'HTTP/1.1 200 Connection Established\r\n' +
-                        'Proxy-Agent: Arachne-Proxy/0.1\r\n' +
-                        '\r\n'
-                )
-                
-                // Forward any initial data
-                if (head && head.length) {
-                    logger.debug('Forwarding initial HEAD data in direct tunnel', {
-                        component: 'tls-manager',
-                        hostname,
-                        port,
-                        headLength: head.length
-                    })
-                    upstreamSocket.write(head)
-                }
-                
-                logger.debug('Starting bidirectional data piping for direct tunnel', {
-                    component: 'tls-manager',
-                    hostname,
-                    port,
-                    clientRemoteAddress: (clientSocket as any).remoteAddress
-                })
-                
-                // Pipe both directions
-                clientSocket.pipe(upstreamSocket, { end: true })
-                upstreamSocket.pipe(clientSocket, { end: true })
-            })
-            
-            upstreamSocket.on('error', (err) => {
-                const clientSocketInfo = {
-                    remoteAddress: (clientSocket as any).remoteAddress,
-                    remotePort: (clientSocket as any).remotePort,
-                    destroyed: clientSocket.destroyed,
-                    readable: clientSocket.readable,
-                    writable: clientSocket.writable
-                }
-                
-                const upstreamSocketInfo = {
-                    remoteAddress: (upstreamSocket as any).remoteAddress,
-                    remotePort: (upstreamSocket as any).remotePort,
-                    destroyed: upstreamSocket.destroyed,
-                    readable: upstreamSocket.readable,
-                    writable: upstreamSocket.writable
-                }
-                
-                logger.error('Upstream socket error in direct tunnel', err, {
-                    component: 'tls-manager',
-                    hostname,
-                    port,
-                    clientSocketInfo,
-                    upstreamSocketInfo,
-                    errorCode: (err as any)?.code,
-                    errorErrno: (err as any)?.errno
-                })
-                
-                try {
-                    if (!clientSocket.destroyed && clientSocket.writable) {
-                        logger.debug('Sending 502 Bad Gateway to client socket for upstream error', {
-                            component: 'tls-manager',
-                            hostname,
-                            port,
-                            clientRemoteAddress: (clientSocket as any).remoteAddress
-                        })
-                        clientSocket.write(
-                            'HTTP/1.1 502 Bad Gateway\r\n' +
-                                'Content-Type: text/plain\r\n' +
-                                'Content-Length: 19\r\n' +
-                                '\r\n' +
-                                'Connection failed\r\n'
-                        )
-                        clientSocket.end()
-                    } else {
-                        logger.debug('Cannot write 502 response to client socket - already destroyed or not writable', {
-                            component: 'tls-manager',
-                            hostname,
-                            port,
-                            clientSocketInfo
-                        })
-                    }
-                } catch (writeError) {
-                    logger.error('Failed to write 502 response to client socket for upstream error', writeError, {
-                        component: 'tls-manager',
-                        hostname,
-                        port,
-                        originalError: err.message,
-                        clientSocketInfo
-                    })
-                }
-            })
-            
-            // Clean up when client disconnects
-            const cleanup = (reason: string) => {
-                logger.debug('Cleaning up direct tunnel connection', {
-                    component: 'tls-manager',
-                    hostname,
-                    port,
-                    reason,
-                    clientRemoteAddress: (clientSocket as any).remoteAddress,
-                    upstreamDestroyed: upstreamSocket.destroyed
-                })
-                try {
-                    if (!upstreamSocket.destroyed) {
-                        upstreamSocket.destroy()
-                    }
-                } catch (destroyError) {
-                    logger.error('Error destroying upstream socket during cleanup', destroyError, {
-                        component: 'tls-manager',
-                        hostname,
-                        port,
-                        reason
-                    })
-                }
-            }
-            clientSocket.on('close', () => cleanup('client-close'))
-            clientSocket.on('end', () => cleanup('client-end'))
-            upstreamSocket.on('close', () => {
-                logger.debug('Upstream socket closed in direct tunnel', {
-                    component: 'tls-manager',
-                    hostname,
-                    port,
-                    clientRemoteAddress: (clientSocket as any).remoteAddress
-                })
-            })
-            
-        } catch (err) {
-            const clientSocketInfo = {
-                remoteAddress: (clientSocket as any).remoteAddress,
-                remotePort: (clientSocket as any).remotePort,
-                destroyed: clientSocket.destroyed,
-                readable: clientSocket.readable,
-                writable: clientSocket.writable
-            }
-            
-            logger.error('Direct tunnel setup failed', err, {
-                component: 'tls-manager',
-                hostname,
-                port,
-                clientSocketInfo,
-                errorCode: (err as any)?.code,
-                errorErrno: (err as any)?.errno
-            })
-            
-            this.onError(err, { hostname, port })
-            
-            try {
-                if (!clientSocket.destroyed && clientSocket.writable) {
-                    logger.debug('Closing client socket after direct tunnel setup failure', {
-                        component: 'tls-manager',
-                        hostname,
-                        port,
-                        clientRemoteAddress: (clientSocket as any).remoteAddress
-                    })
-                    clientSocket.end()
-                } else {
-                    logger.debug('Client socket already destroyed or not writable after direct tunnel setup failure', {
-                        component: 'tls-manager',
-                        hostname,
-                        port,
-                        clientSocketInfo
-                    })
-                }
-            } catch (closeError) {
-                logger.error('Failed to close client socket after direct tunnel setup failure', closeError, {
-                    component: 'tls-manager',
-                    hostname,
-                    port,
-                    originalError: err instanceof Error ? err.message : String(err),
-                    clientSocketInfo
-                })
-            }
-        }
-    }
 
-    private async handleWebSocketUpgrade(
-        req: IncomingMessage,
-        clientSocket: net.Socket,
-        head: Buffer,
-        connectId: string,
-        hostname: string
-    ): Promise<void> {
-        const upgradeId = genId('ws')
-        
-        logger.debug('WebSocket upgrade request received through HTTPS tunnel', {
-            requestId: upgradeId,
-            connectId,
-            hostname,
-            component: 'tls-manager',
-            url: req.url,
-            headers: req.headers
-        })
-        
-        try {
-            // Check if host should be ignored - if so, create direct WebSocket tunnel
-            if (isHostIgnored(hostname, this.ignoredHosts)) {
-                logger.debug('Creating direct WebSocket tunnel for ignored host', {
-                    requestId: upgradeId,
-                    connectId,
-                    hostname,
-                    component: 'tls-manager'
-                })
-                await this.createDirectWebSocketTunnel(req, clientSocket, head, hostname)
-                return
-            }
-            
-            // Prepare headers for upstream request
-            const upstreamHeaders = sanitizeHeaders(req.headers)
-            
-            // Create upstream WebSocket connection
-            const upstreamReq = https.request({
-                hostname,
-                port: 443,
-                method: req.method,
-                path: req.url,
-                headers: upstreamHeaders
-            })
-            
-            upstreamReq.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
-                logger.debug('Upstream WebSocket upgrade successful', {
-                    requestId: upgradeId,
-                    connectId,
-                    hostname,
-                    component: 'tls-manager',
-                    statusCode: upstreamRes.statusCode
-                })
-                
-                // Forward upgrade response to client
-                const responseHeaders = Object.entries(upstreamRes.headers)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join('\r\n')
-                
-                const upgradeResponse = 
-                    `HTTP/1.1 ${upstreamRes.statusCode} ${upstreamRes.statusMessage}\r\n` +
-                    responseHeaders + '\r\n\r\n'
-                
-                clientSocket.write(upgradeResponse)
-                
-                // Forward any initial upstream data
-                if (upstreamHead && upstreamHead.length > 0) {
-                    logger.debug('Forwarding initial upstream WebSocket data', {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        component: 'tls-manager',
-                        dataLength: upstreamHead.length
-                    })
-                    clientSocket.write(upstreamHead)
-                }
-                
-                logger.debug('Starting bidirectional WebSocket data piping', {
-                    requestId: upgradeId,
-                    connectId,
-                    hostname,
-                    component: 'tls-manager'
-                })
-                
-                // Pipe both directions for WebSocket data
-                clientSocket.pipe(upstreamSocket, { end: true })
-                upstreamSocket.pipe(clientSocket, { end: true })
-                
-                // Handle cleanup
-                const cleanup = (reason: string) => {
-                    logger.debug('Cleaning up WebSocket connection', {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        component: 'tls-manager',
-                        reason
-                    })
-                    try {
-                        if (!upstreamSocket.destroyed) {
-                            upstreamSocket.destroy()
-                        }
-                    } catch (err) {
-                        logger.error('Error destroying upstream WebSocket socket', err, {
-                            requestId: upgradeId,
-                            connectId,
-                            hostname,
-                            component: 'tls-manager'
-                        })
-                    }
-                }
-                
-                clientSocket.on('close', () => cleanup('client-close'))
-                clientSocket.on('end', () => cleanup('client-end'))
-                upstreamSocket.on('close', () => cleanup('upstream-close'))
-                upstreamSocket.on('end', () => cleanup('upstream-end'))
-                
-                upstreamSocket.on('error', (err) => {
-                    logger.error('Upstream WebSocket socket error', err, {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        component: 'tls-manager'
-                    })
-                    cleanup('upstream-error')
-                })
-            })
-            
-            upstreamReq.on('error', (err) => {
-                logger.error('WebSocket upgrade request failed', err, {
-                    requestId: upgradeId,
-                    connectId,
-                    hostname,
-                    component: 'tls-manager',
-                    errorCode: (err as any)?.code,
-                    errorErrno: (err as any)?.errno
-                })
-                
-                try {
-                    if (!clientSocket.destroyed && clientSocket.writable) {
-                        logger.debug('Sending 502 Bad Gateway for WebSocket upgrade error', {
-                            requestId: upgradeId,
-                            connectId,
-                            hostname,
-                            component: 'tls-manager'
-                        })
-                        clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n')
-                        clientSocket.end()
-                    }
-                } catch (writeError) {
-                    logger.error('Failed to send 502 response for WebSocket upgrade error', writeError, {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        component: 'tls-manager',
-                        originalError: err.message
-                    })
-                }
-            })
-            
-            // Send the upgrade request to upstream
-            upstreamReq.end()
-            
-            // Forward any initial client data
-            if (head && head.length > 0) {
-                logger.debug('Forwarding initial client WebSocket data', {
-                    requestId: upgradeId,
-                    connectId,
-                    hostname,
-                    component: 'tls-manager',
-                    dataLength: head.length
-                })
-                upstreamReq.write(head)
-            }
-            
-        } catch (err) {
-            logger.error('WebSocket upgrade handling failed', err, {
-                requestId: upgradeId,
-                connectId,
-                hostname,
-                component: 'tls-manager'
-            })
-            
-            this.onError(err, { id: upgradeId, hostname })
-            
-            try {
-                if (!clientSocket.destroyed && clientSocket.writable) {
-                    clientSocket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
-                    clientSocket.end()
-                }
-            } catch (writeError) {
-                logger.error('Failed to send 500 response for WebSocket upgrade error', writeError, {
-                    requestId: upgradeId,
-                    connectId,
-                    hostname,
-                    component: 'tls-manager'
-                })
-            }
-        }
-    }
-    
-    private async createDirectWebSocketTunnel(
-        req: IncomingMessage,
-        clientSocket: net.Socket,
-        head: Buffer,
-        hostname: string
-    ): Promise<void> {
-        const tunnelId = genId('ws-direct')
-        
-        logger.debug('Creating direct WebSocket tunnel for ignored host', {
-            requestId: tunnelId,
-            hostname,
-            component: 'tls-manager'
-        })
-        
-        try {
-            // For ignored hosts, connect directly to the upstream server
-            const upstreamReq = https.request({
-                hostname,
-                port: 443,
-                method: req.method,
-                path: req.url,
-                headers: req.headers
-            })
-            
-            upstreamReq.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
-                logger.debug('Direct WebSocket tunnel upgrade successful', {
-                    requestId: tunnelId,
-                    hostname,
-                    component: 'tls-manager',
-                    statusCode: upstreamRes.statusCode
-                })
-                
-                // Forward upgrade response to client
-                const responseHeaders = Object.entries(upstreamRes.headers)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join('\r\n')
-                
-                const upgradeResponse = 
-                    `HTTP/1.1 ${upstreamRes.statusCode} ${upstreamRes.statusMessage}\r\n` +
-                    responseHeaders + '\r\n\r\n'
-                
-                clientSocket.write(upgradeResponse)
-                
-                // Forward any initial data
-                if (upstreamHead && upstreamHead.length > 0) {
-                    clientSocket.write(upstreamHead)
-                }
-                
-                // Pipe both directions
-                clientSocket.pipe(upstreamSocket, { end: true })
-                upstreamSocket.pipe(clientSocket, { end: true })
-                
-                // Cleanup handlers
-                const cleanup = () => {
-                    try {
-                        if (!upstreamSocket.destroyed) {
-                            upstreamSocket.destroy()
-                        }
-                    } catch {}
-                }
-                
-                clientSocket.on('close', cleanup)
-                clientSocket.on('end', cleanup)
-                upstreamSocket.on('close', cleanup)
-                upstreamSocket.on('end', cleanup)
-            })
-            
-            upstreamReq.on('error', (err) => {
-                logger.error('Direct WebSocket tunnel failed', err, {
-                    requestId: tunnelId,
-                    hostname,
-                    component: 'tls-manager'
-                })
-                
-                try {
-                    if (!clientSocket.destroyed && clientSocket.writable) {
-                        clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n')
-                        clientSocket.end()
-                    }
-                } catch {}
-            })
-            
-            upstreamReq.end()
-            
-            if (head && head.length > 0) {
-                upstreamReq.write(head)
-            }
-            
-        } catch (err) {
-            logger.error('Direct WebSocket tunnel setup failed', err, {
-                requestId: tunnelId,
-                hostname,
-                component: 'tls-manager'
-            })
-            
-            try {
-                if (!clientSocket.destroyed && clientSocket.writable) {
-                    clientSocket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
-                    clientSocket.end()
-                }
-            } catch {}
-        }
-    }
+
+
 }
