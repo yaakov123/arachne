@@ -1,3 +1,5 @@
+import type { TransactionData } from './ws'
+
 export const API_PREFIX = '/api'
 
 // HTTP response shapes
@@ -109,6 +111,18 @@ export interface CAStatusResponse {
   message: string
 }
 
+// Repeater functionality types
+export interface RepeatRequestBody {
+  originalTransactionId: string
+  transaction: TransactionData
+}
+
+export interface RepeatResponse {
+  ok: boolean
+  message: string
+  error?: string
+}
+
 export const HttpRoutes = {
   health: '/health',
   inventory: `${API_PREFIX}/inventory`,
@@ -125,4 +139,6 @@ export const HttpRoutes = {
   caTrust: `${API_PREFIX}/ca/trust`,
   caUntrust: `${API_PREFIX}/ca/untrust`,
   caTrustInstructions: `${API_PREFIX}/ca/trust-instructions`,
+  // Repeater functionality
+  repeaterSend: `${API_PREFIX}/repeater/send`,
 } as const

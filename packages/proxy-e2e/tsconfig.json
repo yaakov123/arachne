@@ -8,7 +8,4 @@
         "composite": false
     },
     "include": ["tests/**/*.ts"],
-    "references": [
-        { "path": "../proxy" }
-    ]
 }

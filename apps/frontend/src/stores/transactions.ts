@@ -1,12 +1,22 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { wsClient } from '../services/ws'
-import type { TransactionCompleteEvent, TransactionData, TransactionDependency } from '@arachne/api-types'
+import { HttpRoutes, type RepeatRequestBody, type RepeatResponse } from '@arachne/api-types'
+import type { TransactionCompleteEvent, TransactionData, RepeaterMetadata } from '@arachne/api-types'
+
+// Frontend transaction with repeater grouping metadata 
+export interface RepeaterGroupMeta {
+    isOriginal: boolean             // True for the original request
+    isRepeated: boolean             // True for repeated requests
+    parentTransactionId?: string    // For repeated requests, links to original
+    childTransactionIds: string[]   // For original requests, list of repeated IDs
+    isExpanded: boolean            // UI state for expand/collapse
+}
 
 export type TransactionWithMeta = TransactionData & { 
     id: string
     timestamp: number 
-    dependencies?: TransactionDependency[]
+    repeaterGroup?: RepeaterGroupMeta
 }
 
 // Removed AdvancedFilters interface - now using simple search query
@@ -47,34 +57,32 @@ export const useTransactionsStore = defineStore('transactions', () => {
         return filtered
     })
 
-    const dependencyGraph = computed(() => {
-        const graph = new Map<string, string[]>() // transactionId -> [dependent transactionIds]
+    // Display logic for nested view
+    const displayTransactions = computed(() => {
+        const result: TransactionWithMeta[] = []
         
-        for (const transaction of transactions.value) {
-            if (transaction.dependencies && transaction.dependencies.length > 0) {
-                for (const dep of transaction.dependencies) {
-                    if (!graph.has(dep.sourceTransactionId)) {
-                        graph.set(dep.sourceTransactionId, [])
-                    }
-                    graph.get(dep.sourceTransactionId)!.push(transaction.id)
+        for (const transaction of filteredTransactions.value) {
+            if (transaction.repeaterGroup?.isOriginal) {
+                // Add original transaction
+                result.push(transaction)
+                
+                // Add repeated transactions if expanded
+                if (transaction.repeaterGroup.isExpanded) {
+                    const childIds = transaction.repeaterGroup.childTransactionIds
+                    const children = transactions.value.filter(t => childIds.includes(t.id))
+                    result.push(...children.sort((a, b) => b.timestamp - a.timestamp))
                 }
+            } else if (!transaction.repeaterGroup?.isRepeated) {
+                // Add non-grouped transactions
+                result.push(transaction)
             }
+            // Skip repeated transactions (shown under parent when expanded)
         }
         
-        return graph
+        return result
     })
 
-    const transactionDependencies = computed(() => {
-        const deps = new Map<string, TransactionDependency[]>() // transactionId -> dependencies
-        
-        for (const transaction of transactions.value) {
-            if (transaction.dependencies && transaction.dependencies.length > 0) {
-                deps.set(transaction.id, transaction.dependencies)
-            }
-        }
-        
-        return deps
-    })
+
 
     // Actions
     function addTransaction(transactionEvent: TransactionCompleteEvent) {
@@ -82,15 +90,58 @@ export const useTransactionsStore = defineStore('transactions', () => {
             ...transactionEvent.transaction,
             id: transactionEvent.id,
             timestamp: new Date(transactionEvent.ts).getTime(),
-            dependencies: transactionEvent.dependencies
         }
         
-        // Add to beginning of array (newest first)
-        transactions.value.unshift(transactionWithMeta)
+        // Handle repeated vs. original transactions
+        if (transactionWithMeta.repeater?.source === 'repeater') {
+            handleRepeatedTransaction(transactionWithMeta)
+        } else {
+            transactions.value.unshift(transactionWithMeta)
+        }
         
         // Keep only last 1000 transactions to prevent memory issues
         if (transactions.value.length > 1000) {
             transactions.value = transactions.value.slice(0, 1000)
+        }
+    }
+
+    function handleRepeatedTransaction(repeatedTransaction: TransactionWithMeta) {
+        const originalId = repeatedTransaction.repeater?.originalTransactionId
+        
+        if (!originalId) {
+            transactions.value.unshift(repeatedTransaction)
+            return
+        }
+        
+        const originalTransaction = transactions.value.find(t => t.id === originalId)
+        
+        if (originalTransaction) {
+            // Initialize repeater group if needed
+            if (!originalTransaction.repeaterGroup) {
+                originalTransaction.repeaterGroup = {
+                    isOriginal: true,
+                    isRepeated: false,
+                    parentTransactionId: undefined,
+                    childTransactionIds: [],
+                    isExpanded: false
+                }
+            }
+            
+            // Mark repeated transaction and link to parent
+            repeatedTransaction.repeaterGroup = {
+                isOriginal: false,
+                isRepeated: true,
+                parentTransactionId: originalId,
+                childTransactionIds: [],
+                isExpanded: false
+            }
+            
+            // Add to child list and add to transactions
+            originalTransaction.repeaterGroup.childTransactionIds.push(repeatedTransaction.id)
+            transactions.value.unshift(repeatedTransaction)
+        } else {
+            // Original not found - treat as standalone
+            transactions.value.unshift(repeatedTransaction)
         }
     }
 
@@ -121,6 +172,53 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
     function clearSearch() {
         searchQuery.value = ''
+    }
+
+    // Repeater functionality
+    async function repeatRequest(transactionId: string): Promise<void> {
+        try {
+            // Find the transaction to repeat
+            const transaction = transactions.value.find(t => t.id === transactionId)
+            if (!transaction) {
+                throw new Error('Transaction not found')
+            }
+            
+            const response = await fetch(HttpRoutes.repeaterSend, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // TODO: Add auth header if needed
+                },
+                body: JSON.stringify({ 
+                    originalTransactionId: transactionId,
+                    transaction: {
+                        request: transaction.request,
+                        response: transaction.response,
+                        timing: transaction.timing,
+                        summary: transaction.summary
+                    }
+                } satisfies RepeatRequestBody)
+            })
+            
+            if (!response.ok) {
+                throw new Error(`Failed to repeat request: ${response.statusText}`)
+            }
+            
+            const result: RepeatResponse = await response.json()
+            if (!result.ok) {
+                throw new Error(result.error || result.message)
+            }
+        } catch (error) {
+            console.error('Error repeating request:', error)
+            throw error
+        }
+    }
+
+    function toggleGroupExpansion(transactionId: string) {
+        const transaction = transactions.value.find(t => t.id === transactionId)
+        if (transaction?.repeaterGroup?.isOriginal) {
+            transaction.repeaterGroup.isExpanded = !transaction.repeaterGroup.isExpanded
+        }
     }
 
     // WebSocket event handler
@@ -159,49 +257,6 @@ export const useTransactionsStore = defineStore('transactions', () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
     }
 
-    // Dependency helper functions
-    function getTransactionDependencies(transactionId: string): TransactionDependency[] {
-        return transactionDependencies.value.get(transactionId) || []
-    }
-
-    function getDependentTransactions(transactionId: string): TransactionWithMeta[] {
-        const dependentIds = dependencyGraph.value.get(transactionId) || []
-        return dependentIds.map(id => transactions.value.find(t => t.id === id))
-                         .filter(Boolean) as TransactionWithMeta[]
-    }
-
-    function getSourceTransaction(dependency: TransactionDependency): TransactionWithMeta | undefined {
-        return transactions.value.find(t => t.id === dependency.sourceTransactionId)
-    }
-
-    function hasAuthDependencies(transactionId: string): boolean {
-        const deps = getTransactionDependencies(transactionId)
-        return deps.some(dep => dep.type === 'auth_token' || dep.type === 'cookie')
-    }
-
-    function getDependencyChain(transactionId: string): TransactionWithMeta[] {
-        const chain: TransactionWithMeta[] = []
-        const visited = new Set<string>()
-        
-        function collectChain(id: string) {
-            if (visited.has(id)) return
-            visited.add(id)
-            
-            const transaction = transactions.value.find(t => t.id === id)
-            if (!transaction) return
-            
-            chain.push(transaction)
-            
-            // Follow dependencies backwards
-            const deps = getTransactionDependencies(id)
-            for (const dep of deps) {
-                collectChain(dep.sourceTransactionId)
-            }
-        }
-        
-        collectChain(transactionId)
-        return chain.reverse() // Order from source to target
-    }
 
     return {
         // State
@@ -215,8 +270,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
         // Computed
         uniqueHosts,
         filteredTransactions,
-        dependencyGraph,
-        transactionDependencies,
+        displayTransactions,
         
         // Actions
         addTransaction,
@@ -231,11 +285,9 @@ export const useTransactionsStore = defineStore('transactions', () => {
         disconnect,
         formatSize,
         
-        // Dependency helpers
-        getTransactionDependencies,
-        getDependentTransactions,
-        getSourceTransaction,
-        hasAuthDependencies,
-        getDependencyChain
+        // Repeater functionality
+        repeatRequest,
+        toggleGroupExpansion,
+        
     }
 })

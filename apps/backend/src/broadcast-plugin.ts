@@ -17,6 +17,7 @@ import type {
     DisplayHeader,
     ContentInfo,
     RequestURL,
+    RepeaterMetadata,
 } from '@arachne/api-types'
 // import { ReverseLookupDependencyDetector } from './dependency-analyzer'
 
@@ -193,6 +194,8 @@ interface TransactionState {
     responseSize?: number
     hasRequestBody: boolean
     hasResponseBody: boolean
+    // Repeater metadata
+    repeaterMeta?: RepeaterMetadata
 }
 
 export function createBroadcastPlugin(
@@ -250,6 +253,7 @@ export function createBroadcastPlugin(
                 hasRequestBody: transaction.hasRequestBody,
                 hasResponseBody: transaction.hasResponseBody,
             },
+            repeater: transaction.repeaterMeta,
         }
 
         // STEP 1: Analyze current request for dependencies (look backwards)
@@ -294,7 +298,40 @@ export function createBroadcastPlugin(
             const timestamp = Date.now()
             const startTime = timestamp
             const parsedURL = parseURL(ctx.url)
-            const parsedHeaders = parseHeaders(ctx.headers)
+            
+            // Check for repeater header
+            let repeaterMeta: RepeaterMetadata | undefined
+            const repeaterHeader = ctx.headers['x-arachne-repeater']
+            
+            if (repeaterHeader) {
+                try {
+                    const headerValue = Array.isArray(repeaterHeader) 
+                        ? repeaterHeader[0] 
+                        : repeaterHeader
+                    
+                    const parsed = JSON.parse(headerValue)
+                    repeaterMeta = {
+                        source: 'repeater',
+                        originalTransactionId: parsed.originalId,
+                        repeatedAt: new Date(parsed.timestamp).toISOString()
+                    }
+                    
+                    broadcastLogger.info('Detected repeater request', {
+                        transactionId: ctx.id,
+                        originalId: parsed.originalId
+                    })
+                } catch {
+                    broadcastLogger.warn('Invalid repeater header format', {
+                        transactionId: ctx.id,
+                        header: repeaterHeader
+                    })
+                }
+            } else {
+                repeaterMeta = { source: 'proxy' }
+            }
+
+            // Parse headers and filter out the repeater header for broadcast
+            const parsedHeaders = parseHeaders(ctx.headers).filter(h => h.name !== 'x-arachne-repeater')
 
             // Initialize transaction tracking with complete request data
             transactions.set(ctx.id, {
@@ -306,6 +343,7 @@ export function createBroadcastPlugin(
                 clientIp: ctx.clientIp,
                 hasRequestBody: false,
                 hasResponseBody: false,
+                repeaterMeta,
             })
 
             const ev: RequestEvent = {
@@ -315,7 +353,7 @@ export function createBroadcastPlugin(
                 timestamp,
                 method: ctx.method,
                 url: parsedURL,
-                headers: parsedHeaders,
+                headers: parsedHeaders, // Filtered headers (no repeater header)
                 rawHeaders: ctx.headers,
                 clientIp: ctx.clientIp,
             }
@@ -327,7 +365,9 @@ export function createBroadcastPlugin(
                 method: ctx.method,
                 url: parsedURL.full,
                 clientIp: ctx.clientIp,
-                timestamp
+                timestamp,
+                isRepeater: repeaterMeta?.source === 'repeater',
+                originalTransactionId: repeaterMeta?.originalTransactionId
             })
             
             hub.broadcast(ev)
