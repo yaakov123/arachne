@@ -11,6 +11,7 @@ import { parseHostPort, getSocketInfo } from './utils'
 import { createCorrelationId } from './correlation'
 import { sendErrorResponse, sendWebSocketErrorResponse } from './error-responses'
 import { WebSocketHandler } from './websocket-handler'
+import { safeSocketEnd } from './cleanup'
 import { logger } from '../logger'
 
 export interface ProxyOptions {
@@ -160,7 +161,12 @@ export class MitmProxyServer {
                     component: 'proxy-server',
                     originalError: 'Missing Host header'
                 })
-                clientSocket.end()
+                safeSocketEnd(clientSocket, {
+                    requestId: id,
+                    component: 'proxy-server',
+                    hostname,
+                    port: targetPort
+                })
                 return
             }
             
@@ -202,15 +208,12 @@ export class MitmProxyServer {
                 originalError: err instanceof Error ? err.message : String(err)
             })
             
-            try {
-                clientSocket.end()
-            } catch (endError) {
-                logger.debug('Failed to end socket after HTTP WebSocket upgrade error', {
-                    requestId: id,
-                    component: 'proxy-server',
-                    error: endError instanceof Error ? endError.message : String(endError)
-                })
-            }
+            safeSocketEnd(clientSocket, {
+                requestId: id,
+                component: 'proxy-server',
+                hostname,
+                port: targetPort
+            })
         }
     }
     

@@ -7,6 +7,7 @@ import { isHostIgnored, sanitizeHeaders } from './utils'
 import { createCorrelationId, extendCorrelationId, parseCorrelationId } from './correlation'
 import { logger } from '../logger'
 import { sendWebSocketErrorResponse } from './error-responses'
+import { createSocketCleanup, safeSocketEnd } from './cleanup'
 
 const pipelineAsync = promisify(pipeline)
 
@@ -92,18 +93,12 @@ export class WebSocketHandler {
                 originalError: err instanceof Error ? err.message : String(err)
             })
             
-            try {
-                clientSocket.end()
-            } catch (endError) {
-                logger.debug('Failed to end socket after WebSocket upgrade error', {
-                    requestId: upgradeId,
-                    connectId,
-                    hostname,
-                    port,
-                    component: 'websocket-handler',
-                    error: endError instanceof Error ? endError.message : String(endError)
-                })
-            }
+            safeSocketEnd(clientSocket, {
+                requestId: upgradeId,
+                component: 'websocket-handler',
+                hostname,
+                port
+            })
             
             return { success: false, error: err as Error }
         }
@@ -212,29 +207,12 @@ export class WebSocketHandler {
                 })
                 
                 // Handle cleanup
-                const cleanup = (reason: string) => {
-                    logger.debug('Cleaning up WebSocket connection', {
-                        requestId: upgradeId,
-                        connectId,
-                        hostname,
-                        port,
-                        component: 'websocket-handler',
-                        reason
-                    })
-                    try {
-                        if (!upstreamSocket.destroyed) {
-                            upstreamSocket.destroy()
-                        }
-                    } catch (err) {
-                        logger.error('Error destroying upstream WebSocket socket', err, {
-                            requestId: upgradeId,
-                            connectId,
-                            hostname,
-                            port,
-                            component: 'websocket-handler'
-                        })
-                    }
-                }
+                const cleanup = createSocketCleanup(upstreamSocket, {
+                    requestId: upgradeId,
+                    component: 'websocket-handler',
+                    hostname,
+                    port
+                })
                 
                 clientSocket.on('close', () => cleanup('client-close'))
                 clientSocket.on('end', () => cleanup('client-end'))
@@ -283,7 +261,12 @@ export class WebSocketHandler {
                             port,
                             originalError: 'Upstream connection failed'
                         })
-                        clientSocket.end()
+                        safeSocketEnd(clientSocket, {
+                            requestId: upgradeId,
+                            component: 'websocket-handler',
+                            hostname,
+                            port
+                        })
                     }
                 } catch (writeError) {
                     logger.error('Failed to send 502 response for WebSocket upgrade error', writeError, {
@@ -409,13 +392,12 @@ export class WebSocketHandler {
                     })
                     
                     // Cleanup handlers
-                    const cleanup = () => {
-                        try {
-                            if (!upstreamSocket.destroyed) {
-                                upstreamSocket.destroy()
-                            }
-                        } catch {}
-                    }
+                    const cleanup = createSocketCleanup(upstreamSocket, {
+                        requestId: upgradeId,
+                        component: 'websocket-handler',
+                        hostname,
+                        port
+                    })
                     
                     clientSocket.on('close', cleanup)
                     clientSocket.on('end', cleanup)
@@ -442,9 +424,12 @@ export class WebSocketHandler {
                         originalError: 'Upstream WebSocket upgrade failed'
                     })
                     
-                    try {
-                        clientSocket.end()
-                    } catch {}
+                    safeSocketEnd(clientSocket, {
+                        requestId: upgradeId,
+                        component: 'websocket-handler',
+                        hostname,
+                        port
+                    })
                     
                     resolve({ success: false, error: err })
                 })
@@ -473,9 +458,12 @@ export class WebSocketHandler {
                 originalError: err instanceof Error ? err.message : String(err)
             })
             
-            try {
-                clientSocket.end()
-            } catch {}
+            safeSocketEnd(clientSocket, {
+                requestId: upgradeId,
+                component: 'websocket-handler',
+                hostname,
+                port
+            })
             
             return { success: false, error: err as Error }
         }

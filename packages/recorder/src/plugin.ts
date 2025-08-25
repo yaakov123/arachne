@@ -5,8 +5,8 @@ import type {
     RequestBodyContext,
     ResponseBodyContext,
 } from '@arachne/proxy'
-import type { RecorderOptions, StorageAdapter } from './types.js'
-import { FileStorageAdapter } from './storage/file.js'
+import type { RecorderOptions, StorageAdapter } from './types'
+import { FileStorageAdapter } from './storage/file'
 
 export interface RecorderPluginResult {
     plugin: ProxyPlugin

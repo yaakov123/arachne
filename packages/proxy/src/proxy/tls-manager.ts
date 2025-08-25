@@ -11,6 +11,7 @@ import { PluginManager } from './plugin-manager'
 import { HttpHandler } from './http-handler'
 import { WebSocketHandler } from './websocket-handler'
 import { TunnelHandler } from './tunnel-handler'
+import { createServerCleanup } from './cleanup'
 import { logger } from '../logger'
 
 export class TlsManager {
@@ -183,16 +184,21 @@ export class TlsManager {
         tlsServer.emit('connection', clientSocket)
 
         // Clean up when the client disconnects
-        const cleanup = () => {
-            try {
-                tlsServer.close()
-            } catch {}
-            try {
-                httpOverTls.close()
-            } catch {}
-        }
-        clientSocket.on('close', cleanup)
-        clientSocket.on('end', cleanup)
+        const cleanup = createServerCleanup(
+            [
+                { server: tlsServer, name: 'tls-server' },
+                { server: httpOverTls, name: 'http-over-tls' }
+            ],
+            {
+                requestId: correlation.full,
+                component: 'tls-manager',
+                hostname,
+                port: connectPort
+            }
+        )
+        
+        clientSocket.on('close', () => cleanup('client-close'))
+        clientSocket.on('end', () => cleanup('client-end'))
     }
 
 

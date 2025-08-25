@@ -122,11 +122,11 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 - [x] Implement backpressure handling
 
 **Step 2.2: Standardize Cleanup Patterns**
-- [ ] Create shared `createTunnelCleanup()` helper
-- [ ] Replace empty catch blocks with debug logging:
+- [x] Create shared `createTunnelCleanup()` helper
+- [x] Replace empty catch blocks with debug logging:
   - `tls-manager.ts:193-196`
   - `websocket-handler.ts:326, 351, 377`
-- [ ] Ensure consistent socket destruction and error handling
+- [x] Ensure consistent socket destruction and error handling
 
 **Step 2.3: Consolidate WebSocket Handling**
 - [ ] Extract shared WebSocket tunnel logic from `websocket-handler.ts`
@@ -239,7 +239,7 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 ### Success Metrics
 
 - [ ] 100% error responses use unified helpers
-- [ ] 0 empty catch blocks remain
+- [ ] 0 empty catch blocks remain (in proxy core modules)
 - [ ] All logs traceable through correlation IDs
 - [ ] Memory usage stable under load
 - [ ] Plugin hook timing predictable and documented

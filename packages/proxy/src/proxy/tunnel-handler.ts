@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream'
 import { promisify } from 'node:util'
 import { sanitizeHeaders } from './utils'
 import { generateId } from './correlation'
+import { safeSocketEnd } from './cleanup'
 import { logger } from '../logger'
 
 const pipelineAsync = promisify(pipeline)
@@ -324,7 +325,12 @@ export class TunnelHandler {
                                     '\r\n' +
                                     'Connection failed\r\n'
                             )
-                            clientSocket.end()
+                            safeSocketEnd(clientSocket, {
+                                requestId,
+                                component: 'tunnel-handler',
+                                hostname,
+                                port
+                            })
                         } else {
                             logger.debug('Cannot write 502 response to client socket - already destroyed or not writable', {
                                 requestId,
@@ -417,7 +423,12 @@ export class TunnelHandler {
                         port,
                         clientRemoteAddress: (clientSocket as any).remoteAddress
                     })
-                    clientSocket.end()
+                    safeSocketEnd(clientSocket, {
+                        requestId,
+                        component: 'tunnel-handler',
+                        hostname,
+                        port
+                    })
                 } else {
                     logger.debug('Client socket already destroyed or not writable after direct CONNECT tunnel setup failure', {
                         requestId,
