@@ -69,7 +69,13 @@ class ProxyLogger {
                             if (relevantMeta) {
                                 const metaStr = Object.entries(relevantMeta)
                                     .filter(([key, value]) => value !== undefined && key !== 'service')
-                                    .map(([key, value]) => `${key}=${value}`)
+                                    .map(([key, value]) => {
+                                        // Stringify objects and arrays for better readability
+                                        if (typeof value === 'object' && value !== null) {
+                                            return `${key}=${JSON.stringify(value)}`
+                                        }
+                                        return `${key}=${value}`
+                                    })
                                     .join(' ')
                                 if (metaStr) log += ` ${metaStr}`
                             }

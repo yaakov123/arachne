@@ -65,7 +65,14 @@ export function buildUpstreamWebSocketUrl(req: IncomingMessage, isHttps: boolean
         originalUrl: req.url,
         host,
         protocol,
-        finalUrl: url.toString()
+        finalUrl: url.toString(),
+        headers: {
+            upgrade: req.headers.upgrade,
+            connection: req.headers.connection,
+            'sec-websocket-key': req.headers['sec-websocket-key'],
+            'sec-websocket-version': req.headers['sec-websocket-version'],
+            'sec-websocket-protocol': req.headers['sec-websocket-protocol']
+        }
     })
     
     return url

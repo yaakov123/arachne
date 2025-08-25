@@ -1,15 +1,30 @@
 <template>
-    <div class="traffic-header">
-        <div class="header-method">Method</div>
-        <div class="header-url">URL</div>
-        <div class="header-status">Status</div>
-        <div class="header-size">Size</div>
-        <div class="header-time">Time</div>
+    <div class="traffic-header" :class="{ unified }">
+        <template v-if="unified">
+            <div class="header-type">Type</div>
+            <div class="header-details">Details</div>
+            <div class="header-status">Status</div>
+            <div class="header-size">Size</div>
+            <div class="header-time">Time</div>
+        </template>
+        <template v-else>
+            <div class="header-method">Method</div>
+            <div class="header-url">URL</div>
+            <div class="header-status">Status</div>
+            <div class="header-size">Size</div>
+            <div class="header-time">Time</div>
+        </template>
     </div>
 </template>
 
 <script setup lang="ts">
-// No props or logic needed for this static header
+interface Props {
+    unified?: boolean
+}
+
+withDefaults(defineProps<Props>(), {
+    unified: false
+})
 </script>
 
 <style scoped>
@@ -23,5 +38,9 @@
     font-size: var(--text-sm);
     font-weight: var(--font-semibold);
     color: var(--text-color-secondary);
+}
+
+.traffic-header.unified {
+    grid-template-columns: 60px 1fr 100px 80px 80px;
 }
 </style>

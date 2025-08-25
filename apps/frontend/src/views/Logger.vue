@@ -4,18 +4,45 @@
         
         <main class="logger-main">
             <div class="search-bar-container">
+                <div class="view-mode-toggle">
+                    <button 
+                        @click="transactionsStore.setViewMode('http')" 
+                        :class="{ active: transactionsStore.viewMode === 'http' }"
+                        class="mode-button"
+                        title="Show HTTP transactions only"
+                    >
+                        🌐 HTTP
+                    </button>
+                    <button 
+                        @click="transactionsStore.setViewMode('websocket')" 
+                        :class="{ active: transactionsStore.viewMode === 'websocket' }"
+                        class="mode-button"
+                        title="Show WebSocket connections only"
+                    >
+                        🔌 WebSocket
+                    </button>
+                    <button 
+                        @click="transactionsStore.setViewMode('mixed')" 
+                        :class="{ active: transactionsStore.viewMode === 'mixed' }"
+                        class="mode-button"
+                        title="Show both HTTP and WebSocket traffic"
+                    >
+                        🔀 Mixed
+                    </button>
+                </div>
+                
                 <div class="search-input-wrapper">
                     <Search class="search-icon" :size="16" />
                     <input 
-                        v-model="searchQuery"
+                        v-model="currentSearchQuery"
                         type="text" 
-                        placeholder="Search URLs, paths, or file extensions..."
+                        :placeholder="searchPlaceholder"
                         class="search-input"
-                        title="Search by URL, path, or file extension. Supports partial matches."
+                        :title="searchTitle"
                     />
                     <button 
-                        v-if="searchQuery"
-                        @click="searchQuery = ''"
+                        v-if="currentSearchQuery"
+                        @click="clearCurrentSearch"
                         class="search-clear"
                         title="Clear search"
                     >
@@ -23,19 +50,21 @@
                     </button>
                 </div>
             </div>
+            
             <div ref="trafficListContainer" class="traffic-list-container">
-                <TrafficList />
+                <UnifiedTrafficList />
             </div>
-            <template v-if="transactionsStore.selectedTransaction">
+            
+            <template v-if="hasSelection">
                 <Resizer 
                     direction="vertical"
                     :first-element="trafficListContainer"
-                    :second-element="requestResponseContainer"
+                    :second-element="viewerContainer"
                     :min-size="150"
                     :initial-first-size="400"
                     :initial-second-size="300"
                 />
-                <div ref="requestResponseContainer" class="request-response-container">
+                <div ref="viewerContainer" class="viewer-container">
                     <RequestResponseViewer />
                 </div>
             </template>
@@ -44,9 +73,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import HostsSidebar from '../components/HostsSidebar.vue'
-import TrafficList from '../components/TrafficList.vue'
+import UnifiedTrafficList from '../components/UnifiedTrafficList.vue'
 import RequestResponseViewer from '../components/RequestResponseViewer.vue'
 import Resizer from '../components/Resizer.vue'
 import { useTransactionsStore } from '../stores/transactions'
@@ -56,15 +85,63 @@ const transactionsStore = useTransactionsStore()
 
 // Element references
 const trafficListContainer = ref<HTMLElement>()
-const requestResponseContainer = ref<HTMLElement>()
+const viewerContainer = ref<HTMLElement>()
+
+// Computed properties for unified selection
+const hasSelection = computed(() => {
+    return transactionsStore.hasUnifiedSelection
+})
 
 // Search functionality
-const searchQuery = ref('')
-
-// Watch for search changes and update the store
-watch(searchQuery, (newQuery) => {
-    transactionsStore.updateSearchQuery(newQuery)
+const currentSearchQuery = computed({
+    get: () => {
+        if (transactionsStore.viewMode === 'websocket') {
+            return transactionsStore.websocketSearchQuery
+        }
+        return transactionsStore.searchQuery
+    },
+    set: (value: string) => {
+        if (transactionsStore.viewMode === 'websocket') {
+            transactionsStore.updateWebSocketSearchQuery(value)
+        } else {
+            transactionsStore.updateSearchQuery(value)
+        }
+    }
 })
+
+const searchPlaceholder = computed(() => {
+    switch (transactionsStore.viewMode) {
+        case 'http':
+            return 'Search HTTP URLs, paths, or file extensions...'
+        case 'websocket':
+            return 'Search WebSocket URLs, connections, or messages...'
+        case 'mixed':
+            return 'Search URLs, paths, connections, or messages...'
+        default:
+            return 'Search...'
+    }
+})
+
+const searchTitle = computed(() => {
+    switch (transactionsStore.viewMode) {
+        case 'http':
+            return 'Search by HTTP URL, path, or file extension. Supports partial matches.'
+        case 'websocket':
+            return 'Search by WebSocket URL, connection, or message content. Supports partial matches.'
+        case 'mixed':
+            return 'Search by URL, path, connection, or message content. Supports partial matches.'
+        default:
+            return 'Search traffic'
+    }
+})
+
+function clearCurrentSearch() {
+    if (transactionsStore.viewMode === 'websocket') {
+        transactionsStore.clearWebSocketSearch()
+    } else {
+        transactionsStore.clearSearch()
+    }
+}
 
 // Lifecycle
 onMounted(async () => {
@@ -100,14 +177,51 @@ onUnmounted(() => {
     background: var(--surface-card);
     border-bottom: 1px solid var(--surface-border);
     display: flex;
-    justify-content: center;
+    align-items: center;
+    gap: var(--space-lg);
+}
+
+.view-mode-toggle {
+    display: flex;
+    background: var(--surface-section);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs);
+    border: 1px solid var(--surface-border);
+    flex-shrink: 0;
+}
+
+.mode-button {
+    padding: var(--space-sm) var(--space-md);
+    border: none;
+    background: transparent;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.mode-button:hover {
+    background: var(--surface-hover);
+    color: var(--text-color);
+}
+
+.mode-button.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: var(--shadow-sm);
 }
 
 .search-input-wrapper {
     position: relative;
     display: flex;
     align-items: center;
-    width: 100%;
+    flex: 1;
     max-width: 500px;
 }
 
@@ -172,7 +286,7 @@ onUnmounted(() => {
     flex: 1; /* Take full height when no resizer is present */
 }
 
-.request-response-container {
+.viewer-container {
     overflow: hidden;
     display: flex;
     flex-direction: column;

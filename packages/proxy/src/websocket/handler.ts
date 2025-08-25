@@ -83,10 +83,28 @@ export class WebSocketHandler {
             logger.error('Failed to handle WebSocket upgrade', error, {
                 component: 'websocket-handler',
                 url: req.url,
-                host: req.headers.host
+                host: req.headers.host,
+                errorMessage: (error as Error).message
             })
             this.handleError(error, { url: req.url, host: req.headers.host })
-            this.sendUpgradeError(clientSocket)
+            
+            // Determine appropriate error response based on the error
+            let statusCode = 500
+            let statusMessage = 'Internal Server Error'
+            
+            const errorMessage = (error as Error).message
+            if (errorMessage.includes('400')) {
+                statusCode = 502
+                statusMessage = 'Bad Gateway'
+            } else if (errorMessage.includes('timeout')) {
+                statusCode = 504
+                statusMessage = 'Gateway Timeout'
+            } else if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('ECONNREFUSED')) {
+                statusCode = 502
+                statusMessage = 'Bad Gateway'
+            }
+            
+            this.sendUpgradeError(clientSocket, statusCode, statusMessage)
         }
     }
 
@@ -146,6 +164,7 @@ export class WebSocketHandler {
             const upstreamWs = new WebSocket(connection.url.toString(), connection.protocols)
             
             const timeout = setTimeout(() => {
+                upstreamWs.terminate()
                 _reject(new Error('Upstream WebSocket connection timeout'))
             }, this.options.connectionTimeout || 10000)
 
@@ -158,7 +177,36 @@ export class WebSocketHandler {
 
             upstreamWs.on('error', (error) => {
                 clearTimeout(timeout)
+                
+                // Enhanced error logging for debugging
+                logger.error('Upstream WebSocket connection failed', error, {
+                    component: 'websocket-handler',
+                    connectionId: connection.id,
+                    url: connection.url.toString(),
+                    protocols: connection.protocols,
+                    errorMessage: error.message,
+                    errorCode: (error as any)?.code
+                })
+                
                 _reject(error)
+            })
+
+            upstreamWs.on('unexpected-response', (_request, response) => {
+                clearTimeout(timeout)
+                
+                const statusCode = response.statusCode
+                const statusMessage = response.statusMessage
+                
+                logger.error('Upstream WebSocket unexpected response', {
+                    component: 'websocket-handler',
+                    connectionId: connection.id,
+                    url: connection.url.toString(),
+                    statusCode,
+                    statusMessage,
+                    headers: response.headers
+                })
+                
+                _reject(new Error(`Upstream WebSocket server responded with ${statusCode}: ${statusMessage}`))
             })
         })
     }
@@ -317,8 +365,15 @@ export class WebSocketHandler {
             // Run plugin hooks
             await this.runPluginHook('onWebSocketClose', closeContext)
 
-            // Close both sides with valid close codes
-            const closeCode = typeof code === 'number' && code >= 1000 && code <= 4999 ? code : 1000
+            // Determine appropriate close code - avoid codes that can't be sent explicitly
+            let closeCode = 1000 // Normal closure default
+            if (typeof code === 'number') {
+                // Only use codes that are valid for explicit closing
+                // Avoid 1006 (abnormal closure), 1015 (TLS handshake failure), etc.
+                if ((code >= 1000 && code <= 1014) || (code >= 3000 && code <= 4999)) {
+                    closeCode = code
+                }
+            }
             const closeReason = reason || ''
             
             if (connection.clientWs && connection.clientWs.readyState === WebSocket.OPEN) {
@@ -334,7 +389,8 @@ export class WebSocketHandler {
             logger.info('WebSocket connection closed', {
                 component: 'websocket-handler',
                 connectionId: connection.id,
-                code,
+                originalCode: code,
+                usedCode: closeCode,
                 reason,
                 duration: connection.endTime - connection.startTime
             })
@@ -441,14 +497,21 @@ export class WebSocketHandler {
     /**
      * Sends an error response for failed upgrades
      */
-    private sendUpgradeError(clientSocket: Socket): void {
+    private sendUpgradeError(clientSocket: Socket, statusCode: number = 500, statusMessage: string = 'Internal Server Error'): void {
         try {
             if (!clientSocket.destroyed && clientSocket.writable) {
-                clientSocket.end('HTTP/1.1 500 Internal Server Error\r\n\r\n')
+                const response = `HTTP/1.1 ${statusCode} ${statusMessage}\r\n` +
+                    'Connection: close\r\n' +
+                    'Content-Type: text/plain\r\n' +
+                    'Content-Length: 0\r\n' +
+                    '\r\n'
+                clientSocket.end(response)
             }
         } catch (error) {
             logger.error('Failed to send upgrade error response', error, {
-                component: 'websocket-handler'
+                component: 'websocket-handler',
+                statusCode,
+                statusMessage
             })
         }
     }

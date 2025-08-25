@@ -19,8 +19,15 @@
                     @click="transactionsStore.selectHost(host)"
                 >
                     <div class="host-info">
-    
                         <span class="host-name">{{ host }}</span>
+                        <div class="host-counts">
+                            <span v-if="getHttpCount(host) > 0" class="count-badge http" title="HTTP transactions">
+                                🌐 {{ getHttpCount(host) }}
+                            </span>
+                            <span v-if="getWebSocketCount(host) > 0" class="count-badge websocket" title="WebSocket connections">
+                                🔌 {{ getWebSocketCount(host) }}
+                            </span>
+                        </div>
                     </div>
                     <span class="host-count">{{ transactionsStore.getHostCount(host) }}</span>
                 </div>
@@ -55,6 +62,15 @@ const filteredHosts = computed(() => {
         host.toLowerCase().includes(query)
     )
 })
+
+// Helper functions for host counts
+function getHttpCount(host: string): number {
+    return transactionsStore.transactions.filter(t => t.request.url.host === host).length
+}
+
+function getWebSocketCount(host: string): number {
+    return transactionsStore.getWebSocketHostCount(host)
+}
 
 
 </script>
@@ -131,8 +147,8 @@ const filteredHosts = computed(() => {
 
 .host-info {
     display: flex;
-    align-items: center;
-    gap: var(--space-sm);
+    flex-direction: column;
+    gap: var(--space-xs);
     flex: 1;
     min-width: 0; /* Allow text truncation */
 }
@@ -165,6 +181,42 @@ const filteredHosts = computed(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.host-counts {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+}
+
+.count-badge {
+    font-size: var(--text-xs);
+    padding: 2px var(--space-xs);
+    border-radius: var(--radius-xs);
+    font-weight: var(--font-medium);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.count-badge.http {
+    background: var(--color-blue-100);
+    color: var(--color-blue-700);
+}
+
+.count-badge.websocket {
+    background: var(--color-purple-100);
+    color: var(--color-purple-700);
+}
+
+[data-theme="dark"] .count-badge.http {
+    background: var(--color-blue-900);
+    color: var(--color-blue-200);
+}
+
+[data-theme="dark"] .count-badge.websocket {
+    background: var(--color-purple-900);
+    color: var(--color-purple-200);
 }
 
 .host-count {
