@@ -78,11 +78,10 @@ export class ServerLifecycleManager {
                 })
             }
         }
-        await new Promise<void>((resolve, reject) =>
+        new Promise<void>((resolve, reject) =>
             this.httpServer.close((err) => (err ? reject(err) : resolve()))
-        )
-        
-        logger.logProxyStop()
-        
+        ).then(() => {
+            logger.logProxyStop()
+        })
     }
 }

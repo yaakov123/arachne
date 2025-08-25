@@ -70,7 +70,7 @@ import ProxyToggle from '@/components/ProxyToggle.vue'
 .main-nav a:hover,
 .main-nav a.router-link-active {
     color: var(--primary-color, #3B82F6);
-    border-bottom-color: var(--primary-color, #3B82F6);
+    /* border-bottom-color: var(--primary-color, #3B82F6); */
 }
 
 .header-actions {
