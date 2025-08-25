@@ -18,7 +18,7 @@ import type {
     ContentInfo,
     RequestURL,
 } from '@arachne/api-types'
-import { ReverseLookupDependencyDetector } from './dependency-analyzer'
+// import { ReverseLookupDependencyDetector } from './dependency-analyzer'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap, aligns with recorder default
 
@@ -205,7 +205,7 @@ export function createBroadcastPlugin(
             : DEFAULT_MAX
 
     // Initialize dependency detector
-    const dependencyDetector = new ReverseLookupDependencyDetector()
+    // const dependencyDetector = new ReverseLookupDependencyDetector()
 
 
     // Track ongoing transactions for completion events
@@ -253,17 +253,17 @@ export function createBroadcastPlugin(
         }
 
         // STEP 1: Analyze current request for dependencies (look backwards)
-        const dependencies = dependencyDetector.analyzeRequest(transactionData, id)
+        // const dependencies = dependencyDetector.analyzeRequest(transactionData, id)
 
         // STEP 2: Index current response for future lookups
-        dependencyDetector.indexResponse(transactionData, id)
+        // dependencyDetector.indexResponse(transactionData, id)
 
         const ev: TransactionCompleteEvent = {
             type: 'transactionComplete',
             id,
             ts: nowIso(),
             transaction: transactionData,
-            dependencies: dependencies.length > 0 ? dependencies : undefined
+            dependencies: []
         }
 
         // Log the broadcast event
@@ -278,7 +278,7 @@ export function createBroadcastPlugin(
             responseSize: transaction.responseSize,
             hasRequestBody: transaction.hasRequestBody,
             hasResponseBody: transaction.hasResponseBody,
-            dependenciesCount: dependencies.length
+            dependenciesCount: 0 //dependencies.length
         })
         
         hub.broadcast(ev)
