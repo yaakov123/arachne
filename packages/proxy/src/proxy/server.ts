@@ -7,7 +7,8 @@ import { PluginManager } from './plugin-manager'
 import { TlsManager } from './tls-manager'
 import { HttpHandler } from './http-handler'
 import { ServerLifecycleManager, type ServerInfo } from './server-lifecycle'
-import { genId, parseHostPort, getSocketInfo } from './utils'
+import { parseHostPort, getSocketInfo } from './utils'
+import { createCorrelationId } from './correlation'
 import { sendErrorResponse, sendWebSocketErrorResponse } from './error-responses'
 import { WebSocketHandler } from './websocket-handler'
 import { logger } from '../logger'
@@ -137,7 +138,8 @@ export class MitmProxyServer {
         clientSocket: net.Socket,
         head: Buffer
     ): Promise<void> {
-        const id = genId('ws-http')
+        const correlation = createCorrelationId('ws-http')
+        const id = correlation.full
         let hostname = 'unknown'
         let targetPort = 80
         

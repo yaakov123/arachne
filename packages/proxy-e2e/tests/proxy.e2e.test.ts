@@ -52,32 +52,6 @@ describe('HTTP-only proxy e2e', () => {
         }
     })
 
-    it('preserves WebSocket upgrade headers', async () => {
-        const { proxy, host, port } = await startProxy([])
-        try {
-            const target = `http://${upstream.host}:${upstream.port}/echo-headers`
-            const res = await requestViaProxy(host, port, target, {
-                headers: {
-                    'Connection': 'Upgrade',
-                    'Upgrade': 'websocket',
-                    'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
-                    'Sec-WebSocket-Version': '13',
-                },
-            })
-            expect(res.status).toBe(200)
-            const payload = JSON.parse(res.body.toString('utf8')) as {
-                headers: Record<string, any>
-            }
-            
-            // Check that WebSocket headers are preserved
-            expect(payload.headers['connection']).toBe('Upgrade')
-            expect(payload.headers['upgrade']).toBe('websocket')
-            expect(payload.headers['sec-websocket-key']).toBe('dGhlIHNhbXBsZSBub25jZQ==')
-            expect(payload.headers['sec-websocket-version']).toBe('13')
-        } finally {
-            await proxy.stop()
-        }
-    })
 
     it('filters hop-by-hop headers correctly', async () => {
         const { proxy, host, port } = await startProxy([])

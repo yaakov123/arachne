@@ -1,5 +1,6 @@
 import http, { IncomingMessage } from 'node:http'
-import { genId, isHostIgnored } from './utils'
+import { isHostIgnored } from './utils'
+import { createCorrelationId, extendCorrelationId, type CorrelationId } from './correlation'
 import { sendHttpErrorResponse } from './error-responses'
 import type { PluginManager } from './plugin-manager'
 import type { RequestContext } from '../plugins/types'
@@ -31,9 +32,13 @@ export class HttpHandler {
     async handleHttpRequest(
         clientReq: IncomingMessage,
         clientRes: http.ServerResponse,
-        isHttps: boolean
+        isHttps: boolean,
+        parentCorrelation?: CorrelationId
     ): Promise<void> {
-        const id = genId('req')
+        const correlation = parentCorrelation 
+            ? extendCorrelationId(parentCorrelation, 'req')
+            : createCorrelationId('req')
+        const id = correlation.full
         const startTime = Date.now()
 
         try {
@@ -68,7 +73,8 @@ export class HttpHandler {
                 fullUrl,
                 clientReq,
                 isHttps,
-                id
+                id,
+                correlation.parentId
             )
 
             // Execute request hook
@@ -180,8 +186,10 @@ export class HttpHandler {
             )
 
             if (processedBody) {
-                // Send buffered response - body was processed, call completion hook
-                await this.pluginManager.runHook('onResponseComplete', resCtx)
+                // Send buffered response - body was processed
+                // Call onResponseStart hook before sending
+                await this.pluginManager.runHook('onResponseStart', resCtx)
+                
                 this.upstreamHandler.sendBufferedResponse(
                     clientRes,
                     statusCode,
@@ -189,19 +197,36 @@ export class HttpHandler {
                     processedBody.headers,
                     processedBody.body
                 )
-            } else {
-                // Stream original response - no body processing, call completion hook immediately
+                
+                // Call completion hook after buffered response is sent
                 await this.pluginManager.runHook('onResponseComplete', resCtx)
+            } else {
+                // Stream original response - no body processing
+                // Call onResponseStart hook before streaming starts
+                await this.pluginManager.runHook('onResponseStart', resCtx)
+                
                 const headers =
                     this.responseBodyHandler.prepareStreamingHeaders(
                         resCtx.responseHeaders as any
                     )
+                
+                // Set up completion hook to fire after streaming finishes
                 this.upstreamHandler.streamResponse(
                     upRes,
                     clientRes,
                     statusCode,
                     statusMessage,
-                    headers
+                    headers,
+                    async () => {
+                        try {
+                            await this.pluginManager.runHook('onResponseComplete', resCtx)
+                        } catch (error) {
+                            logger.error('Error in onResponseComplete hook', error, {
+                                requestId: resCtx.id,
+                                component: 'http-handler'
+                            })
+                        }
+                    }
                 )
             }
 

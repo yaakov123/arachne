@@ -9,7 +9,8 @@ export class ContextBuilder {
         url: URL,
         req: IncomingMessage,
         isHttps: boolean,
-        id: string
+        id: string,
+        parentId?: string
     ): RequestContext {
         const sanitizedHeaders = sanitizeHeaders(req.headers)
         const requestOptions: RequestOptions = {
@@ -23,6 +24,7 @@ export class ContextBuilder {
 
         return {
             id,
+            parentId,
             isHttps,
             url,
             method: req.method || 'GET',

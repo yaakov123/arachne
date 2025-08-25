@@ -1,10 +1,5 @@
-import { randomBytes } from 'node:crypto'
 import { IncomingHttpHeaders } from 'node:http'
 import net from 'node:net'
-
-export function genId(prefix = 'req'): string {
-    return `${prefix}_${randomBytes(6).toString('hex')}`
-}
 
 export function parseHostPort(hostHeaderOrAuthority: string): {
     hostname: string

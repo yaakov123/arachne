@@ -94,16 +94,16 @@ Complete review and refactoring of `@arachne/proxy` core modules: `server.ts`, `
 - [x] Ensure all helpers check socket writability before writing
 
 **Step 1.2: Fix Hook Timing Issues**
-- [ ] Move `onResponseComplete` call in `http-handler.ts:183-193` to fire after streaming completes
-- [ ] Add response completion tracking for streaming responses
-- [ ] Add optional interim hook `onResponseStart` if needed for current use cases
-- [ ] Update plugin documentation with new hook timing guarantees
+- [x] Move `onResponseComplete` call in `http-handler.ts:183-193` to fire after streaming completes
+- [x] Add response completion tracking for streaming responses
+- [x] Add optional interim hook `onResponseStart` if needed for current use cases
+- [x] Update plugin documentation with new hook timing guarantees
 
 **Step 1.3: Standardize ID Generation & Correlation**
-- [ ] Create `src/proxy/correlation.ts` with hierarchical ID system
-- [ ] Implement format: `conn_123:req_456:ws_789` for traceability
-- [ ] Update all ID generation to use consistent prefixes and correlation
-- [ ] Add `parentId` field to all contexts for linking flows
+- [x] Create `src/proxy/correlation.ts` with hierarchical ID system
+- [x] Implement format: `conn_123:req_456:ws_789` for traceability
+- [x] Update all ID generation to use consistent prefixes and correlation
+- [x] Add `parentId` field to all contexts for linking flows
 
 **Step 1.4: Fix MAX_BODY_SIZE Documentation**
 - [ ] Correct comment in `proxy-utils.ts:4` (100MB not 2MB)

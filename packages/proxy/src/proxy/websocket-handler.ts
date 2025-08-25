@@ -1,7 +1,8 @@
 import http, { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
-import { genId, isHostIgnored, sanitizeHeaders } from './utils'
+import { isHostIgnored, sanitizeHeaders } from './utils'
+import { createCorrelationId, extendCorrelationId, parseCorrelationId } from './correlation'
 import { logger } from '../logger'
 import { sendWebSocketErrorResponse } from './error-responses'
 
@@ -30,7 +31,15 @@ export class WebSocketHandler {
         head: Buffer,
         options: WebSocketUpgradeOptions
     ): Promise<WebSocketUpgradeResult> {
-        const upgradeId = options.requestId || genId('ws')
+        // Create correlation ID, extending from parent if available
+        const parentCorrelation = options.connectId ? parseCorrelationId(options.connectId) : undefined
+        const correlation = options.requestId 
+            ? parseCorrelationId(options.requestId)
+            : (parentCorrelation 
+                ? extendCorrelationId(parentCorrelation, 'ws')
+                : createCorrelationId('ws'))
+        
+        const upgradeId = correlation.full
         const { hostname, port = options.isHttps ? 443 : 80, isHttps, ignoredHosts, connectId } = options
         
         logger.debug('WebSocket upgrade request received', {

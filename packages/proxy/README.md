@@ -7,7 +7,7 @@ A fully-fledged HTTP/HTTPS MITM proxy with a plugin system. Generates its own ro
 - Root CA generation and per-host certificate issuance (node-forge)
 - macOS automatic trust install (security add-trusted-cert), Linux/Windows instructions
 - HTTP and HTTPS interception (CONNECT) with dynamic SNI certs
-- Pluggable hooks: onConnect, onRequest, onResponse, onError
+- Pluggable hooks: onConnect, onRequest, onResponse, onResponseStart, onResponseComplete, onError
 - Works with Chrome when system proxy and CA trust are configured
 
 ## Install & Build (monorepo)
@@ -99,8 +99,30 @@ export const myPlugin: ProxyPlugin = {
             console.warn('Server error:', ctx.url.toString())
         }
     },
+    async onResponseStart(ctx) {
+        // called when response headers are written, before body streaming
+        console.log('Response starting:', ctx.statusCode, ctx.url.toString())
+    },
+    async onResponseComplete(ctx) {
+        // called when response is completely finished (after streaming or buffering)
+        console.log('Response complete:', ctx.statusCode, ctx.url.toString())
+    },
 }
 ```
+
+### Hook Timing Guarantees
+
+The proxy provides the following hook timing guarantees:
+
+- **onRequest**: Called before forwarding the request upstream
+- **onResponse**: Called when the upstream response headers are received
+- **onResponseStart**: Called when response headers are written to the client (immediately before body transmission)
+- **onResponseBody**: Called with buffered/decoded body content (if available and within size limits)
+- **onResponseComplete**: Called when the response is completely finished:
+  - For buffered responses: after the response body is fully sent
+  - For streaming responses: after the stream completes (including any errors)
+
+**Important**: `onResponseComplete` is guaranteed to fire after the response is completely transmitted to the client, making it suitable for cleanup, logging final response state, or measuring total response time.
 
 ## Notes
 

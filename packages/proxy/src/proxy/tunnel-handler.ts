@@ -1,7 +1,8 @@
 import http, { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
-import { genId, sanitizeHeaders } from './utils'
+import { sanitizeHeaders } from './utils'
+import { generateId } from './correlation'
 import { logger } from '../logger'
 
 export interface TunnelOptions {
@@ -35,7 +36,7 @@ export class TunnelHandler {
         clientRes: http.ServerResponse,
         options: HttpTunnelOptions
     ): Promise<ConnectTunnelResult> {
-        const { hostname, port, isHttps = false, requestId = genId('http-tunnel') } = options
+        const { hostname, port, isHttps = false, requestId = generateId('tunnel-http') } = options
         
         const sanitizedHeaders = sanitizeHeaders(clientReq.headers)
         const requestOptions = {
@@ -169,7 +170,7 @@ export class TunnelHandler {
         options: TunnelOptions,
         head?: Buffer
     ): Promise<ConnectTunnelResult> {
-        const { hostname, port, requestId = genId('connect-tunnel') } = options
+        const { hostname, port, requestId = generateId('tunnel-connect') } = options
         
         logger.debug('Creating direct CONNECT tunnel', {
             requestId,

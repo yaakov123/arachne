@@ -98,9 +98,23 @@ export class UpstreamHandler {
         clientRes: http.ServerResponse,
         statusCode: number,
         statusMessage: string | undefined,
-        headers: Record<string, any>
+        headers: Record<string, any>,
+        onComplete?: () => void
     ): void {
         clientRes.writeHead(statusCode, statusMessage, headers)
+        
+        // Set up completion tracking
+        if (onComplete) {
+            const cleanup = () => {
+                onComplete()
+            }
+            
+            clientRes.on('finish', cleanup)
+            clientRes.on('close', cleanup)
+            clientRes.on('error', cleanup)
+            upstreamResponse.on('error', cleanup)
+        }
+        
         upstreamResponse.pipe(clientRes)
     }
 
