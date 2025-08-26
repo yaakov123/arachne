@@ -1,6 +1,10 @@
 import http, { IncomingMessage } from 'node:http'
 import { isHostIgnored } from './utils/headers'
-import { createCorrelationId, extendCorrelationId, type CorrelationId } from './utils/ids'
+import {
+    createCorrelationId,
+    extendCorrelationId,
+    type CorrelationId,
+} from './utils/ids'
 import { sendHttpErrorResponse } from './error-responses'
 import type { PluginManager } from './plugin-manager'
 import type { RequestContext, ErrorContext } from '../plugins/types'
@@ -25,8 +29,14 @@ export class HttpHandler {
         private ignoredHosts?: string[],
         maxBodySize?: number
     ) {
-        this.requestBodyHandler = new RequestBodyHandler(pluginManager, maxBodySize)
-        this.responseBodyHandler = new ResponseBodyHandler(pluginManager, maxBodySize)
+        this.requestBodyHandler = new RequestBodyHandler(
+            pluginManager,
+            maxBodySize
+        )
+        this.responseBodyHandler = new ResponseBodyHandler(
+            pluginManager,
+            maxBodySize
+        )
         this.upstreamHandler = new UpstreamHandler(onError)
         this.tunnelHandler = new TunnelHandler(onError)
     }
@@ -37,7 +47,7 @@ export class HttpHandler {
         isHttps: boolean,
         parentCorrelation?: CorrelationId
     ): Promise<void> {
-        const correlation = parentCorrelation 
+        const correlation = parentCorrelation
             ? extendCorrelationId(parentCorrelation, 'req')
             : createCorrelationId('req')
         const id = correlation.full
@@ -47,26 +57,46 @@ export class HttpHandler {
             // Parse URL
             const fullUrl = UrlProcessor.buildFullUrl(clientReq, isHttps)
 
-            logger.logRequest(id, clientReq.method || 'UNKNOWN', fullUrl.toString(), {
-                isHttps,
-                hostname: fullUrl.hostname,
-                port: fullUrl.port ? parseInt(fullUrl.port) : (isHttps ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT)
-            })
+            logger.logRequest(
+                id,
+                clientReq.method || 'UNKNOWN',
+                fullUrl.toString(),
+                {
+                    isHttps,
+                    hostname: fullUrl.hostname,
+                    port: fullUrl.port
+                        ? parseInt(fullUrl.port)
+                        : isHttps
+                        ? DEFAULT_HTTPS_PORT
+                        : DEFAULT_HTTP_PORT,
+                }
+            )
 
             // Check if host should be ignored - if so, create direct tunnel
             if (isHostIgnored(fullUrl.hostname, this.ignoredHosts)) {
-                logger.debug('Request to ignored host, creating direct tunnel', {
-                    requestId: id,
-                    hostname: fullUrl.hostname,
-                    component: 'http-handler'
-                })
-                await this.tunnelHandler.createHttpTunnel(clientReq, clientRes, {
-                    hostname: fullUrl.hostname,
-                    port: parseInt(fullUrl.port || '') || (fullUrl.protocol === 'https:' ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT),
-                    isHttps: fullUrl.protocol === 'https:',
-                    requestId: id,
-                    path: fullUrl.pathname + fullUrl.search
-                })
+                logger.debug(
+                    'Request to ignored host, creating direct tunnel',
+                    {
+                        requestId: id,
+                        hostname: fullUrl.hostname,
+                        component: 'http-handler',
+                    }
+                )
+                await this.tunnelHandler.createHttpTunnel(
+                    clientReq,
+                    clientRes,
+                    {
+                        hostname: fullUrl.hostname,
+                        port:
+                            parseInt(fullUrl.port || '') ||
+                            (fullUrl.protocol === 'https:'
+                                ? DEFAULT_HTTPS_PORT
+                                : DEFAULT_HTTP_PORT),
+                        isHttps: fullUrl.protocol === 'https:',
+                        requestId: id,
+                        path: fullUrl.pathname + fullUrl.search,
+                    }
+                )
                 return
             }
 
@@ -111,7 +141,7 @@ export class HttpHandler {
             )
         } catch (error) {
             const duration = Date.now() - startTime
-            
+
             if (
                 error instanceof Error &&
                 error.message.includes('Host header')
@@ -122,17 +152,24 @@ export class HttpHandler {
                     component: 'http-handler',
                     url: clientReq.url,
                     method: clientReq.method,
-                    headers: clientReq.headers
+                    headers: clientReq.headers,
                 })
-                
-                sendHttpErrorResponse(clientRes, 400, 'Bad Request: Missing Host header', undefined, logger, {
-                    requestId: id,
-                    component: 'http-handler',
-                    originalError: error.message
-                })
+
+                sendHttpErrorResponse(
+                    clientRes,
+                    400,
+                    'Bad Request: Missing Host header',
+                    undefined,
+                    logger,
+                    {
+                        requestId: id,
+                        component: 'http-handler',
+                        originalError: error.message,
+                    }
+                )
                 return
             }
-            
+
             logger.error('HTTP request handling failed', error, {
                 requestId: id,
                 duration,
@@ -140,16 +177,24 @@ export class HttpHandler {
                 url: clientReq.url,
                 method: clientReq.method,
                 errorCode: (error as NodeJS.ErrnoException)?.code,
-                errorErrno: (error as NodeJS.ErrnoException)?.errno
+                errorErrno: (error as NodeJS.ErrnoException)?.errno,
             })
-            
+
             this.onError(error, { id })
-            
-            sendHttpErrorResponse(clientRes, 500, 'Internal Server Error', 'Internal server error', logger, {
-                requestId: id,
-                component: 'http-handler',
-                originalError: error instanceof Error ? error.message : String(error)
-            })
+
+            sendHttpErrorResponse(
+                clientRes,
+                500,
+                'Internal Server Error',
+                'Internal server error',
+                logger,
+                {
+                    requestId: id,
+                    component: 'http-handler',
+                    originalError:
+                        error instanceof Error ? error.message : String(error),
+                }
+            )
         }
     }
 
@@ -191,7 +236,7 @@ export class HttpHandler {
                 // Send buffered response - body was processed
                 // Call onResponseStart hook before sending
                 await this.pluginManager.runHook('onResponseStart', resCtx)
-                
+
                 this.upstreamHandler.sendBufferedResponse(
                     clientRes,
                     statusCode,
@@ -199,19 +244,19 @@ export class HttpHandler {
                     processedBody.headers,
                     processedBody.body
                 )
-                
+
                 // Call completion hook after buffered response is sent
                 await this.pluginManager.runHook('onResponseComplete', resCtx)
             } else {
                 // Stream original response - no body processing
                 // Call onResponseStart hook before streaming starts
                 await this.pluginManager.runHook('onResponseStart', resCtx)
-                
+
                 const headers =
                     this.responseBodyHandler.prepareStreamingHeaders(
                         resCtx.responseHeaders
                     )
-                
+
                 // Set up completion hook to fire after streaming finishes
                 this.upstreamHandler.streamResponse(
                     upRes,
@@ -221,12 +266,19 @@ export class HttpHandler {
                     headers,
                     async () => {
                         try {
-                            await this.pluginManager.runHook('onResponseComplete', resCtx)
+                            await this.pluginManager.runHook(
+                                'onResponseComplete',
+                                resCtx
+                            )
                         } catch (error) {
-                            logger.error('Error in onResponseComplete hook', error, {
-                                requestId: resCtx.id,
-                                component: 'http-handler'
-                            })
+                            logger.error(
+                                'Error in onResponseComplete hook',
+                                error,
+                                {
+                                    requestId: resCtx.id,
+                                    component: 'http-handler',
+                                }
+                            )
                         }
                     }
                 )
@@ -243,6 +295,4 @@ export class HttpHandler {
             )
         }
     }
-
-
 }

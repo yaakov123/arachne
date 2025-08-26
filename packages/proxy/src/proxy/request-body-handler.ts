@@ -1,21 +1,21 @@
 import { IncomingMessage } from 'node:http'
 import type { RequestContext, RequestBodyContext } from '../plugins/types'
 import type { PluginManager } from './plugin-manager'
-import { 
-    getNumericHeader, 
-    headerToString 
-} from './utils/headers'
-import { 
-    readStreamToBuffer, 
-    decodeBody,
-    MAX_BODY_SIZE 
-} from './utils/body'
+import { getNumericHeader, headerToString } from './utils/headers'
+import { readStreamToBuffer, decodeBody, MAX_BODY_SIZE } from './utils/body'
 import type { ProcessedRequestBody } from './http-types'
 
 export class RequestBodyHandler {
-    constructor(private pluginManager: PluginManager, private maxBodySize: number = MAX_BODY_SIZE) {}
+    constructor(
+        private pluginManager: PluginManager,
+        private maxBodySize: number = MAX_BODY_SIZE
+    ) {}
 
-    canBuffer(method: string, contentLength: number | undefined, hasHook: boolean): boolean {
+    canBuffer(
+        method: string,
+        contentLength: number | undefined,
+        hasHook: boolean
+    ): boolean {
         const hasRequestBody = !['GET', 'HEAD'].includes(method.toUpperCase())
         return (
             hasHook &&
@@ -39,10 +39,14 @@ export class RequestBodyHandler {
         }
 
         try {
-            const buffered = await readStreamToBuffer(req, reqContentLength as number, this.maxBodySize)
+            const buffered = await readStreamToBuffer(
+                req,
+                reqContentLength as number,
+                this.maxBodySize
+            )
             const reqEnc = headerToString(req.headers['content-encoding'])
             const decoded = await decodeBody(buffered, reqEnc)
-            
+
             let bodyBuf = decoded
             const reqBodyCtx: RequestBodyContext = Object.assign({}, ctx, {
                 body: bodyBuf,
@@ -58,17 +62,17 @@ export class RequestBodyHandler {
 
             // Update headers for new body
             const updatedHeaders: Record<string, string | string[]> = {
-                'content-length': String(bodyBuf.length)
+                'content-length': String(bodyBuf.length),
             }
 
             // Remove conflicting headers
             if (reqEnc) {
-                updatedHeaders['content-encoding'] = ''  // Mark for deletion
+                updatedHeaders['content-encoding'] = '' // Mark for deletion
             }
 
             return {
                 body: bodyBuf,
-                updatedHeaders
+                updatedHeaders,
             }
         } catch {
             // Return empty result on error - caller will handle fallback to streaming

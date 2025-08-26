@@ -1,28 +1,26 @@
 import { IncomingMessage } from 'node:http'
 import type { ResponseContext, ResponseBodyContext } from '../plugins/types'
 import type { PluginManager } from './plugin-manager'
-import { 
-    getNumericHeader, 
-    headerToString 
-} from './utils/headers'
-import { 
-    readStreamToBuffer, 
-    decodeBody,
-    MAX_BODY_SIZE 
-} from './utils/body'
+import { getNumericHeader, headerToString } from './utils/headers'
+import { readStreamToBuffer, decodeBody, MAX_BODY_SIZE } from './utils/body'
 import { sanitizeHeaders } from './utils/headers'
 import type { ProcessedResponseBody } from './http-types'
 
 export class ResponseBodyHandler {
-    constructor(private pluginManager: PluginManager, private maxBodySize: number = MAX_BODY_SIZE) {}
+    constructor(
+        private pluginManager: PluginManager,
+        private maxBodySize: number = MAX_BODY_SIZE
+    ) {}
 
     canBuffer(
-        response: IncomingMessage, 
-        method: string, 
+        response: IncomingMessage,
+        method: string,
         statusCode: number,
         hasHook: boolean
     ): boolean {
-        const resContentLength = getNumericHeader(response.headers['content-length'])
+        const resContentLength = getNumericHeader(
+            response.headers['content-length']
+        )
         const isBodyless =
             method === 'HEAD' ||
             [101, 204, 304].includes(statusCode) ||
@@ -51,8 +49,12 @@ export class ResponseBodyHandler {
         }
 
         try {
-            const resContentLength = getNumericHeader(response.headers['content-length'])
-            const resContentEncoding = headerToString(response.headers['content-encoding'])
+            const resContentLength = getNumericHeader(
+                response.headers['content-length']
+            )
+            const resContentEncoding = headerToString(
+                response.headers['content-encoding']
+            )
 
             const raw = await readStreamToBuffer(
                 response,
@@ -61,10 +63,10 @@ export class ResponseBodyHandler {
                     : this.maxBodySize + 1,
                 this.maxBodySize
             )
-            
+
             const decoded = await decodeBody(raw, resContentEncoding)
             let bodyBuf = decoded
-            
+
             const resBodyCtx: ResponseBodyContext = Object.assign({}, ctx, {
                 body: bodyBuf,
                 contentType: headerToString(response.headers['content-type']),
@@ -85,9 +87,9 @@ export class ResponseBodyHandler {
 
             return {
                 body: bodyBuf,
-                headers: headersOut
+                headers: headersOut,
             }
-        } catch  {
+        } catch {
             // Return null on error - caller will handle fallback to streaming
             return null
         }

@@ -5,7 +5,10 @@ import { CertificateAuthority } from '../certs/ca'
 import type { ConnectContext, ErrorContext } from '../plugins/types'
 import { parseHostPort, isHostIgnored } from './utils/headers'
 import { createCorrelationId } from './utils/ids'
-import { sendErrorResponse, sendConnectSuccessResponse } from './error-responses'
+import {
+    sendErrorResponse,
+    sendConnectSuccessResponse,
+} from './error-responses'
 import { getRemote, getSocketInfo } from './utils/sockets'
 import { PluginManager } from './plugin-manager'
 import { HttpHandler } from './http-handler'
@@ -17,7 +20,7 @@ import { DEFAULT_HTTPS_PORT } from './constants'
 
 export class TlsManager {
     private tunnelHandler: TunnelHandler
-    
+
     constructor(
         private ca: CertificateAuthority,
         private pluginManager: PluginManager,
@@ -50,24 +53,28 @@ export class TlsManager {
             hostname,
             port: connectPort,
             clientIp: ctx.clientIp,
-            component: 'tls-manager'
+            component: 'tls-manager',
         })
-        
+
         // Check if host should be ignored - if so, create direct tunnel
         if (isHostIgnored(hostname, this.ignoredHosts)) {
             logger.debug('Creating direct tunnel for ignored host', {
                 requestId: correlation.full,
                 hostname,
-                component: 'tls-manager'
+                component: 'tls-manager',
             })
-            await this.tunnelHandler.createConnectTunnel(clientSocket, {
-                hostname,
-                port: connectPort,
-                requestId: correlation.full
-            }, head)
+            await this.tunnelHandler.createConnectTunnel(
+                clientSocket,
+                {
+                    hostname,
+                    port: connectPort,
+                    requestId: correlation.full,
+                },
+                head
+            )
             return
         }
-        
+
         await this.pluginManager.runHook('onConnect', ctx)
 
         // Inform client to start TLS handshake through us
@@ -75,7 +82,7 @@ export class TlsManager {
             requestId: correlation.full,
             component: 'tls-manager',
             hostname,
-            port
+            port,
         })
 
         if (head && head.length) {
@@ -83,49 +90,60 @@ export class TlsManager {
                 requestId: correlation.full,
                 hostname,
                 component: 'tls-manager',
-                headLength: head.length
+                headLength: head.length,
             })
             clientSocket.unshift(head)
         }
 
         const httpOverTls = http.createServer((req2, res2) => {
-            this.httpHandler.handleHttpRequest(req2, res2, true, correlation).catch((err) =>
-                this.onError(err, {})
-            )
+            this.httpHandler
+                .handleHttpRequest(req2, res2, true, correlation)
+                .catch((err) => this.onError(err, {}))
         })
-        
+
         // Handle WebSocket upgrades through HTTPS tunnel
         httpOverTls.on('upgrade', (req, socket, head) => {
-            this.webSocketHandler.handleUpgrade(req, socket as net.Socket, head, {
-                hostname,
-                port: connectPort,
-                isHttps: true,
-                ignoredHosts: this.ignoredHosts,
-                requestId: undefined, // Let WebSocket handler create its own correlation extending from parent
-                connectId: correlation.full
-            }).catch((err) => this.onError(err, { id: correlation.full, hostname }))
+            this.webSocketHandler
+                .handleUpgrade(req, socket as net.Socket, head, {
+                    hostname,
+                    port: connectPort,
+                    isHttps: true,
+                    ignoredHosts: this.ignoredHosts,
+                    requestId: undefined, // Let WebSocket handler create its own correlation extending from parent
+                    connectId: correlation.full,
+                })
+                .catch((err) =>
+                    this.onError(err, { id: correlation.full, hostname })
+                )
         })
-        
+
         httpOverTls.on('clientError', (err, socket) => {
             const socketInfo = getSocketInfo(socket as net.Socket)
-            
+
             logger.error('Client error on HTTPS over TLS connection', err, {
                 requestId: correlation.full,
                 hostname,
                 component: 'tls-manager',
                 socketInfo,
                 errorCode: (err as NodeJS.ErrnoException)?.code,
-                errorErrno: (err as NodeJS.ErrnoException)?.errno
+                errorErrno: (err as NodeJS.ErrnoException)?.errno,
             })
-            
-            sendErrorResponse(socket as net.Socket, 400, 'Bad Request', undefined, logger, {
-                requestId: correlation.full,
-                component: 'tls-manager',
-                hostname,
-                originalError: err.message,
-                socketInfo
-            })
-            
+
+            sendErrorResponse(
+                socket as net.Socket,
+                400,
+                'Bad Request',
+                undefined,
+                logger,
+                {
+                    requestId: correlation.full,
+                    component: 'tls-manager',
+                    hostname,
+                    originalError: err.message,
+                    socketInfo,
+                }
+            )
+
             this.onError(err, { id: correlation.full, hostname })
         })
 
@@ -133,9 +151,9 @@ export class TlsManager {
         logger.debug('Certificate issued for host', {
             requestId: correlation.full,
             hostname,
-            component: 'tls-manager'
+            component: 'tls-manager',
         })
-        
+
         const tlsServer = tls.createServer({
             // Force http/1.1 to keep implementation simple and Chrome-compatible
             ALPNProtocols: ['http/1.1'],
@@ -148,7 +166,7 @@ export class TlsManager {
                         logger.error('SNI callback failed', e, {
                             requestId: correlation.full,
                             hostname: name,
-                            component: 'tls-manager'
+                            component: 'tls-manager',
                         })
                         cb(e, undefined)
                     })
@@ -167,7 +185,7 @@ export class TlsManager {
             logger.error('TLS server error', error, {
                 requestId: correlation.full,
                 hostname,
-                component: 'tls-manager'
+                component: 'tls-manager',
             })
             this.onError(error, ctx)
         })
@@ -179,21 +197,17 @@ export class TlsManager {
         const cleanup = createServerCleanup(
             [
                 { server: tlsServer, name: 'tls-server' },
-                { server: httpOverTls, name: 'http-over-tls' }
+                { server: httpOverTls, name: 'http-over-tls' },
             ],
             {
                 requestId: correlation.full,
                 component: 'tls-manager',
                 hostname,
-                port: connectPort
+                port: connectPort,
             }
         )
-        
+
         clientSocket.on('close', () => cleanup('client-close'))
         clientSocket.on('end', () => cleanup('client-end'))
     }
-
-
-
-
 }

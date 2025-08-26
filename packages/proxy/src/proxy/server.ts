@@ -10,11 +10,18 @@ import { ServerLifecycleManager, type ServerInfo } from './server-lifecycle'
 import { parseHostPort } from './utils/headers'
 import { getSocketInfo } from './utils/sockets'
 import { createCorrelationId } from './utils/ids'
-import { sendErrorResponse, sendWebSocketErrorResponse } from './error-responses'
+import {
+    sendErrorResponse,
+    sendWebSocketErrorResponse,
+} from './error-responses'
 import { WebSocketHandler } from './websocket-handler'
 import { safeSocketEnd } from './cleanup'
 import { logger } from '../logger'
-import { DEFAULT_PROXY_HOST, DEFAULT_PROXY_PORT, DEFAULT_HTTP_PORT } from './constants'
+import {
+    DEFAULT_PROXY_HOST,
+    DEFAULT_PROXY_PORT,
+    DEFAULT_HTTP_PORT,
+} from './constants'
 
 export interface ProxyOptions {
     host?: string
@@ -38,18 +45,18 @@ export class MitmProxyServer {
     constructor(private opts: ProxyOptions = {}) {
         this.ca = opts.ca ?? new CertificateAuthority({ store: opts.certStore })
         this.pluginManager = new PluginManager(opts.plugins)
-        
+
         this.httpHandler = new HttpHandler(
             this.pluginManager,
             this.handleError.bind(this),
             opts.ignoredHosts,
             opts.maxBodySize
         )
-        
+
         this.webSocketHandler = new WebSocketHandler(
             this.handleError.bind(this)
         )
-        
+
         this.tlsManager = new TlsManager(
             this.ca,
             this.pluginManager,
@@ -60,9 +67,9 @@ export class MitmProxyServer {
         )
 
         this.httpServer = http.createServer((req, res) => {
-            this.httpHandler.handleHttpRequest(req, res, false).catch((err) =>
-                this.handleError(err, {})
-            )
+            this.httpHandler
+                .handleHttpRequest(req, res, false)
+                .catch((err) => this.handleError(err, {}))
         })
 
         this.lifecycleManager = new ServerLifecycleManager(this.httpServer)
@@ -71,9 +78,9 @@ export class MitmProxyServer {
         this.httpServer.on(
             'connect',
             (req: IncomingMessage, clientSocket: net.Socket, head: Buffer) => {
-                this.tlsManager.handleConnect(req, clientSocket, head).catch((err) =>
-                    this.handleError(err, {})
-                )
+                this.tlsManager
+                    .handleConnect(req, clientSocket, head)
+                    .catch((err) => this.handleError(err, {}))
             }
         )
 
@@ -81,28 +88,35 @@ export class MitmProxyServer {
         this.httpServer.on(
             'upgrade',
             (req: IncomingMessage, clientSocket: net.Socket, head: Buffer) => {
-                this.handleHttpWebSocketUpgrade(req, clientSocket, head).catch((err) =>
-                    this.handleError(err, {})
+                this.handleHttpWebSocketUpgrade(req, clientSocket, head).catch(
+                    (err) => this.handleError(err, {})
                 )
             }
         )
 
         this.httpServer.on('clientError', (err, socket) => {
             const socketInfo = getSocketInfo(socket as net.Socket)
-            
+
             logger.error('Client socket error on HTTP server', err, {
                 component: 'proxy-server',
                 socketInfo,
                 errorCode: (err as NodeJS.ErrnoException)?.code,
-                errorErrno: (err as NodeJS.ErrnoException)?.errno
+                errorErrno: (err as NodeJS.ErrnoException)?.errno,
             })
-            
-            sendErrorResponse(socket as net.Socket, 400, 'Bad Request', undefined, logger, {
-                component: 'proxy-server',
-                originalError: err.message,
-                socketInfo
-            })
-            
+
+            sendErrorResponse(
+                socket as net.Socket,
+                400,
+                'Bad Request',
+                undefined,
+                logger,
+                {
+                    component: 'proxy-server',
+                    originalError: err.message,
+                    socketInfo,
+                }
+            )
+
             this.handleError(err, { socketInfo })
         })
     }
@@ -131,7 +145,7 @@ export class MitmProxyServer {
         }
         return {
             host: address.address,
-            port: address.port
+            port: address.port,
         }
     }
 
@@ -148,7 +162,7 @@ export class MitmProxyServer {
         const id = correlation.full
         let hostname = 'unknown'
         let targetPort = DEFAULT_HTTP_PORT
-        
+
         try {
             // Extract hostname from request
             const hostHeader = req.headers.host
@@ -156,79 +170,91 @@ export class MitmProxyServer {
                 logger.warn('WebSocket upgrade request missing Host header', {
                     requestId: id,
                     component: 'proxy-server',
-                    url: req.url
+                    url: req.url,
                 })
-                
-                sendErrorResponse(clientSocket, 400, 'Bad Request', undefined, logger, {
-                    requestId: id,
-                    component: 'proxy-server',
-                    originalError: 'Missing Host header'
-                })
+
+                sendErrorResponse(
+                    clientSocket,
+                    400,
+                    'Bad Request',
+                    undefined,
+                    logger,
+                    {
+                        requestId: id,
+                        component: 'proxy-server',
+                        originalError: 'Missing Host header',
+                    }
+                )
                 safeSocketEnd(clientSocket, {
                     requestId: id,
                     component: 'proxy-server',
                     hostname,
-                    port: targetPort
+                    port: targetPort,
                 })
                 return
             }
-            
+
             const parsed = parseHostPort(hostHeader)
             hostname = parsed.hostname
             targetPort = parsed.port || DEFAULT_HTTP_PORT
-            
+
             logger.debug('HTTP WebSocket upgrade request received', {
                 requestId: id,
                 hostname,
                 port: targetPort,
                 component: 'proxy-server',
                 url: req.url,
-                headers: req.headers
+                headers: req.headers,
             })
-            
+
             // Use shared WebSocket handler
             await this.webSocketHandler.handleUpgrade(req, clientSocket, head, {
                 hostname,
                 port: targetPort,
                 isHttps: false,
                 ignoredHosts: this.opts.ignoredHosts,
-                requestId: id
+                requestId: id,
             })
-            
         } catch (err) {
             logger.error('HTTP WebSocket upgrade handling failed', err, {
                 requestId: id,
-                component: 'proxy-server'
-            })
-            
-            this.handleError(err, { id })
-            
-            sendWebSocketErrorResponse(clientSocket, 500, 'Internal Server Error', undefined, logger, {
-                requestId: id,
                 component: 'proxy-server',
-                hostname,
-                port: targetPort,
-                originalError: err instanceof Error ? err.message : String(err)
             })
-            
+
+            this.handleError(err, { id })
+
+            sendWebSocketErrorResponse(
+                clientSocket,
+                500,
+                'Internal Server Error',
+                undefined,
+                logger,
+                {
+                    requestId: id,
+                    component: 'proxy-server',
+                    hostname,
+                    port: targetPort,
+                    originalError:
+                        err instanceof Error ? err.message : String(err),
+                }
+            )
+
             safeSocketEnd(clientSocket, {
                 requestId: id,
                 component: 'proxy-server',
                 hostname,
-                port: targetPort
+                port: targetPort,
             })
         }
     }
-    
-
 
     private handleError(err: unknown, ctx: ErrorContext): void {
-        logger.error('Proxy error occurred', err, { 
+        logger.error('Proxy error occurred', err, {
             component: 'proxy-server',
             requestId: ctx.id,
-            context: ctx
+            context: ctx,
         })
-        
+
         this.pluginManager.runErrorHooks(err, ctx)
     }
 }
