@@ -6,7 +6,10 @@ import {
     CertificateAuthority,
     getDefaultCertStoreOptions,
 } from '@arachne/proxy'
-import { createBroadcastPlugin } from './broadcast-plugin'
+import { EventEmitter } from 'events'
+import { createTransactionAggregatorPlugin } from './plugins/transaction-aggregator-plugin'
+import { BroadcastService } from './services/broadcast-service'
+import { StorageService } from './services/storage-service'
 import { WsHub } from './ws-hub'
 import { registerApi } from './api'
 import { logger } from './logger'
@@ -91,11 +94,25 @@ async function main() {
         hub.handleConnection(wsAny)
     })
 
-    // Broadcast plugin
-    const broadcastPlugin = createBroadcastPlugin({
-        hub,
+    // Event-driven architecture setup
+    const transactionEvents = new EventEmitter()
+
+    // Create services that listen to transaction events
+    const broadcastService = new BroadcastService(hub, transactionEvents)
+    const storageService = new StorageService(projectService, transactionEvents)
+
+    // Create the single plugin that emits events
+    const transactionAggregatorPlugin = createTransactionAggregatorPlugin(
+        transactionEvents,
+        REC_MAX_BYTES
+    )
+
+    logger.info('Event-driven architecture initialized', {
         maxSampleBytes: REC_MAX_BYTES,
-        projectService,
+        eventListeners: {
+            broadcast: 'BroadcastService',
+            storage: 'StorageService',
+        },
     })
 
     // Certificate Authority
@@ -105,12 +122,12 @@ async function main() {
     const ca = new CertificateAuthority({ store })
     // Certificate creation is now manually controlled from the UI
 
-    // Create proxy instance but don't start it yet
+    // Create proxy instance with the single transaction aggregator plugin
     const proxy = new MitmProxyServer({
         host: PROXY_HOST,
         port: PROXY_PORT,
         ca,
-        plugins: [broadcastPlugin],
+        plugins: [transactionAggregatorPlugin],
         ignoredHosts: ['*.tradovateapi.com'],
     })
 
@@ -134,9 +151,18 @@ async function main() {
             app.log.info(`Shutting down on ${signal}...`)
             if (stopping) return
             stopping = true
+
+            // Clean up event-driven services
+            logger.info('Cleaning up event-driven services...')
+            broadcastService.cleanup()
+            storageService.cleanup()
+
+            // Stop other services
             hub.stop()
             await proxy.stop()
             await app.close()
+
+            logger.info('Shutdown complete')
         } catch (e) {
             console.error('Error during shutdown', e)
         } finally {
