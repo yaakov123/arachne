@@ -69,10 +69,22 @@ const requestResponseContainer = ref<HTMLElement>()
 
 // Search functionality
 const searchQuery = ref('')
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
-// Watch for search changes and update the store
+// Debounced search to improve performance
+const debouncedSearch = (query: string) => {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout)
+    }
+
+    searchTimeout = setTimeout(() => {
+        transactionsStore.updateSearchQuery(query)
+    }, 500) // 150ms debounce delay
+}
+
+// Watch for search changes and update the store with debouncing
 watch(searchQuery, (newQuery) => {
-    transactionsStore.updateSearchQuery(newQuery)
+    debouncedSearch(newQuery)
 })
 
 // Lifecycle
@@ -88,6 +100,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+    // Clean up debounce timeout
+    if (searchTimeout) {
+        clearTimeout(searchTimeout)
+    }
     transactionsStore.disconnect()
 })
 </script>

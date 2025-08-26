@@ -3,10 +3,12 @@
         <TrafficHeader />
         <div class="traffic-entries">
             <TrafficEntry
-                v-for="transaction in transactionsStore.displayTransactions" 
+                v-for="transaction in transactionsStore.displayTransactions"
                 :key="transaction.id"
                 :transaction="transaction"
-                :is-selected="transactionsStore.selectedTransaction?.id === transaction.id"
+                :is-selected="
+                    transactionsStore.selectedTransaction?.id === transaction.id
+                "
                 :is-parent-highlighted="isParentHighlighted(transaction)"
                 @select="transactionsStore.selectTransaction"
             />
@@ -25,16 +27,18 @@ const transactionsStore = useTransactionsStore()
 // Check if a transaction should be highlighted as a parent
 function isParentHighlighted(transaction: TransactionWithMeta): boolean {
     const selectedTransaction = transactionsStore.selectedTransaction
-    
+
     // If no transaction is selected, no parent highlighting
     if (!selectedTransaction) return false
-    
+
     // If the selected transaction is a repeated request, highlight its parent
-    if (selectedTransaction.repeaterGroup?.isRepeated && 
-        selectedTransaction.repeaterGroup.parentTransactionId === transaction.id) {
+    if (
+        selectedTransaction.repeaterGroup?.isRepeated &&
+        selectedTransaction.repeaterGroup.parentTransactionId === transaction.id
+    ) {
         return true
     }
-    
+
     return false
 }
 </script>
@@ -60,10 +64,10 @@ function isParentHighlighted(transaction: TransactionWithMeta): boolean {
     display: flex;
     flex-direction: column;
     gap: 1px; /* Minimal gap for better tree line continuity */
-    
+
     /* Smooth scrolling for better UX */
     scroll-behavior: smooth;
-    
+
     /* Custom scrollbar styling */
     scrollbar-width: thin;
     scrollbar-color: var(--color-neutral-300) transparent;
