@@ -1,38 +1,95 @@
 <template>
-    <div v-if="transactionsStore.selectedTransaction" class="request-response-viewer">
+    <div
+        v-if="transactionsStore.selectedTransaction"
+        class="request-response-viewer"
+    >
         <div class="viewer-header">
             <div class="request-response-line">
                 <span class="request-info">
-                    <span class="method" :class="getMethodClass(transactionsStore.selectedTransaction.request.method)">
-                        {{ transactionsStore.selectedTransaction.request.method }}
+                    <span
+                        class="method"
+                        :class="
+                            getMethodClass(
+                                transactionsStore.selectedTransaction.request
+                                    .method
+                            )
+                        "
+                    >
+                        {{
+                            transactionsStore.selectedTransaction.request.method
+                        }}
                     </span>
                     <span class="url-parts">
-                        <span class="host">{{ getUrlHost(transactionsStore.selectedTransaction.request.url.full) }}</span>
-                        <span class="path">{{ getUrlPath(transactionsStore.selectedTransaction.request.url.full) }}</span>
+                        <span class="host">{{
+                            getUrlHost(
+                                transactionsStore.selectedTransaction.request
+                                    .url.full
+                            )
+                        }}</span>
+                        <span class="path">{{
+                            getUrlPath(
+                                transactionsStore.selectedTransaction.request
+                                    .url.full
+                            )
+                        }}</span>
                     </span>
                 </span>
-                <span v-if="transactionsStore.selectedTransaction.response" class="response-info">
-                    <span class="status-code" :class="getStatusClass(transactionsStore.selectedTransaction.response.statusCode)">
-                        {{ transactionsStore.selectedTransaction.response.statusCode }}
+                <span
+                    v-if="transactionsStore.selectedTransaction.response"
+                    class="response-info"
+                >
+                    <span
+                        class="status-code"
+                        :class="
+                            getStatusClass(
+                                transactionsStore.selectedTransaction.response
+                                    .statusCode
+                            )
+                        "
+                    >
+                        {{
+                            transactionsStore.selectedTransaction.response
+                                .statusCode
+                        }}
                     </span>
-                    <span v-if="transactionsStore.selectedTransaction.response.statusMessage" class="status-message">
-                        {{ transactionsStore.selectedTransaction.response.statusMessage }}
+                    <span
+                        v-if="
+                            transactionsStore.selectedTransaction.response
+                                .statusMessage
+                        "
+                        class="status-message"
+                    >
+                        {{
+                            transactionsStore.selectedTransaction.response
+                                .statusMessage
+                        }}
                     </span>
                 </span>
             </div>
-            <button class="close-viewer" @click="transactionsStore.clearSelectedTransaction()">×</button>
+            <button
+                class="close-viewer"
+                @click="transactionsStore.clearSelectedTransaction()"
+            >
+                ×
+            </button>
         </div>
-        
+
         <div class="viewer-content">
-            <RequestPanel ref="requestPanel" :request="transactionsStore.selectedTransaction.request" />
-            <Resizer 
-                direction="horizontal" 
+            <RequestPanel
+                ref="requestPanel"
+                :request="transactionsStore.selectedTransaction.request"
+            />
+            <Resizer
+                direction="horizontal"
                 :first-element="requestPanel?.$el"
                 :second-element="responsePanel?.$el"
                 :min-size="200"
                 @resize-start="onResizeStart"
             />
-            <ResponsePanel ref="responsePanel" :response="transactionsStore.selectedTransaction.response" />
+            <ResponsePanel
+                ref="responsePanel"
+                :response="transactionsStore.selectedTransaction.response"
+            />
         </div>
     </div>
 </template>
@@ -54,15 +111,13 @@ const onResizeStart = () => {
     if (requestPanel.value?.$el && responsePanel.value?.$el) {
         const requestRect = requestPanel.value.$el.getBoundingClientRect()
         const responseRect = responsePanel.value.$el.getBoundingClientRect()
-        
+
         requestPanel.value.$el.style.flex = 'none'
         responsePanel.value.$el.style.flex = 'none'
         requestPanel.value.$el.style.width = `${requestRect.width}px`
         responsePanel.value.$el.style.width = `${responseRect.width}px`
     }
 }
-
-
 
 const getUrlHost = (url: string): string => {
     try {
@@ -81,7 +136,6 @@ const getUrlPath = (url: string): string => {
         return parts.length > 1 ? '/' + parts.slice(1).join('/') : '/'
     }
 }
-
 </script>
 
 <style scoped>
@@ -205,8 +259,6 @@ const getUrlPath = (url: string): string => {
     min-width: 0;
 }
 
-
-
 /* Status Code Colors */
 .status-code {
     font-weight: bold;
@@ -264,7 +316,7 @@ const getUrlPath = (url: string): string => {
 .viewer-content {
     flex: 1;
     display: flex;
-    overflow: hidden;
+    min-height: 0;
 }
 
 .viewer-content :deep(.request-panel),

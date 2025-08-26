@@ -3,10 +3,7 @@
         <div class="panel-header">
             <h4>Request</h4>
         </div>
-        <TabContainer
-            :tabs="tabs"
-            default-tab="query"
-        >
+        <TabContainer :tabs="tabs" default-tab="headers">
             <template #query>
                 <QueryParamsViewer :query-string="request.url.query" />
             </template>
@@ -110,8 +107,12 @@ const formatBytes = (bytes: number): string => {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    min-height: 0;
     border-right: 1px solid var(--surface-border);
+}
+
+.request-panel :deep(.tab-content) {
+    padding: 0;
 }
 
 .panel-header {

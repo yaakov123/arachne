@@ -1,8 +1,8 @@
 <template>
     <div class="tab-container">
         <div class="tab-header">
-            <button 
-                v-for="tab in tabs" 
+            <button
+                v-for="tab in tabs"
                 :key="tab.id"
                 class="tab-button"
                 :class="{ active: activeTab === tab.id }"
@@ -10,7 +10,11 @@
                 :disabled="tab.disabled"
             >
                 {{ tab.label }}
-                <span v-if="tab.badge" class="tab-badge" :class="tab.badgeClass">
+                <span
+                    v-if="tab.badge"
+                    class="tab-badge"
+                    :class="tab.badgeClass"
+                >
                     {{ tab.badge }}
                 </span>
             </button>
@@ -38,7 +42,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    defaultTab: ''
+    defaultTab: '',
 })
 
 const emit = defineEmits<{
@@ -55,18 +59,25 @@ const setActiveTab = (tabId: string) => {
 }
 
 // Watch for changes in tabs prop to update activeTab if needed
-watch(() => props.tabs, (newTabs) => {
-    if (!newTabs.find(tab => tab.id === activeTab.value)) {
-        activeTab.value = newTabs[0]?.id || ''
-    }
-}, { immediate: true })
+watch(
+    () => props.tabs,
+    (newTabs) => {
+        if (!newTabs.find((tab) => tab.id === activeTab.value)) {
+            activeTab.value = newTabs[0]?.id || ''
+        }
+    },
+    { immediate: true }
+)
 
 // Watch for changes in defaultTab prop
-watch(() => props.defaultTab, (newDefaultTab) => {
-    if (newDefaultTab && newDefaultTab !== activeTab.value) {
-        activeTab.value = newDefaultTab
+watch(
+    () => props.defaultTab,
+    (newDefaultTab) => {
+        if (newDefaultTab && newDefaultTab !== activeTab.value) {
+            activeTab.value = newDefaultTab
+        }
     }
-})
+)
 </script>
 
 <style scoped>
@@ -74,6 +85,7 @@ watch(() => props.defaultTab, (newDefaultTab) => {
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
 }
 
 .tab-header {
@@ -169,7 +181,7 @@ watch(() => props.defaultTab, (newDefaultTab) => {
         padding: var(--space-sm) var(--space-md);
         font-size: var(--text-xs);
     }
-    
+
     .tab-content {
         padding: var(--space-md);
     }

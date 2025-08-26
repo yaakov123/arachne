@@ -41,6 +41,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
     const isConnected = ref(false)
     const connectionError = ref<string | null>(null)
     const searchQuery = ref<string>('')
+    const isLoading = ref<boolean>(false)
 
     // Optimization: maintain a Map for O(1) transaction lookup during real-time processing
     const transactionLookup = ref<Map<string, TransactionWithMeta>>(new Map())
@@ -329,6 +330,10 @@ export const useTransactionsStore = defineStore('transactions', () => {
         projectId?: string
     ): Promise<void> {
         try {
+            if (isLoading.value) {
+                return
+            }
+            isLoading.value = true
             let targetProjectId = projectId
 
             // If no project ID provided, get current project
@@ -338,6 +343,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
                     // No active project, clear transactions and return
                     transactions.value = []
                     selectedTransaction.value = null
+                    isLoading.value = false
                     return
                 }
                 targetProjectId = currentProjectResponse.currentProject
@@ -406,6 +412,8 @@ export const useTransactionsStore = defineStore('transactions', () => {
                 error instanceof Error
                     ? error.message
                     : 'Failed to fetch transactions'
+        } finally {
+            isLoading.value = false
         }
     }
 
@@ -425,6 +433,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
     // WebSocket connection management
     async function connect() {
         try {
+            isLoading.value = true
             connectionError.value = null
             await wsClient.connect()
             isConnected.value = wsClient.isConnected()
@@ -434,6 +443,8 @@ export const useTransactionsStore = defineStore('transactions', () => {
                 error instanceof Error ? error.message : 'Connection failed'
             isConnected.value = false
             throw error
+        } finally {
+            isLoading.value = false
         }
     }
 
@@ -471,6 +482,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
         isConnected,
         connectionError,
         searchQuery,
+        isLoading,
 
         // Computed
         uniqueHosts,

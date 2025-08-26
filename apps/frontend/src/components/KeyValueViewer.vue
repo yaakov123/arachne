@@ -1,17 +1,13 @@
 <template>
     <div class="key-value-viewer">
         <div v-if="items.length > 0" class="items-list">
-            <div 
-                v-for="item in items" 
-                :key="item.key" 
-                class="item-row"
-            >
+            <div v-for="item in items" :key="item.key" class="item-row">
                 <span class="item-key">{{ item.key }}:</span>
-                <span 
-                    class="item-value" 
-                    :class="{ 
+                <span
+                    class="item-value"
+                    :class="{
                         sensitive: item.sensitive,
-                        muted: item.muted 
+                        muted: item.muted,
                     }"
                 >
                     {{ item.value }}
@@ -40,7 +36,7 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
     emptyMessage: 'No items',
-    maxHeight: '200px'
+    maxHeight: '200px',
 })
 </script>
 
@@ -48,10 +44,10 @@ withDefaults(defineProps<Props>(), {
 .key-value-viewer {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: var(--text-xs);
+    height: 100%;
 }
 
 .items-list {
-    background: var(--surface-section);
     border-radius: var(--radius-sm);
     padding: var(--space-sm);
     height: 100%;
@@ -111,7 +107,7 @@ withDefaults(defineProps<Props>(), {
         grid-template-columns: 1fr;
         gap: var(--space-xs);
     }
-    
+
     .item-row {
         display: flex;
         flex-direction: column;
@@ -121,7 +117,7 @@ withDefaults(defineProps<Props>(), {
         border-radius: var(--radius-sm);
         margin-bottom: var(--space-xs);
     }
-    
+
     .item-key {
         font-size: var(--text-xs);
         opacity: 0.8;

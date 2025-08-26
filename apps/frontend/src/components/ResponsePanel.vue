@@ -19,9 +19,7 @@
                 </template>
             </TabContainer>
         </div>
-        <div v-else class="no-response">
-            No response data available
-        </div>
+        <div v-else class="no-response">No response data available</div>
     </div>
 </template>
 
@@ -42,23 +40,20 @@ const props = defineProps<Props>()
 
 const tabs = computed<Tab[]>(() => {
     if (!props.response) return []
-    
-    const cookiesCount = props.response.headers.filter(h => 
-        h.name.toLowerCase() === 'set-cookie'
+
+    const cookiesCount = props.response.headers.filter(
+        (h) => h.name.toLowerCase() === 'set-cookie'
     ).length
-    
+
     const bodySize = props.response.body?.content.size || 0
-    
-    
-    const tabs: Tab[] = [
-       
-    ]
+
+    const tabs: Tab[] = []
 
     if (props.response.headers.length > 0) {
         tabs.push({
             id: 'headers',
             label: 'Headers',
-            badge: props.response.headers.length.toString()
+            badge: props.response.headers.length.toString(),
         })
     }
 
@@ -66,7 +61,7 @@ const tabs = computed<Tab[]>(() => {
         tabs.push({
             id: 'body',
             label: 'Body',
-            badge: formatBytes(bodySize)
+            badge: formatBytes(bodySize),
         })
     }
 
@@ -87,7 +82,6 @@ const tabs = computed<Tab[]>(() => {
     return tabs
 })
 
-
 const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B'
     const k = 1024
@@ -95,8 +89,6 @@ const formatBytes = (bytes: number): string => {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
-
-
 </script>
 
 <style scoped>
@@ -104,7 +96,11 @@ const formatBytes = (bytes: number): string => {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    min-height: 0;
+}
+
+.response-panel :deep(.tab-content) {
+    padding: 0;
 }
 
 .panel-header {
@@ -127,10 +123,8 @@ const formatBytes = (bytes: number): string => {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    min-height: 0;
 }
-
-
 
 .no-response {
     text-align: center;

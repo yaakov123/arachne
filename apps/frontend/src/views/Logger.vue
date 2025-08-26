@@ -24,6 +24,12 @@
                 </div>
             </div>
             <div ref="trafficListContainer" class="traffic-list-container">
+                <div v-if="transactionsStore.isLoading" class="loading-overlay">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p class="loading-text">Loading transactions...</p>
+                    </div>
+                </div>
                 <TrafficList />
             </div>
             <template v-if="transactionsStore.selectedTransaction">
@@ -73,7 +79,7 @@ watch(searchQuery, (newQuery) => {
 onMounted(async () => {
     try {
         // First fetch existing transactions from the current project
-        // await transactionsStore.fetchExistingTransactions()
+        await transactionsStore.fetchExistingTransactions()
         // Then connect to WebSocket for real-time updates
         await transactionsStore.connect()
     } catch (error) {
@@ -178,11 +184,58 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     flex: 1; /* Take full height when no resizer is present */
+    position: relative;
 }
 
 .request-response-container {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: color-mix(in srgb, var(--surface-card) 95%, transparent);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--surface-border);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    color: var(--text-color-secondary);
+    font-size: var(--text-sm);
+    margin: 0;
+    font-weight: 500;
 }
 </style>
