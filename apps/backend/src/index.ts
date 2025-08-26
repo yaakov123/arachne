@@ -10,6 +10,7 @@ import { createBroadcastPlugin } from './broadcast-plugin'
 import { WsHub } from './ws-hub'
 import { registerApi } from './api'
 import { logger } from './logger'
+import { ProjectService } from './services/project-service'
 
 function envNum(name: string, def: number): number {
     const v = process.env[name]
@@ -37,6 +38,8 @@ async function main() {
     const REC_OUT_DIR = process.env['ARACHNE_REC_OUT_DIR']
     const REC_MAX_BYTES = envNum('ARACHNE_REC_MAX_BYTES', 1024 * 1024)
 
+    const PROJECTS_BASE_DIR = envStr('ARACHNE_PROJECTS_DIR', './projects')
+
     logger.info('Starting Arachne backend server', {
         backendHost: BACKEND_HOST,
         backendPort: BACKEND_PORT,
@@ -44,7 +47,8 @@ async function main() {
         proxyPort: PROXY_PORT,
         recMaxBytes: REC_MAX_BYTES,
         hasToken: !!BACKEND_TOKEN,
-        recOutDir: REC_OUT_DIR
+        recOutDir: REC_OUT_DIR,
+        projectsBaseDir: PROJECTS_BASE_DIR,
     })
 
     const app = fastify({ logger: true })
@@ -65,17 +69,33 @@ async function main() {
     const hub = new WsHub()
     hub.start()
 
+    // Project Service
+    const projectService = new ProjectService({
+        baseDir: PROJECTS_BASE_DIR,
+        maxTransactions: 10000,
+        retentionDays: 30,
+    })
+    await projectService.initialize()
+
+    // Ensure there's always a default project available
+    const currentProject = await projectService.ensureDefaultProject()
+    logger.info('Current active project', {
+        projectId: currentProject.metadata.id,
+        projectName: currentProject.metadata.name,
+        transactionCount: currentProject.transactionCount,
+    })
+
     await app.register(websocket)
     app.get(BACKEND_WS_PATH, { websocket: true }, (conn) => {
         const wsAny: any = (conn as any).socket ?? (conn as any)
         hub.handleConnection(wsAny)
     })
 
-
     // Broadcast plugin
     const broadcastPlugin = createBroadcastPlugin({
         hub,
         maxSampleBytes: REC_MAX_BYTES,
+        projectService,
     })
 
     // Certificate Authority
@@ -100,14 +120,13 @@ async function main() {
         token: BACKEND_TOKEN,
         ca,
         proxy,
+        projectService,
     })
 
     // Start HTTP server first
     await app.listen({ host: BACKEND_HOST, port: BACKEND_PORT })
     app.log.info(`Backend listening on http://${BACKEND_HOST}:${BACKEND_PORT}`)
     app.log.info(`WS at ${BACKEND_WS_PATH}`)
-
-
 
     let stopping = false
     const shutdown = async (signal: string) => {

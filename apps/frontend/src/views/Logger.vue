@@ -1,19 +1,19 @@
 <template>
     <div class="logger-view">
         <HostsSidebar />
-        
+
         <main class="logger-main">
             <div class="search-bar-container">
                 <div class="search-input-wrapper">
                     <Search class="search-icon" :size="16" />
-                    <input 
+                    <input
                         v-model="searchQuery"
-                        type="text" 
+                        type="text"
                         placeholder="Search URLs, paths, or file extensions..."
                         class="search-input"
                         title="Search by URL, path, or file extension. Supports partial matches."
                     />
-                    <button 
+                    <button
                         v-if="searchQuery"
                         @click="searchQuery = ''"
                         class="search-clear"
@@ -27,7 +27,7 @@
                 <TrafficList />
             </div>
             <template v-if="transactionsStore.selectedTransaction">
-                <Resizer 
+                <Resizer
                     direction="vertical"
                     :first-element="trafficListContainer"
                     :second-element="requestResponseContainer"
@@ -35,7 +35,10 @@
                     :initial-first-size="400"
                     :initial-second-size="300"
                 />
-                <div ref="requestResponseContainer" class="request-response-container">
+                <div
+                    ref="requestResponseContainer"
+                    class="request-response-container"
+                >
                     <RequestResponseViewer />
                 </div>
             </template>
@@ -69,9 +72,12 @@ watch(searchQuery, (newQuery) => {
 // Lifecycle
 onMounted(async () => {
     try {
+        // First fetch existing transactions from the current project
+        // await transactionsStore.fetchExistingTransactions()
+        // Then connect to WebSocket for real-time updates
         await transactionsStore.connect()
     } catch (error) {
-        console.error('Failed to connect to WebSocket:', error)
+        console.error('Failed to initialize Logger:', error)
     }
 })
 
@@ -121,7 +127,8 @@ onUnmounted(() => {
 
 .search-input {
     width: 100%;
-    padding: var(--space-sm) var(--space-xl) var(--space-sm) calc(var(--space-xl) + var(--space-xs));
+    padding: var(--space-sm) var(--space-xl) var(--space-sm)
+        calc(var(--space-xl) + var(--space-xs));
     border: 2px solid var(--surface-border);
     border-radius: var(--radius-md);
     background: var(--surface-ground);
@@ -133,7 +140,8 @@ onUnmounted(() => {
 
 .search-input:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
+    box-shadow: 0 0 0 3px
+        color-mix(in srgb, var(--primary-color) 20%, transparent);
 }
 
 .search-input::placeholder {

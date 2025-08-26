@@ -1,18 +1,24 @@
 <template>
     <div class="app-shell">
         <header class="app-header">
-
             <nav class="main-nav">
                 <RouterLink to="/">Traffic Logger</RouterLink>
             </nav>
+            <div class="header-center">
+                <ProjectDropdown @create-project="navigateToSettings" />
+            </div>
             <div class="header-actions">
                 <ProxyToggle />
-                <RouterLink to="/settings" class="settings-icon" title="Settings">
+                <RouterLink
+                    to="/settings"
+                    class="settings-icon"
+                    title="Settings"
+                >
                     <Settings :size="16" />
                 </RouterLink>
             </div>
         </header>
-        
+
         <main class="app-content">
             <slot></slot>
         </main>
@@ -20,9 +26,25 @@
 </template>
 
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { onMounted } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import { Settings } from 'lucide-vue-next'
 import ProxyToggle from '@/components/ProxyToggle.vue'
+import ProjectDropdown from '@/components/ProjectDropdown.vue'
+import { useProjectStore } from '@/stores/project'
+import type { ProjectInfo } from '@arachne/api-types'
+
+const router = useRouter()
+const projectStore = useProjectStore()
+
+// Load current project on mount
+onMounted(() => {
+    projectStore.loadCurrentProject()
+})
+
+function navigateToSettings() {
+    router.push('/settings')
+}
 </script>
 
 <style scoped>
@@ -69,8 +91,16 @@ import ProxyToggle from '@/components/ProxyToggle.vue'
 
 .main-nav a:hover,
 .main-nav a.router-link-active {
-    color: var(--primary-color, #3B82F6);
+    color: var(--primary-color, #3b82f6);
     /* border-bottom-color: var(--primary-color, #3B82F6); */
+}
+
+.header-center {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    justify-content: center;
+    margin: 0 1rem;
 }
 
 .header-actions {
@@ -93,11 +123,9 @@ import ProxyToggle from '@/components/ProxyToggle.vue'
 }
 
 .settings-icon:hover {
-    color: var(--primary-color, #3B82F6);
+    color: var(--primary-color, #3b82f6);
     background-color: var(--surface-hover, #f8f9fa);
 }
-
-
 
 /* Main content area - will expand to fill available space */
 .app-content {

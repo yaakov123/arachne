@@ -161,7 +161,6 @@ export interface TransactionDependency {
 export interface TransactionCompleteEvent extends BaseEvent {
     type: 'transactionComplete'
     transaction: TransactionData
-    dependencies?: TransactionDependency[]
 }
 
 export interface ClientHello {

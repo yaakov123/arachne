@@ -19,6 +19,7 @@ import type {
     RequestURL,
     RepeaterMetadata,
 } from '@arachne/api-types'
+import { ProjectService } from './services/project-service'
 // import { ReverseLookupDependencyDetector } from './dependency-analyzer'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
@@ -164,6 +165,7 @@ function genId(prefix: string) {
 export interface BroadcastPluginOptions {
     hub: WsHub
     maxSampleBytes?: number
+    projectService: ProjectService
 }
 
 // Track transaction state for timing and completion events
@@ -202,6 +204,7 @@ export function createBroadcastPlugin(
     opts: BroadcastPluginOptions
 ): ProxyPlugin {
     const hub = opts.hub
+    const projectService = opts.projectService
     const maxSampleBytes =
         typeof opts.maxSampleBytes === 'number'
             ? opts.maxSampleBytes
@@ -210,7 +213,6 @@ export function createBroadcastPlugin(
     // Initialize dependency detector
     // const dependencyDetector = new ReverseLookupDependencyDetector()
 
-
     // Track ongoing transactions for completion events
     const transactions = new Map<string, TransactionState>()
 
@@ -218,7 +220,7 @@ export function createBroadcastPlugin(
     function completeTransaction(id: string) {
         const transaction = transactions.get(id)
         if (!transaction) return
-        if (transaction.method === "OPTIONS") return
+        if (transaction.method === 'OPTIONS') return
 
         // Build complete transaction data
         const transactionData = {
@@ -267,7 +269,6 @@ export function createBroadcastPlugin(
             id,
             ts: nowIso(),
             transaction: transactionData,
-            dependencies: []
         }
 
         // Log the broadcast event
@@ -282,10 +283,11 @@ export function createBroadcastPlugin(
             responseSize: transaction.responseSize,
             hasRequestBody: transaction.hasRequestBody,
             hasResponseBody: transaction.hasResponseBody,
-            dependenciesCount: 0 //dependencies.length
         })
-        
+
         hub.broadcast(ev)
+
+        projectService.addTransactionToCurrentProject(ev).catch(() => {})
 
         // Clean up transaction state
         transactions.delete(id)
@@ -298,32 +300,32 @@ export function createBroadcastPlugin(
             const timestamp = Date.now()
             const startTime = timestamp
             const parsedURL = parseURL(ctx.url)
-            
+
             // Check for repeater header
             let repeaterMeta: RepeaterMetadata | undefined
             const repeaterHeader = ctx.headers['x-arachne-repeater']
-            
+
             if (repeaterHeader) {
                 try {
-                    const headerValue = Array.isArray(repeaterHeader) 
-                        ? repeaterHeader[0] 
+                    const headerValue = Array.isArray(repeaterHeader)
+                        ? repeaterHeader[0]
                         : repeaterHeader
-                    
+
                     const parsed = JSON.parse(headerValue)
                     repeaterMeta = {
                         source: 'repeater',
                         originalTransactionId: parsed.originalId,
-                        repeatedAt: new Date(parsed.timestamp).toISOString()
+                        repeatedAt: new Date(parsed.timestamp).toISOString(),
                     }
-                    
+
                     broadcastLogger.info('Detected repeater request', {
                         transactionId: ctx.id,
-                        originalId: parsed.originalId
+                        originalId: parsed.originalId,
                     })
                 } catch {
                     broadcastLogger.warn('Invalid repeater header format', {
                         transactionId: ctx.id,
-                        header: repeaterHeader
+                        header: repeaterHeader,
                     })
                 }
             } else {
@@ -331,7 +333,9 @@ export function createBroadcastPlugin(
             }
 
             // Parse headers and filter out the repeater header for broadcast
-            const parsedHeaders = parseHeaders(ctx.headers).filter(h => h.name !== 'x-arachne-repeater')
+            const parsedHeaders = parseHeaders(ctx.headers).filter(
+                (h) => h.name !== 'x-arachne-repeater'
+            )
 
             // Initialize transaction tracking with complete request data
             transactions.set(ctx.id, {
@@ -357,7 +361,7 @@ export function createBroadcastPlugin(
                 rawHeaders: ctx.headers,
                 clientIp: ctx.clientIp,
             }
-            
+
             // Log the broadcast event
             broadcastLogger.info('Broadcasting request event', {
                 eventType: 'request',
@@ -367,9 +371,9 @@ export function createBroadcastPlugin(
                 clientIp: ctx.clientIp,
                 timestamp,
                 isRepeater: repeaterMeta?.source === 'repeater',
-                originalTransactionId: repeaterMeta?.originalTransactionId
+                originalTransactionId: repeaterMeta?.originalTransactionId,
             })
-            
+
             hub.broadcast(ev)
         },
 
@@ -402,17 +406,19 @@ export function createBroadcastPlugin(
                       }
                     : undefined,
             }
-            
+
             // Log the broadcast event
             broadcastLogger.info('Broadcasting response head event', {
                 eventType: 'responseHead',
                 id: ctx.id,
                 statusCode: ctx.statusCode,
                 statusMessage: ctx.statusMessage,
-                duration: transaction ? timestamp - transaction.requestStartTime : undefined,
-                timestamp
+                duration: transaction
+                    ? timestamp - transaction.requestStartTime
+                    : undefined,
+                timestamp,
             })
-            
+
             hub.broadcast(ev)
         },
 
@@ -438,7 +444,7 @@ export function createBroadcastPlugin(
                 content,
                 sample,
             }
-            
+
             // Log the broadcast event
             broadcastLogger.info('Broadcasting request body event', {
                 eventType: 'requestBody',
@@ -446,9 +452,9 @@ export function createBroadcastPlugin(
                 contentType: content.contentType,
                 size: content.size,
                 detectedFormat: content.detectedFormat,
-                truncated: content.truncated
+                truncated: content.truncated,
             })
-            
+
             hub.broadcast(ev)
         },
 
@@ -474,7 +480,7 @@ export function createBroadcastPlugin(
                 content,
                 sample,
             }
-            
+
             // Log the broadcast event
             broadcastLogger.info('Broadcasting response body event', {
                 eventType: 'responseBody',
@@ -482,13 +488,13 @@ export function createBroadcastPlugin(
                 contentType: content.contentType,
                 size: content.size,
                 detectedFormat: content.detectedFormat,
-                truncated: content.truncated
+                truncated: content.truncated,
             })
-            
+
             hub.broadcast(ev)
         },
 
-        async onResponseComplete(ctx: ResponseContext) {
+        onResponseComplete(ctx: ResponseContext) {
             // Response is fully processed - send transaction complete event
             completeTransaction(ctx.id)
         },
@@ -505,16 +511,16 @@ export function createBroadcastPlugin(
                     stack: err instanceof Error ? err.stack : undefined,
                     phase: 'connection' as const, // Could be enhanced based on context
                 }
-                
+
                 // Log the broadcast event
                 broadcastLogger.error('Broadcasting error event', {
                     eventType: 'error',
                     id: ev.id,
                     message: ev.message,
                     phase: ev.phase,
-                    contextId: ctx?.id
+                    contextId: ctx?.id,
                 })
-                
+
                 hub.broadcast(ev)
 
                 // Complete transaction if we have an ID
