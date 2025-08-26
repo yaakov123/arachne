@@ -123,9 +123,6 @@ async function scrollToHighlighted() {
     display: flex;
     flex-direction: column;
     background: var(--surface-card);
-    margin: var(--space-sm);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
     overflow: hidden;
     position: relative;
 }
@@ -134,7 +131,7 @@ async function scrollToHighlighted() {
     flex: 1;
     overflow-y: auto;
     /* Enhanced padding for better nested item display and tree view */
-    padding: var(--space-sm) var(--space-md) var(--space-lg) var(--space-md);
+    padding: var(--space-md) 0;
     /* Improved spacing for nested hierarchy */
     display: flex;
     flex-direction: column;

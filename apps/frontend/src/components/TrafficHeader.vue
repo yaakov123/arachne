@@ -18,7 +18,7 @@
     display: grid;
     grid-template-columns: 40px 80px 1fr 80px 80px 80px;
     gap: var(--space-md);
-    padding: var(--space-md) var(--space-lg);
+    padding: var(--space-md) 0;
     background: var(--surface-section);
     border-bottom: 1px solid var(--surface-border);
     font-size: var(--text-sm);
