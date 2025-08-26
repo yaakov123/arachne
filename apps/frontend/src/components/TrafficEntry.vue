@@ -1,55 +1,83 @@
 <template>
-    <div 
+    <div
         class="traffic-entry"
-        :class="{ 
+        :data-transaction-id="transaction.id"
+        :class="{
             selected: isSelected,
             'parent-highlighted': isParentHighlighted,
             'is-original': transaction.repeaterGroup?.isOriginal,
             'is-repeated': transaction.repeaterGroup?.isRepeated,
-            'has-children': hasRepeatedRequests
+            'has-children': hasRepeatedRequests,
         }"
         @click="handleEntryClick"
         @contextmenu="showContextMenu"
     >
         <!-- Collapse/Expand controls - moved to far left -->
         <div class="expand-controls">
-            <button 
+            <button
                 v-if="hasRepeatedRequests"
                 class="expand-button"
                 @click.stop="toggleExpanded"
-                :title="isExpanded ? 'Collapse repeated requests' : 'Expand repeated requests'"
+                :title="
+                    isExpanded
+                        ? 'Collapse repeated requests'
+                        : 'Expand repeated requests'
+                "
             >
                 <ChevronDown v-if="isExpanded" :size="14" />
                 <ChevronRight v-else :size="14" />
                 <span class="repeat-count">{{ repeatCount }}</span>
             </button>
-            <div v-else-if="transaction.repeaterGroup?.isRepeated" class="nested-indent">
+            <div
+                v-else-if="transaction.repeaterGroup?.isRepeated"
+                class="nested-indent"
+            >
                 <RotateCcw :size="12" class="repeat-icon" />
             </div>
         </div>
-        
-        <div class="entry-method" :class="getMethodClass(transaction.request.method)">
+
+        <div
+            class="entry-method"
+            :class="getMethodClass(transaction.request.method)"
+        >
             {{ transaction.request.method }}
         </div>
-        
+
         <div class="entry-url" :title="transaction.request.url.full">
-            {{ transaction.request.url.path }}{{ transaction.request.url.query ? '?' + transaction.request.url.query : '' }}
+            {{ transaction.request.url.path
+            }}{{
+                transaction.request.url.query
+                    ? '?' + transaction.request.url.query
+                    : ''
+            }}
         </div>
-        
-        <div 
-            class="entry-status" 
-            :style="{ color: transaction.response?.statusCode ? getStatusTextColor(transaction.response.statusCode) : 'var(--text-color-muted)' }"
+
+        <div
+            class="entry-status"
+            :style="{
+                color: transaction.response?.statusCode
+                    ? getStatusTextColor(transaction.response.statusCode)
+                    : 'var(--text-color-muted)',
+            }"
         >
             {{ transaction.response?.statusCode || '-' }}
         </div>
-        <div class="entry-size">{{ formatSize(transaction.summary.responseSize || 0) }}</div>
-        <div class="entry-time">{{ transaction.timing.duration ? transaction.timing.duration.toFixed(0) + 'ms' : '-' }}</div>
+        <div class="entry-size">
+            {{ formatSize(transaction.summary.responseSize || 0) }}
+        </div>
+        <div class="entry-time">
+            {{
+                transaction.timing.duration
+                    ? transaction.timing.duration.toFixed(0) + 'ms'
+                    : '-'
+            }}
+        </div>
     </div>
 
     <!-- Context Menu -->
     <Teleport to="body">
-        <div 
-            v-if="contextMenuVisible" 
+        <div
+            v-if="contextMenuVisible"
             class="context-menu"
             :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
             @click="hideContextMenu"
@@ -62,8 +90,16 @@
                 <Terminal :size="14" />
                 Copy as cURL
             </div>
-            <div v-if="!transaction.repeaterGroup?.isRepeated" class="context-menu-separator"></div>
-            <div v-if="!transaction.repeaterGroup?.isRepeated" class="context-menu-item" @click="repeatRequest" :class="{ disabled: isRepeating }">
+            <div
+                v-if="!transaction.repeaterGroup?.isRepeated"
+                class="context-menu-separator"
+            ></div>
+            <div
+                v-if="!transaction.repeaterGroup?.isRepeated"
+                class="context-menu-item"
+                @click="repeatRequest"
+                :class="{ disabled: isRepeating }"
+            >
                 <RotateCcw :size="14" />
                 {{ isRepeating ? 'Repeating...' : 'Repeat Request' }}
             </div>
@@ -73,7 +109,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ChevronDown, ChevronRight, RotateCcw, Link, Terminal } from 'lucide-vue-next'
+import {
+    ChevronDown,
+    ChevronRight,
+    RotateCcw,
+    Link,
+    Terminal,
+} from 'lucide-vue-next'
 import type { TransactionWithMeta } from '../stores/transactions'
 import { useTransactionsStore } from '../stores/transactions'
 import { getMethodClass, getStatusTextColor } from '../utils/http-colors'
@@ -100,17 +142,18 @@ const contextMenuY = ref(0)
 const isRepeating = ref(false)
 
 // Computed properties
-const hasRepeatedRequests = computed(() => 
-    props.transaction.repeaterGroup?.isOriginal && 
-    (props.transaction.repeaterGroup?.childTransactionIds.length ?? 0) > 0
+const hasRepeatedRequests = computed(
+    () =>
+        props.transaction.repeaterGroup?.isOriginal &&
+        (props.transaction.repeaterGroup?.childTransactionIds.length ?? 0) > 0
 )
 
-const isExpanded = computed(() => 
-    props.transaction.repeaterGroup?.isExpanded ?? false
+const isExpanded = computed(
+    () => props.transaction.repeaterGroup?.isExpanded ?? false
 )
 
-const repeatCount = computed(() => 
-    props.transaction.repeaterGroup?.childTransactionIds.length ?? 0
+const repeatCount = computed(
+    () => props.transaction.repeaterGroup?.childTransactionIds.length ?? 0
 )
 
 // Event handlers
@@ -123,7 +166,7 @@ const showContextMenu = (event: MouseEvent) => {
     contextMenuX.value = event.clientX
     contextMenuY.value = event.clientY
     contextMenuVisible.value = true
-    
+
     // Hide on next click anywhere
     document.addEventListener('click', hideContextMenu, { once: true })
 }
@@ -134,7 +177,7 @@ const hideContextMenu = () => {
 
 const repeatRequest = async () => {
     if (isRepeating.value) return
-    
+
     isRepeating.value = true
     try {
         await store.repeatRequest(props.transaction.id)
@@ -223,8 +266,6 @@ function formatSize(bytes: number): string {
     position: relative;
 }
 
-
-
 .traffic-entry.has-children {
     font-weight: var(--font-medium);
 }
@@ -288,33 +329,33 @@ function formatSize(bytes: number): string {
     font-size: var(--text-xs);
 }
 
-.method-get { 
-    background: #e3f2fd; 
-    color: #1976d2; 
+.method-get {
+    background: #e3f2fd;
+    color: #1976d2;
 }
-.method-post { 
-    background: #e8f5e8; 
-    color: #388e3c; 
+.method-post {
+    background: #e8f5e8;
+    color: #388e3c;
 }
-.method-put { 
-    background: #fff3e0; 
-    color: #f57c00; 
+.method-put {
+    background: #fff3e0;
+    color: #f57c00;
 }
-.method-patch { 
-    background: #fce4ec; 
-    color: #c2185b; 
+.method-patch {
+    background: #fce4ec;
+    color: #c2185b;
 }
-.method-delete { 
-    background: #ffebee; 
-    color: #d32f2f; 
+.method-delete {
+    background: #ffebee;
+    color: #d32f2f;
 }
-.method-head { 
-    background: #f3e5f5; 
-    color: #7b1fa2; 
+.method-head {
+    background: #f3e5f5;
+    color: #7b1fa2;
 }
-.method-options { 
-    background: #e0f2f1; 
-    color: #00796b; 
+.method-options {
+    background: #e0f2f1;
+    color: #00796b;
 }
 
 .entry-url {
@@ -329,7 +370,8 @@ function formatSize(bytes: number): string {
     font-weight: var(--font-semibold);
 }
 
-.entry-size, .entry-time {
+.entry-size,
+.entry-time {
     text-align: right;
     color: var(--text-color-muted);
     font-variant-numeric: tabular-nums;

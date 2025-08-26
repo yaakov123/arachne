@@ -1,7 +1,7 @@
 <template>
     <div class="traffic-list">
         <TrafficHeader />
-        <div class="traffic-entries">
+        <div class="traffic-entries" ref="entriesContainer">
             <TrafficEntry
                 v-for="transaction in transactionsStore.displayTransactions"
                 :key="transaction.id"
@@ -13,16 +13,31 @@
                 @select="transactionsStore.selectTransaction"
             />
         </div>
+
+        <!-- Scroll to highlighted button -->
+        <button
+            v-if="hasHighlightedItem"
+            class="scroll-to-highlighted-btn"
+            @click="scrollToHighlighted"
+            :title="'Scroll to highlighted item'"
+        >
+            <LocateFixed :size="16" />
+        </button>
     </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, nextTick } from 'vue'
+import { LocateFixed } from 'lucide-vue-next'
 import { useTransactionsStore } from '../stores/transactions'
 import type { TransactionWithMeta } from '../stores/transactions'
 import TrafficHeader from './TrafficHeader.vue'
 import TrafficEntry from './TrafficEntry.vue'
 
 const transactionsStore = useTransactionsStore()
+
+// Template refs
+const entriesContainer = ref<HTMLElement>()
 
 // Check if a transaction should be highlighted as a parent
 function isParentHighlighted(transaction: TransactionWithMeta): boolean {
@@ -41,6 +56,65 @@ function isParentHighlighted(transaction: TransactionWithMeta): boolean {
 
     return false
 }
+
+// Computed property to check if there's any highlighted item
+const hasHighlightedItem = computed(() => {
+    return (
+        transactionsStore.selectedTransaction !== null ||
+        transactionsStore.displayTransactions.some((t) =>
+            isParentHighlighted(t)
+        )
+    )
+})
+
+// Function to scroll to the highlighted item
+async function scrollToHighlighted() {
+    if (!entriesContainer.value) return
+
+    // Wait for next tick to ensure DOM is updated
+    await nextTick()
+
+    // Find the highlighted transaction
+    let targetTransactionId: string | null = null
+
+    // First priority: selected transaction
+    if (transactionsStore.selectedTransaction) {
+        targetTransactionId = transactionsStore.selectedTransaction.id
+    } else {
+        // Second priority: parent highlighted transaction
+        const parentHighlighted = transactionsStore.displayTransactions.find(
+            (t) => isParentHighlighted(t)
+        )
+        if (parentHighlighted) {
+            targetTransactionId = parentHighlighted.id
+        }
+    }
+
+    if (!targetTransactionId) return
+
+    // Find the DOM element using data attribute
+    const targetElement = entriesContainer.value.querySelector(
+        `[data-transaction-id="${targetTransactionId}"]`
+    ) as HTMLElement
+
+    if (!targetElement) return
+
+    // Calculate scroll position to center the highlighted item
+    const containerRect = entriesContainer.value.getBoundingClientRect()
+    const elementRect = targetElement.getBoundingClientRect()
+
+    const containerScrollTop = entriesContainer.value.scrollTop
+    const elementOffsetTop =
+        elementRect.top - containerRect.top + containerScrollTop
+    const scrollPosition =
+        elementOffsetTop - containerRect.height / 2 + elementRect.height / 2
+
+    // Smooth scroll to the target position
+    entriesContainer.value.scrollTo({
+        top: Math.max(0, scrollPosition),
+        behavior: 'smooth',
+    })
+}
 </script>
 
 <style scoped>
@@ -53,6 +127,7 @@ function isParentHighlighted(transaction: TransactionWithMeta): boolean {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     overflow: hidden;
+    position: relative;
 }
 
 .traffic-entries {
@@ -89,5 +164,36 @@ function isParentHighlighted(transaction: TransactionWithMeta): boolean {
 
 .traffic-entries::-webkit-scrollbar-thumb:hover {
     background-color: var(--color-neutral-400);
+}
+
+/* Scroll to highlighted button */
+.scroll-to-highlighted-btn {
+    position: absolute;
+    bottom: var(--space-lg);
+    right: var(--space-lg);
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-500);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-lg);
+    transition: all var(--transition-fast);
+    z-index: 10;
+}
+
+.scroll-to-highlighted-btn:hover {
+    background: var(--color-primary-600);
+    box-shadow: var(--shadow-xl);
+    transform: translateY(-1px);
+}
+
+.scroll-to-highlighted-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-md);
 }
 </style>
