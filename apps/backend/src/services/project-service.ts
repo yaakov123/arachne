@@ -140,6 +140,8 @@ export class ProjectService {
                     settings: {
                         maxTransactions: this.maxTransactions,
                         retentionDays: this.retentionDays,
+                        ignoredHosts: [],
+                        maxBodySize: 10 * 1024 * 1024, // 10MB default
                     },
                 })
 
@@ -273,6 +275,10 @@ export class ProjectService {
                     request.settings?.maxTransactions ?? this.maxTransactions,
                 retentionDays:
                     request.settings?.retentionDays ?? this.retentionDays,
+                ignoredHosts:
+                    request.settings?.ignoredHosts ?? [],
+                maxBodySize:
+                    request.settings?.maxBodySize ?? 10 * 1024 * 1024, // 10MB default
             },
         }
 

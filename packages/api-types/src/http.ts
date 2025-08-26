@@ -134,6 +134,8 @@ export interface ProjectMetadata {
     settings?: {
         maxTransactions?: number
         retentionDays?: number
+        ignoredHosts?: string[]
+        maxBodySize?: number // in bytes
     }
 }
 
