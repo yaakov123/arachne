@@ -49,7 +49,8 @@ const formData = ref<UpdateProjectRequest>({
     settings: {
         maxTransactions: 10000,
         retentionDays: 30,
-        ignoredHosts: [],
+        hostFilter: [],
+        hostFilterMode: 'blacklist',
         maxBodySize: 10 * 1024 * 1024,
     },
 })
@@ -70,7 +71,9 @@ function populateForm(project: ProjectInfo) {
             maxTransactions:
                 project.metadata.settings?.maxTransactions ?? 10000,
             retentionDays: project.metadata.settings?.retentionDays ?? 30,
-            ignoredHosts: project.metadata.settings?.ignoredHosts ?? [],
+            hostFilter: project.metadata.settings?.hostFilter ?? [],
+            hostFilterMode:
+                project.metadata.settings?.hostFilterMode ?? 'blacklist',
             maxBodySize:
                 project.metadata.settings?.maxBodySize ?? 10 * 1024 * 1024,
         },

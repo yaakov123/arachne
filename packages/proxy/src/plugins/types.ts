@@ -61,12 +61,15 @@ export interface ConnectContext {
 }
 
 /** Union type for error context - used in error handlers to provide type safety */
-export type ErrorContext = 
+export type ErrorContext =
     | Partial<RequestContext>
     | Partial<ConnectContext>
-    | { id?: string; hostname?: string; socketInfo?: import('../proxy/utils/sockets').SocketInfo }
+    | {
+          id?: string
+          hostname?: string
+          socketInfo?: import('../proxy/utils/sockets').SocketInfo
+      }
     | { [key: string]: any } // fallback for unknown context shapes
-
 
 export interface ProxyPlugin {
     readonly name: string
@@ -97,7 +100,9 @@ export type HookContextMap = {
 
 /** Utility type to extract hook names that are implemented by a plugin */
 export type ImplementedHooks<T extends ProxyPlugin> = {
-    [K in keyof HookContextMap]: T[K] extends (...args: any[]) => any ? K : never
+    [K in keyof HookContextMap]: T[K] extends (...args: any[]) => any
+        ? K
+        : never
 }[keyof HookContextMap]
 
 /** Type-safe hook execution helper type */

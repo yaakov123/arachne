@@ -1,5 +1,5 @@
 import http, { IncomingMessage } from 'node:http'
-import { isHostIgnored } from './utils/headers'
+import { shouldIgnoreHost } from './utils/headers'
 import {
     createCorrelationId,
     extendCorrelationId,
@@ -26,7 +26,8 @@ export class HttpHandler {
     constructor(
         private pluginManager: PluginManager,
         private onError: (err: unknown, ctx: ErrorContext) => void,
-        private ignoredHosts?: string[],
+        private hostFilter?: string[],
+        private hostFilterMode: 'blacklist' | 'whitelist' = 'blacklist',
         maxBodySize?: number
     ) {
         this.requestBodyHandler = new RequestBodyHandler(
@@ -73,7 +74,13 @@ export class HttpHandler {
             )
 
             // Check if host should be ignored - if so, create direct tunnel
-            if (isHostIgnored(fullUrl.hostname, this.ignoredHosts)) {
+            if (
+                shouldIgnoreHost(
+                    fullUrl.hostname,
+                    this.hostFilter,
+                    this.hostFilterMode
+                )
+            ) {
                 logger.debug(
                     'Request to ignored host, creating direct tunnel',
                     {

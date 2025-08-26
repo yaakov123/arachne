@@ -29,23 +29,23 @@ export function sanitizeHeaders(
     headers: IncomingHttpHeaders
 ): Record<string, string | string[]> {
     const out: Record<string, string | string[]> = {}
-    
+
     // RFC 7230 Section 6.1 - Hop-by-hop headers that must not be forwarded
     const hopByHopHeaders = new Set([
         'connection',
-        'proxy-connection', 
+        'proxy-connection',
         'proxy-authenticate',
         'proxy-authorization',
         'te',
         'trailer',
-        'upgrade'
+        'upgrade',
     ])
-    
+
     // Parse Connection header to find additional hop-by-hop headers
     const connectionTokens = new Set<string>()
     const connectionValue = headers.connection || headers.Connection
     if (typeof connectionValue === 'string') {
-        connectionValue.split(',').forEach(token => {
+        connectionValue.split(',').forEach((token) => {
             const trimmed = token.trim().toLowerCase()
             if (trimmed) connectionTokens.add(trimmed)
         })
@@ -54,26 +54,34 @@ export function sanitizeHeaders(
     for (const [k, v] of Object.entries(headers)) {
         if (!v) continue
         const lk = k.toLowerCase()
-        
+
         // Skip hop-by-hop headers
         if (hopByHopHeaders.has(lk)) {
             // Special handling for Connection and Upgrade headers
             if (lk === 'connection' && typeof v === 'string') {
                 const connectionValue = v.toLowerCase()
                 // Allow keep-alive and upgrade (for WebSocket)
-                if (connectionValue === 'keep-alive' || connectionValue === 'upgrade') {
+                if (
+                    connectionValue === 'keep-alive' ||
+                    connectionValue === 'upgrade'
+                ) {
                     out[k] = v
                     continue
                 }
             }
             if (lk === 'upgrade' && connectionTokens.has('upgrade')) {
                 // Allow upgrade header when Connection: upgrade is present
-                out[k] = typeof v === 'string' ? v : Array.isArray(v) ? v.join(', ') : String(v)
+                out[k] =
+                    typeof v === 'string'
+                        ? v
+                        : Array.isArray(v)
+                        ? v.join(', ')
+                        : String(v)
                 continue
             }
             continue
         }
-        
+
         // Skip headers listed in Connection tokens (custom hop-by-hop headers)
         if (connectionTokens.has(lk)) continue
 
@@ -89,26 +97,70 @@ export function sanitizeHeaders(
     return out
 }
 
-export function isHostIgnored(hostname: string, ignoredHosts?: string[]): boolean {
+export function isHostIgnored(
+    hostname: string,
+    ignoredHosts?: string[]
+): boolean {
     if (!ignoredHosts || ignoredHosts.length === 0) return false
-    
+
     const normalizedHostname = hostname.toLowerCase()
-    
-    return ignoredHosts.some(ignored => {
+
+    return ignoredHosts.some((ignored) => {
         const normalizedIgnored = ignored.toLowerCase()
-        
+
         // Exact match
         if (normalizedHostname === normalizedIgnored) return true
-        
+
         // Wildcard match (e.g., *.example.com matches subdomain.example.com)
         if (normalizedIgnored.startsWith('*.')) {
             const domain = normalizedIgnored.slice(2)
-            return normalizedHostname === domain || normalizedHostname.endsWith('.' + domain)
+            return (
+                normalizedHostname === domain ||
+                normalizedHostname.endsWith('.' + domain)
+            )
         }
-        
+
         // Subdomain match (e.g., example.com matches subdomain.example.com)
         return normalizedHostname.endsWith('.' + normalizedIgnored)
     })
+}
+
+export function shouldIgnoreHost(
+    hostname: string,
+    hostFilter?: string[],
+    hostFilterMode: 'blacklist' | 'whitelist' = 'blacklist'
+): boolean {
+    if (!hostFilter || hostFilter.length === 0) {
+        // If no filter is set, default behavior depends on mode
+        // Blacklist: don't ignore anything (capture all)
+        // Whitelist: ignore everything (capture nothing)
+        return hostFilterMode === 'whitelist'
+    }
+
+    const normalizedHostname = hostname.toLowerCase()
+
+    const matchesFilter = hostFilter.some((pattern) => {
+        const normalizedPattern = pattern.toLowerCase()
+
+        // Exact match
+        if (normalizedHostname === normalizedPattern) return true
+
+        // Wildcard match (e.g., *.example.com matches subdomain.example.com)
+        if (normalizedPattern.startsWith('*.')) {
+            const domain = normalizedPattern.slice(2)
+            return (
+                normalizedHostname === domain ||
+                normalizedHostname.endsWith('.' + domain)
+            )
+        }
+
+        // Subdomain match (e.g., example.com matches subdomain.example.com)
+        return normalizedHostname.endsWith('.' + normalizedPattern)
+    })
+
+    // In blacklist mode: ignore if it matches the filter
+    // In whitelist mode: ignore if it doesn't match the filter
+    return hostFilterMode === 'blacklist' ? matchesFilter : !matchesFilter
 }
 
 export function getNumericHeader(
@@ -128,7 +180,9 @@ export function getNumericHeader(
     return undefined
 }
 
-export function headerToString(h: string | string[] | undefined): string | undefined {
+export function headerToString(
+    h: string | string[] | undefined
+): string | undefined {
     if (typeof h === 'string') return h
     if (Array.isArray(h)) return h[0]
     return undefined

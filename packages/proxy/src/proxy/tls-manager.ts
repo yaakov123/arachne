@@ -3,7 +3,7 @@ import net from 'node:net'
 import tls from 'node:tls'
 import { CertificateAuthority } from '../certs/ca'
 import type { ConnectContext, ErrorContext } from '../plugins/types'
-import { parseHostPort, isHostIgnored } from './utils/headers'
+import { parseHostPort, shouldIgnoreHost } from './utils/headers'
 import { createCorrelationId } from './utils/ids'
 import {
     sendErrorResponse,
@@ -27,7 +27,8 @@ export class TlsManager {
         private httpHandler: HttpHandler,
         private webSocketHandler: WebSocketHandler,
         private onError: (err: unknown, ctx: ErrorContext) => void,
-        private ignoredHosts?: string[]
+        private hostFilter?: string[],
+        private hostFilterMode: 'blacklist' | 'whitelist' = 'blacklist'
     ) {
         this.tunnelHandler = new TunnelHandler(onError)
     }
@@ -57,7 +58,7 @@ export class TlsManager {
         })
 
         // Check if host should be ignored - if so, create direct tunnel
-        if (isHostIgnored(hostname, this.ignoredHosts)) {
+        if (shouldIgnoreHost(hostname, this.hostFilter, this.hostFilterMode)) {
             logger.debug('Creating direct tunnel for ignored host', {
                 requestId: correlation.full,
                 hostname,
@@ -108,7 +109,8 @@ export class TlsManager {
                     hostname,
                     port: connectPort,
                     isHttps: true,
-                    ignoredHosts: this.ignoredHosts,
+                    hostFilter: this.hostFilter,
+                    hostFilterMode: this.hostFilterMode,
                     requestId: undefined, // Let WebSocket handler create its own correlation extending from parent
                     connectId: correlation.full,
                 })

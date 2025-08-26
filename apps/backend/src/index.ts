@@ -128,7 +128,8 @@ async function main() {
         port: PROXY_PORT,
         ca,
         plugins: [transactionAggregatorPlugin],
-        ignoredHosts: ['*.tradovateapi.com'],
+        hostFilter: ['*.tradovateapi.com'],
+        hostFilterMode: 'blacklist',
     })
 
     // API routes

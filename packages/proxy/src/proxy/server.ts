@@ -29,7 +29,8 @@ export interface ProxyOptions {
     ca?: CertificateAuthority
     certStore?: CertStoreOptions
     plugins?: ProxyPlugin[]
-    ignoredHosts?: string[]
+    hostFilter?: string[]
+    hostFilterMode?: 'blacklist' | 'whitelist'
     maxBodySize?: number
 }
 
@@ -49,7 +50,8 @@ export class MitmProxyServer {
         this.httpHandler = new HttpHandler(
             this.pluginManager,
             this.handleError.bind(this),
-            opts.ignoredHosts,
+            opts.hostFilter,
+            opts.hostFilterMode,
             opts.maxBodySize
         )
 
@@ -63,7 +65,8 @@ export class MitmProxyServer {
             this.httpHandler,
             this.webSocketHandler,
             this.handleError.bind(this),
-            opts.ignoredHosts
+            opts.hostFilter,
+            opts.hostFilterMode
         )
 
         this.httpServer = http.createServer((req, res) => {
@@ -212,7 +215,8 @@ export class MitmProxyServer {
                 hostname,
                 port: targetPort,
                 isHttps: false,
-                ignoredHosts: this.opts.ignoredHosts,
+                hostFilter: this.opts.hostFilter,
+                hostFilterMode: this.opts.hostFilterMode,
                 requestId: id,
             })
         } catch (err) {

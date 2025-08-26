@@ -47,7 +47,8 @@ const formData = ref<CreateProjectRequest>({
     settings: {
         maxTransactions: 10000,
         retentionDays: 30,
-        ignoredHosts: [],
+        hostFilter: [],
+        hostFilterMode: 'blacklist',
         maxBodySize: 10 * 1024 * 1024, // 10MB default
     },
 })
@@ -70,7 +71,8 @@ function resetForm() {
         settings: {
             maxTransactions: 10000,
             retentionDays: 30,
-            ignoredHosts: [],
+            hostFilter: [],
+            hostFilterMode: 'blacklist',
             maxBodySize: 10 * 1024 * 1024,
         },
     }

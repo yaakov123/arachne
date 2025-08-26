@@ -122,22 +122,62 @@
             </div>
 
             <div class="form-group">
-                <label :for="`${idPrefix}-ignored-hosts`">Ignored Hosts</label>
+                <label :for="`${idPrefix}-host-filter-mode`"
+                    >Host Filter Mode</label
+                >
+                <select
+                    :id="`${idPrefix}-host-filter-mode`"
+                    :value="hostFilterMode"
+                    @change="
+                        updateHostFilterMode(
+                            ($event.target as HTMLSelectElement).value as
+                                | 'blacklist'
+                                | 'whitelist'
+                        )
+                    "
+                    class="form-select"
+                >
+                    <option value="blacklist">
+                        Blacklist (ignore specified hosts)
+                    </option>
+                    <option value="whitelist">
+                        Whitelist (only capture specified hosts)
+                    </option>
+                </select>
+                <div class="form-help">
+                    Choose whether to ignore specified hosts (blacklist) or only
+                    capture specified hosts (whitelist)
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label :for="`${idPrefix}-host-filter`">{{
+                    hostFilterMode === 'blacklist'
+                        ? 'Hosts to Ignore'
+                        : 'Hosts to Capture'
+                }}</label>
                 <textarea
-                    :id="`${idPrefix}-ignored-hosts`"
-                    :value="ignoredHostsInput"
+                    :id="`${idPrefix}-host-filter`"
+                    :value="hostFilterInput"
                     @input="
-                        updateIgnoredHostsInput(
+                        updateHostFilterInput(
                             ($event.target as HTMLTextAreaElement).value
                         )
                     "
                     class="form-textarea"
-                    placeholder="Enter hosts to ignore, one per line&#10;e.g.:&#10;analytics.google.com&#10;*.ads.com&#10;localhost:3000"
+                    :placeholder="
+                        hostFilterMode === 'blacklist'
+                            ? 'Enter hosts to ignore, one per line. e.g.: analytics.google.com;*.ads.com;localhost:3000'
+                            : 'Enter hosts to capture, one per line. e.g.: api.mysite.com;*.mydomain.com;localhost:8080'
+                    "
                     rows="3"
                 ></textarea>
                 <div class="form-help">
-                    Hosts to ignore when capturing traffic. Supports wildcards
-                    (*)
+                    {{
+                        hostFilterMode === 'blacklist'
+                            ? 'Hosts to ignore when capturing traffic'
+                            : 'Only these hosts will be captured'
+                    }}. Supports wildcards (*)
                 </div>
             </div>
 
@@ -215,8 +255,12 @@ const currentTagInput = ref('')
 
 // Computed properties for input fields
 
-const ignoredHostsInput = computed(() => {
-    return (props.modelValue.settings?.ignoredHosts || []).join('\n')
+const hostFilterInput = computed(() => {
+    return (props.modelValue.settings?.hostFilter || []).join('\n')
+})
+
+const hostFilterMode = computed(() => {
+    return props.modelValue.settings?.hostFilterMode || 'blacklist'
 })
 
 const maxBodySizeMB = computed(() => {
@@ -300,8 +344,8 @@ function handleTagKeydown(event: KeyboardEvent) {
     }
 }
 
-function updateIgnoredHostsInput(value: string) {
-    const ignoredHosts = value
+function updateHostFilterInput(value: string) {
+    const hostFilter = value
         .split('\n')
         .map((host) => host.trim())
         .filter((host) => host.length > 0)
@@ -310,7 +354,17 @@ function updateIgnoredHostsInput(value: string) {
         ...props.modelValue,
         settings: {
             ...props.modelValue.settings,
-            ignoredHosts,
+            hostFilter,
+        },
+    })
+}
+
+function updateHostFilterMode(mode: 'blacklist' | 'whitelist') {
+    emit('update:modelValue', {
+        ...props.modelValue,
+        settings: {
+            ...props.modelValue.settings,
+            hostFilterMode: mode,
         },
     })
 }
@@ -341,7 +395,8 @@ function updateMaxBodySize(sizeMB: number) {
 }
 
 .form-input,
-.form-textarea {
+.form-textarea,
+.form-select {
     width: 100%;
     padding: var(--space-md);
     border: 1px solid var(--surface-border);
@@ -353,7 +408,8 @@ function updateMaxBodySize(sizeMB: number) {
 }
 
 .form-input:focus,
-.form-textarea:focus {
+.form-textarea:focus,
+.form-select:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);

@@ -140,7 +140,8 @@ export class ProjectService {
                     settings: {
                         maxTransactions: this.maxTransactions,
                         retentionDays: this.retentionDays,
-                        ignoredHosts: [],
+                        hostFilter: [],
+                        hostFilterMode: 'blacklist',
                         maxBodySize: 10 * 1024 * 1024, // 10MB default
                     },
                 })
@@ -275,7 +276,8 @@ export class ProjectService {
                     request.settings?.maxTransactions ?? this.maxTransactions,
                 retentionDays:
                     request.settings?.retentionDays ?? this.retentionDays,
-                ignoredHosts: request.settings?.ignoredHosts ?? [],
+                hostFilter: request.settings?.hostFilter ?? [],
+                hostFilterMode: request.settings?.hostFilterMode ?? 'blacklist',
                 maxBodySize: request.settings?.maxBodySize ?? 10 * 1024 * 1024, // 10MB default
             },
         }
