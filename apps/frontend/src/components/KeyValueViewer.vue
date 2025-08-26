@@ -44,14 +44,11 @@ withDefaults(defineProps<Props>(), {
 .key-value-viewer {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: var(--text-xs);
-    height: 100%;
 }
 
 .items-list {
     border-radius: var(--radius-sm);
     padding: var(--space-sm);
-    height: 100%;
-    overflow-y: auto;
     display: grid;
     grid-template-columns: max-content 1fr;
     gap: var(--space-xs) var(--space-sm);
