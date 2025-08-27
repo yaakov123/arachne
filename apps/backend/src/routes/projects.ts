@@ -238,8 +238,8 @@ export function registerProjectRoutes(
         { preHandler: auth },
         async (_req, rep) => {
             try {
-                const currentProjectId = projectService.getCurrentProject()
-                if (!currentProjectId) {
+                const currentProject = await projectService.getCurrentProject()
+                if (!currentProject) {
                     rep.send({
                         ok: true,
                         currentProject: null,
@@ -248,13 +248,10 @@ export function registerProjectRoutes(
                     return
                 }
 
-                const project = await projectService.getProject(
-                    currentProjectId
-                )
                 rep.send({
                     ok: true,
-                    currentProject: currentProjectId,
-                    project,
+                    currentProject: currentProject.metadata.id,
+                    project: currentProject,
                 })
             } catch (error) {
                 const response: ProjectErrorResponse = {
