@@ -40,7 +40,7 @@ export const DEFAULT_REQUEST_TIMEOUT = 30000 // 30 seconds
 export const DEFAULT_CONNECT_TIMEOUT = 10000 // 10 seconds
 
 // Log levels
-export const DEFAULT_LOG_LEVEL = 'info'
+export const DEFAULT_LOG_LEVEL = 'debug'
 
 // Component names for logging
 export const COMPONENTS = {
@@ -52,7 +52,7 @@ export const COMPONENTS = {
     SERVER_LIFECYCLE: 'server-lifecycle',
     PLUGIN_MANAGER: 'plugin-manager',
     CONTEXT_BUILDER: 'context-builder',
-    ERROR_RESPONSES: 'error-responses'
+    ERROR_RESPONSES: 'error-responses',
 } as const
 
 // HTTP headers

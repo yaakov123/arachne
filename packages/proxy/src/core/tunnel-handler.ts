@@ -328,8 +328,11 @@ export class TunnelHandler {
                             errorCode,
                         }
 
-                        // Log premature close errors at debug level - these are normal in proxy scenarios
-                        if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                        // Log premature close and connection reset errors at debug level - these are normal in proxy scenarios
+                        if (
+                            errorCode === 'ERR_STREAM_PREMATURE_CLOSE' ||
+                            errorCode === 'ECONNRESET'
+                        ) {
                             logger.debug(
                                 'Client to upstream pipeline closed prematurely in CONNECT tunnel (normal)',
                                 logContext
@@ -357,8 +360,11 @@ export class TunnelHandler {
                             errorCode,
                         }
 
-                        // Log premature close errors at debug level - these are normal in proxy scenarios
-                        if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                        // Log premature close and connection reset errors at debug level - these are normal in proxy scenarios
+                        if (
+                            errorCode === 'ERR_STREAM_PREMATURE_CLOSE' ||
+                            errorCode === 'ECONNRESET'
+                        ) {
                             logger.debug(
                                 'Upstream to client pipeline closed prematurely in CONNECT tunnel (normal)',
                                 logContext
@@ -403,20 +409,31 @@ export class TunnelHandler {
                         writable: upstreamSocket.writable,
                     }
 
-                    logger.error(
-                        'Upstream socket error in direct CONNECT tunnel',
-                        err,
-                        {
-                            requestId,
-                            component: 'tunnel-handler',
-                            hostname,
-                            port,
-                            clientSocketInfo,
-                            upstreamSocketInfo,
-                            errorCode: (err as any)?.code,
-                            errorErrno: (err as any)?.errno,
-                        }
-                    )
+                    const errorCode = (err as any)?.code
+                    const logContext = {
+                        requestId,
+                        component: 'tunnel-handler',
+                        hostname,
+                        port,
+                        clientSocketInfo,
+                        upstreamSocketInfo,
+                        errorCode,
+                        errorErrno: (err as any)?.errno,
+                    }
+
+                    // Log connection reset errors at debug level - these are normal in proxy scenarios
+                    if (errorCode === 'ECONNRESET') {
+                        logger.debug(
+                            'Upstream socket connection reset in direct CONNECT tunnel (normal)',
+                            logContext
+                        )
+                    } else {
+                        logger.error(
+                            'Upstream socket error in direct CONNECT tunnel',
+                            err,
+                            logContext
+                        )
+                    }
 
                     try {
                         if (!clientSocket.destroyed && clientSocket.writable) {

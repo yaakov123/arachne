@@ -45,8 +45,11 @@ export class UpstreamHandler {
                         errorCode,
                     }
 
-                    // Log premature close errors at debug level - these are normal in proxy scenarios
-                    if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                    // Log premature close and connection reset errors at debug level - these are normal in proxy scenarios
+                    if (
+                        errorCode === 'ERR_STREAM_PREMATURE_CLOSE' ||
+                        errorCode === 'ECONNRESET'
+                    ) {
                         logger.debug(
                             'Request body pipeline closed prematurely (normal)',
                             logContext

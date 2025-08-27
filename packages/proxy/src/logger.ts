@@ -212,12 +212,25 @@ class ProxyLogger {
         url?: string,
         context?: Partial<LogContext>
     ): void {
-        this.error('Upstream request failed', error, {
-            requestId,
-            url,
-            component: COMPONENTS.UPSTREAM_HANDLER,
-            ...context,
-        })
+        const errorCode = (error as NodeJS.ErrnoException)?.code
+
+        // Log connection reset errors at debug level - these are normal in proxy scenarios
+        if (errorCode === 'ECONNRESET') {
+            this.debug('Upstream connection reset (normal)', {
+                requestId,
+                url,
+                component: COMPONENTS.UPSTREAM_HANDLER,
+                errorCode,
+                ...context,
+            })
+        } else {
+            this.error('Upstream request failed', error, {
+                requestId,
+                url,
+                component: COMPONENTS.UPSTREAM_HANDLER,
+                ...context,
+            })
+        }
     }
 
     public logProxyStart(host: string, port: number): void {
