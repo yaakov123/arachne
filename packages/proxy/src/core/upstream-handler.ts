@@ -35,13 +35,29 @@ export class UpstreamHandler {
             } else {
                 // Stream request body using pipeline for better error handling
                 pipelineAsync(clientReq, upstreamReq).catch((pipelineError) => {
-                    logger.error('Request body pipeline error', pipelineError, {
+                    const errorCode = (pipelineError as NodeJS.ErrnoException)
+                        ?.code
+                    const logContext = {
                         requestId: ctx.id,
                         component: 'upstream-handler',
                         url: fullUrl.toString(),
                         method: ctx.method,
-                        errorCode: (pipelineError as NodeJS.ErrnoException)?.code
-                    })
+                        errorCode,
+                    }
+
+                    // Log premature close errors at debug level - these are normal in proxy scenarios
+                    if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                        logger.debug(
+                            'Request body pipeline closed prematurely (normal)',
+                            logContext
+                        )
+                    } else {
+                        logger.error(
+                            'Request body pipeline error',
+                            pipelineError,
+                            logContext
+                        )
+                    }
                     reject(pipelineError)
                 })
             }
@@ -57,9 +73,9 @@ export class UpstreamHandler {
             headersSent: clientRes.headersSent,
             finished: clientRes.finished,
             destroyed: clientRes.destroyed,
-            writable: clientRes.writable
+            writable: clientRes.writable,
         }
-        
+
         logger.error('Handling upstream error response', err, {
             requestId: ctx.id,
             component: 'upstream-handler',
@@ -68,28 +84,34 @@ export class UpstreamHandler {
             hostname: ctx.url.hostname,
             responseInfo,
             errorCode: (err as NodeJS.ErrnoException)?.code,
-            errorErrno: (err as NodeJS.ErrnoException)?.errno
+            errorErrno: (err as NodeJS.ErrnoException)?.errno,
         })
-        
+
         this.onError(err, ctx)
-        
+
         try {
             if (!clientRes.headersSent && clientRes.writable) {
-                logger.debug('Sending 502 Bad Gateway response for upstream error', {
-                    requestId: ctx.id,
-                    component: 'upstream-handler',
-                    url: ctx.url.toString()
-                })
+                logger.debug(
+                    'Sending 502 Bad Gateway response for upstream error',
+                    {
+                        requestId: ctx.id,
+                        component: 'upstream-handler',
+                        url: ctx.url.toString(),
+                    }
+                )
                 clientRes.writeHead(502, 'Bad Gateway')
                 clientRes.end('Upstream error')
             } else {
-                logger.debug('Cannot send 502 response for upstream error - headers already sent or not writable', {
-                    requestId: ctx.id,
-                    component: 'upstream-handler',
-                    url: ctx.url.toString(),
-                    responseInfo
-                })
-                
+                logger.debug(
+                    'Cannot send 502 response for upstream error - headers already sent or not writable',
+                    {
+                        requestId: ctx.id,
+                        component: 'upstream-handler',
+                        url: ctx.url.toString(),
+                        responseInfo,
+                    }
+                )
+
                 // Try to end the response if it's still writable
                 if (clientRes.writable && !clientRes.finished) {
                     clientRes.end('Upstream error')
@@ -101,7 +123,7 @@ export class UpstreamHandler {
                 component: 'upstream-handler',
                 url: ctx.url.toString(),
                 originalError: err.message,
-                responseInfo
+                responseInfo,
             })
         }
     }
@@ -115,27 +137,63 @@ export class UpstreamHandler {
         onComplete?: () => void
     ): void {
         clientRes.writeHead(statusCode, statusMessage, headers)
-        
+
         // Set up completion tracking and use pipeline for better error handling
         if (onComplete) {
-            pipelineAsync(upstreamResponse, clientRes).then(() => {
-                onComplete()
-            }).catch((pipelineError) => {
-                logger.error('Response streaming pipeline error', pipelineError, {
-                    component: 'upstream-handler',
-                    statusCode,
-                    errorCode: (pipelineError as any)?.code
+            pipelineAsync(upstreamResponse, clientRes)
+                .then(() => {
+                    onComplete()
                 })
-                onComplete()
-            })
+                .catch((pipelineError) => {
+                    const errorCode = (pipelineError as NodeJS.ErrnoException)
+                        ?.code
+                    const logContext = {
+                        component: 'upstream-handler',
+                        statusCode,
+                        errorCode,
+                    }
+
+                    // Log premature close errors at debug level - these are normal in proxy scenarios
+                    if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                        logger.debug(
+                            'Response streaming pipeline closed prematurely (normal)',
+                            logContext
+                        )
+                    } else {
+                        logger.error(
+                            'Response streaming pipeline error',
+                            pipelineError,
+                            logContext
+                        )
+                    }
+                    onComplete()
+                })
         } else {
-            pipelineAsync(upstreamResponse, clientRes).catch((pipelineError) => {
-                logger.error('Response streaming pipeline error', pipelineError, {
-                    component: 'upstream-handler',
-                    statusCode,
-                    errorCode: (pipelineError as any)?.code
-                })
-            })
+            pipelineAsync(upstreamResponse, clientRes).catch(
+                (pipelineError) => {
+                    const errorCode = (pipelineError as NodeJS.ErrnoException)
+                        ?.code
+                    const logContext = {
+                        component: 'upstream-handler',
+                        statusCode,
+                        errorCode,
+                    }
+
+                    // Log premature close errors at debug level - these are normal in proxy scenarios
+                    if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                        logger.debug(
+                            'Response streaming pipeline closed prematurely (normal)',
+                            logContext
+                        )
+                    } else {
+                        logger.error(
+                            'Response streaming pipeline error',
+                            pipelineError,
+                            logContext
+                        )
+                    }
+                }
+            )
         }
     }
 

@@ -337,32 +337,54 @@ export class WebSocketHandler {
             clientSocket,
             upstreamSocket
         ).catch((err) => {
-            logger.error(
-                `Client to upstream pipeline error in ${logContext.tunnelType} WebSocket tunnel`,
-                err,
-                {
-                    ...logContext,
-                    component: 'websocket-handler',
-                    direction: 'client-to-upstream',
-                    errorCode: (err as NodeJS.ErrnoException)?.code,
-                }
-            )
+            const errorCode = (err as NodeJS.ErrnoException)?.code
+            const errorContext = {
+                ...logContext,
+                component: 'websocket-handler',
+                direction: 'client-to-upstream',
+                errorCode,
+            }
+
+            // Log premature close errors at debug level - these are normal in proxy scenarios
+            if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                logger.debug(
+                    `Client to upstream pipeline closed prematurely in ${logContext.tunnelType} WebSocket tunnel (normal)`,
+                    errorContext
+                )
+            } else {
+                logger.error(
+                    `Client to upstream pipeline error in ${logContext.tunnelType} WebSocket tunnel`,
+                    err,
+                    errorContext
+                )
+            }
         })
 
         const upstreamToClient = pipelineAsync(
             upstreamSocket,
             clientSocket
         ).catch((err) => {
-            logger.error(
-                `Upstream to client pipeline error in ${logContext.tunnelType} WebSocket tunnel`,
-                err,
-                {
-                    ...logContext,
-                    component: 'websocket-handler',
-                    direction: 'upstream-to-client',
-                    errorCode: (err as NodeJS.ErrnoException)?.code,
-                }
-            )
+            const errorCode = (err as NodeJS.ErrnoException)?.code
+            const errorContext = {
+                ...logContext,
+                component: 'websocket-handler',
+                direction: 'upstream-to-client',
+                errorCode,
+            }
+
+            // Log premature close errors at debug level - these are normal in proxy scenarios
+            if (errorCode === 'ERR_STREAM_PREMATURE_CLOSE') {
+                logger.debug(
+                    `Upstream to client pipeline closed prematurely in ${logContext.tunnelType} WebSocket tunnel (normal)`,
+                    errorContext
+                )
+            } else {
+                logger.error(
+                    `Upstream to client pipeline error in ${logContext.tunnelType} WebSocket tunnel`,
+                    err,
+                    errorContext
+                )
+            }
         })
 
         // Wait for both pipelines to complete
