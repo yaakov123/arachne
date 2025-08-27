@@ -5,20 +5,19 @@ import type {
     ProxyErrorResponse,
     ProxyStatusResponse,
 } from '@arachne/api-types'
-import type { RouteOptions, AuthMiddleware } from './types'
+import type { RouteOptions } from './types'
 import { buildProjectConfiguration } from '../services/proxy-configuration-manager'
 
 export function registerProxyRoutes(
     app: FastifyInstance,
-    opts: Pick<RouteOptions, 'prefix' | 'proxy' | 'projectService'>,
-    auth: AuthMiddleware
+    opts: Pick<RouteOptions, 'prefix' | 'proxy' | 'projectService'>
 ) {
     const { prefix, proxy, projectService } = opts
 
     // Start proxy
     app.post(
         `${prefix}/proxy/start`,
-        { preHandler: auth },
+
         async (_req, rep) => {
             try {
                 const currentProject = await projectService.getCurrentProject()
@@ -52,7 +51,7 @@ export function registerProxyRoutes(
     // Stop proxy
     app.post(
         `${prefix}/proxy/stop`,
-        { preHandler: auth },
+
         async (_req, rep) => {
             try {
                 await proxy.stop()
@@ -78,7 +77,7 @@ export function registerProxyRoutes(
     // Get proxy status
     app.get(
         `${prefix}/proxy/status`,
-        { preHandler: auth },
+
         async (_req, rep) => {
             const isRunning = proxy.isRunning()
             const response: ProxyStatusResponse = {

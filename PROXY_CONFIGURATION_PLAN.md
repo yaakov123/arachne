@@ -352,7 +352,7 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
     // Update proxy start endpoint
     app.post(
         `${prefix}/proxy/start`,
-        { preHandler: auth },
+
         async (_req, rep) => {
             try {
                 // Get current project and build configuration
@@ -396,7 +396,7 @@ export async function registerApi(app: FastifyInstance, opts: ApiOptions) {
     // Add configuration update endpoint
     app.post(
         `${prefix}/proxy/update-config`,
-        { preHandler: auth },
+
         async (_req, rep) => {
             try {
                 const currentProject = await projectService.getCurrentProject()

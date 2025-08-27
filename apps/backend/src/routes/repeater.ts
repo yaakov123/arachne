@@ -1,18 +1,17 @@
 import type { FastifyInstance } from 'fastify'
 import * as http from 'http'
 import type { RepeatRequestBody, RepeatResponse } from '@arachne/api-types'
-import type { RouteOptions, AuthMiddleware } from './types'
+import type { RouteOptions } from './types'
 
 export function registerRepeaterRoutes(
     app: FastifyInstance,
-    opts: Pick<RouteOptions, 'prefix' | 'proxy'>,
-    auth: AuthMiddleware
+    opts: Pick<RouteOptions, 'prefix' | 'proxy'>
 ) {
     const { prefix, proxy } = opts
 
     app.post(
         `${prefix}/repeater/send`,
-        { preHandler: auth },
+
         async (req, rep) => {
             try {
                 const { originalTransactionId, transaction } =

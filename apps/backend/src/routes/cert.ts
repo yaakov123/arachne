@@ -1,15 +1,14 @@
 import type { FastifyInstance } from 'fastify'
 import type { CertResponse } from '@arachne/api-types'
-import type { RouteOptions, AuthMiddleware } from './types'
+import type { RouteOptions } from './types'
 
 export function registerCertRoutes(
     app: FastifyInstance,
-    opts: Pick<RouteOptions, 'prefix' | 'ca'>,
-    auth: AuthMiddleware
+    opts: Pick<RouteOptions, 'prefix' | 'ca'>
 ) {
     const { prefix, ca } = opts
 
-    app.get(`${prefix}/cert`, { preHandler: auth }, async (_req, rep) => {
+    app.get(`${prefix}/cert`, async (_req, rep) => {
         // Check in-memory first, then filesystem
         let certPem = ca.caCert
         if (!certPem) {

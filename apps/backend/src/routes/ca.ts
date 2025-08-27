@@ -6,17 +6,16 @@ import type {
     CAStatusResponse,
 } from '@arachne/api-types'
 import { getTrustInstructions } from '@arachne/os'
-import type { RouteOptions, AuthMiddleware } from './types'
+import type { RouteOptions } from './types'
 
 export function registerCARoutes(
     app: FastifyInstance,
-    opts: Pick<RouteOptions, 'prefix' | 'ca'>,
-    auth: AuthMiddleware
+    opts: Pick<RouteOptions, 'prefix' | 'ca'>
 ) {
     const { prefix, ca } = opts
 
     // Get CA status
-    app.get(`${prefix}/ca/status`, { preHandler: auth }, async (_req, rep) => {
+    app.get(`${prefix}/ca/status`, async (_req, rep) => {
         // Check filesystem for certificate existence, not just in-memory state
         const certPath = ca.certStore.caCertPath()
         const keyPath = ca.certStore.caKeyPath()
@@ -35,7 +34,7 @@ export function registerCARoutes(
     })
 
     // Create CA
-    app.post(`${prefix}/ca/create`, { preHandler: auth }, async (_req, rep) => {
+    app.post(`${prefix}/ca/create`, async (_req, rep) => {
         try {
             const result = await ca.ensureRootCA()
             const response: CACreateResponse = {
@@ -58,7 +57,7 @@ export function registerCARoutes(
     // Get trust instructions
     app.get(
         `${prefix}/ca/trust-instructions`,
-        { preHandler: auth },
+
         async (_req, rep) => {
             try {
                 // Check if certificate exists on filesystem first

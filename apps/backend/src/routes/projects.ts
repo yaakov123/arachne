@@ -7,17 +7,16 @@ import type {
     CreateProjectRequest,
     UpdateProjectRequest,
 } from '@arachne/api-types'
-import type { RouteOptions, AuthMiddleware } from './types'
+import type { RouteOptions } from './types'
 
 export function registerProjectRoutes(
     app: FastifyInstance,
-    opts: Pick<RouteOptions, 'prefix' | 'projectService'>,
-    auth: AuthMiddleware
+    opts: Pick<RouteOptions, 'prefix' | 'projectService'>
 ) {
     const { prefix, projectService } = opts
 
     // List all projects
-    app.get(`${prefix}/projects`, { preHandler: auth }, async (_req, rep) => {
+    app.get(`${prefix}/projects`, async (_req, rep) => {
         try {
             const projects = await projectService.listProjects()
             const response: ProjectListResponse = {
@@ -37,7 +36,7 @@ export function registerProjectRoutes(
     })
 
     // Create new project
-    app.post(`${prefix}/projects`, { preHandler: auth }, async (req, rep) => {
+    app.post(`${prefix}/projects`, async (req, rep) => {
         try {
             const createRequest = req.body as CreateProjectRequest
             const project = await projectService.createProject(createRequest)
@@ -61,7 +60,7 @@ export function registerProjectRoutes(
     // Get specific project
     app.get(
         `${prefix}/projects/:id`,
-        { preHandler: auth },
+
         async (req, rep) => {
             try {
                 const { id } = req.params as { id: string }
@@ -93,7 +92,7 @@ export function registerProjectRoutes(
     // Update project
     app.put(
         `${prefix}/projects/:id`,
-        { preHandler: auth },
+
         async (req, rep) => {
             try {
                 const { id } = req.params as { id: string }
@@ -129,7 +128,7 @@ export function registerProjectRoutes(
     // Delete project
     app.delete(
         `${prefix}/projects/:id`,
-        { preHandler: auth },
+
         async (req, rep) => {
             try {
                 const { id } = req.params as { id: string }
@@ -157,7 +156,7 @@ export function registerProjectRoutes(
     // Get project transactions
     app.get(
         `${prefix}/projects/:id/transactions`,
-        { preHandler: auth },
+
         async (req, rep) => {
             try {
                 const { id } = req.params as { id: string }
@@ -190,7 +189,7 @@ export function registerProjectRoutes(
     // Set current project (for active recording)
     app.post(
         `${prefix}/projects/:id/activate`,
-        { preHandler: auth },
+
         async (req, rep) => {
             try {
                 const { id } = req.params as { id: string }
@@ -235,7 +234,7 @@ export function registerProjectRoutes(
     // Get current active project
     app.get(
         `${prefix}/projects/current`,
-        { preHandler: auth },
+
         async (_req, rep) => {
             try {
                 const currentProject = await projectService.getCurrentProject()
