@@ -21,7 +21,9 @@ import {
     DEFAULT_PROXY_HOST,
     DEFAULT_PROXY_PORT,
     DEFAULT_HTTP_PORT,
+    MAX_BODY_SIZE,
 } from './constants'
+import { ProxyConfigStore, type ProxyRuntimeConfig } from './config-store'
 
 export interface ProxyOptions {
     host?: string
@@ -29,14 +31,13 @@ export interface ProxyOptions {
     ca?: CertificateAuthority
     certStore?: CertStoreOptions
     plugins?: ProxyPlugin[]
-    hostFilter?: string[]
-    hostFilterMode?: 'blacklist' | 'whitelist'
-    maxBodySize?: number
+    config?: ProxyRuntimeConfig
 }
 
 export class MitmProxyServer {
     private httpServer: http.Server
     private ca: CertificateAuthority
+    private configStore: ProxyConfigStore
     private pluginManager: PluginManager
     private tlsManager: TlsManager
     private httpHandler: HttpHandler
@@ -47,16 +48,23 @@ export class MitmProxyServer {
         this.ca = opts.ca ?? new CertificateAuthority({ store: opts.certStore })
         this.pluginManager = new PluginManager(opts.plugins)
 
+        this.configStore = new ProxyConfigStore(
+            opts.config ?? {
+                hostFilter: [],
+                hostFilterMode: 'whitelist',
+                maxBodySize: MAX_BODY_SIZE,
+            }
+        )
+
         this.httpHandler = new HttpHandler(
             this.pluginManager,
             this.handleError.bind(this),
-            opts.hostFilter,
-            opts.hostFilterMode,
-            opts.maxBodySize
+            this.configStore
         )
 
         this.webSocketHandler = new WebSocketHandler(
-            this.handleError.bind(this)
+            this.handleError.bind(this),
+            this.configStore
         )
 
         this.tlsManager = new TlsManager(
@@ -65,8 +73,7 @@ export class MitmProxyServer {
             this.httpHandler,
             this.webSocketHandler,
             this.handleError.bind(this),
-            opts.hostFilter,
-            opts.hostFilterMode
+            this.configStore
         )
 
         this.httpServer = http.createServer((req, res) => {
@@ -127,7 +134,7 @@ export class MitmProxyServer {
     async start(): Promise<ServerInfo> {
         const host = this.opts.host ?? DEFAULT_PROXY_HOST
         const port = this.opts.port ?? DEFAULT_PROXY_PORT
-        return await this.lifecycleManager.start(host, port)
+        return this.lifecycleManager.start(host, port)
     }
 
     async stop(): Promise<void> {
@@ -154,6 +161,14 @@ export class MitmProxyServer {
 
     addPlugin(p: ProxyPlugin): void {
         this.pluginManager.addPlugin(p)
+    }
+
+    updateConfiguration(newConfig: Partial<ProxyRuntimeConfig>): void {
+        this.configStore.update(newConfig)
+    }
+
+    getCurrentConfiguration(): ProxyRuntimeConfig {
+        return this.configStore.current
     }
 
     private async handleHttpWebSocketUpgrade(
@@ -215,8 +230,6 @@ export class MitmProxyServer {
                 hostname,
                 port: targetPort,
                 isHttps: false,
-                hostFilter: this.opts.hostFilter,
-                hostFilterMode: this.opts.hostFilterMode,
                 requestId: id,
             })
         } catch (err) {

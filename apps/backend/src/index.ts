@@ -14,6 +14,7 @@ import { WsHub } from './ws-hub'
 import { registerApi } from './api'
 import { logger } from './logger'
 import { ProjectService } from './services/project-service'
+import { buildProjectConfiguration } from './services/proxy-configuration-manager'
 
 function envNum(name: string, def: number): number {
     const v = process.env[name]
@@ -78,6 +79,12 @@ async function main() {
         maxTransactions: 10000,
         retentionDays: 30,
     })
+
+    projectService.on('projectChanged', async (id) => {
+        const project = await projectService.getProject(id)
+        proxy.updateConfiguration(buildProjectConfiguration(project.metadata))
+    })
+
     await projectService.initialize()
 
     // Ensure there's always a default project available
@@ -128,8 +135,6 @@ async function main() {
         port: PROXY_PORT,
         ca,
         plugins: [transactionAggregatorPlugin],
-        hostFilter: ['*.tradovateapi.com'],
-        hostFilterMode: 'blacklist',
     })
 
     // API routes
@@ -158,6 +163,7 @@ async function main() {
             broadcastService.cleanup()
             storageService.cleanup()
 
+            projectService.cleanup()
             // Stop other services
             hub.stop()
             await proxy.stop()

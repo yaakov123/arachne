@@ -5,6 +5,7 @@ export { CertificateAuthority, type CAOptions } from './certs/ca'
 export * from './plugins/types'
 export { CertStore, type CertStoreOptions } from './certs/store'
 export { logger, ProxyLogger, type LogContext, type LogLevel } from './logger'
+export { type ProxyRuntimeConfig } from './core/config-store'
 
 export function getDefaultCertStoreOptions(): CertStoreOptions {
     return {

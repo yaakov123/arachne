@@ -14,6 +14,7 @@ import { sendWebSocketErrorResponse } from './error-responses'
 import { createSocketCleanup, safeSocketEnd } from './cleanup'
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
 import { ErrorContext } from '../plugins/types'
+import { ProxyConfigStore } from './config-store'
 
 const pipelineAsync = promisify(pipeline)
 
@@ -21,8 +22,6 @@ export interface WebSocketUpgradeOptions {
     hostname: string
     port?: number
     isHttps: boolean
-    hostFilter?: string[]
-    hostFilterMode?: 'blacklist' | 'whitelist'
     requestId?: string
     connectId?: string
 }
@@ -45,7 +44,10 @@ interface WebSocketTunnelOptions {
 }
 
 export class WebSocketHandler {
-    constructor(private onError: (err: unknown, ctx: ErrorContext) => void) {}
+    constructor(
+        private onError: (err: unknown, ctx: ErrorContext) => void,
+        private configStore: ProxyConfigStore
+    ) {}
 
     async handleUpgrade(
         req: IncomingMessage,
@@ -68,8 +70,6 @@ export class WebSocketHandler {
             hostname,
             port = options.isHttps ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT,
             isHttps,
-            hostFilter,
-            hostFilterMode = 'blacklist',
             connectId,
         } = options
 
@@ -88,8 +88,8 @@ export class WebSocketHandler {
             // Use shared tunnel creation logic
             const useProxyHeaders = !shouldIgnoreHost(
                 hostname,
-                hostFilter,
-                hostFilterMode
+                this.configStore.current.hostFilter,
+                this.configStore.current.hostFilterMode
             )
 
             if (!useProxyHeaders) {

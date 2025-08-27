@@ -6,13 +6,14 @@ import type {
     ProxyStatusResponse,
 } from '@arachne/api-types'
 import type { RouteOptions, AuthMiddleware } from './types'
+import { buildProjectConfiguration } from '../services/proxy-configuration-manager'
 
 export function registerProxyRoutes(
     app: FastifyInstance,
-    opts: Pick<RouteOptions, 'prefix' | 'proxy'>,
+    opts: Pick<RouteOptions, 'prefix' | 'proxy' | 'projectService'>,
     auth: AuthMiddleware
 ) {
-    const { prefix, proxy } = opts
+    const { prefix, proxy, projectService } = opts
 
     // Start proxy
     app.post(
@@ -20,6 +21,13 @@ export function registerProxyRoutes(
         { preHandler: auth },
         async (_req, rep) => {
             try {
+                const currentProject = await projectService.getCurrentProject()
+                if (currentProject) {
+                    proxy.updateConfiguration(
+                        buildProjectConfiguration(currentProject.metadata)
+                    )
+                }
+
                 const serverInfo = await proxy.start()
                 const response: ProxyStartResponse = {
                     ok: true,

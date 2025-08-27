@@ -9,6 +9,7 @@ import type {
 } from '@arachne/api-types'
 import type { TransactionCompleteEvent } from '@arachne/api-types'
 import { logger } from '../logger'
+import { EventEmitter } from 'events'
 
 export interface ProjectServiceOptions {
     baseDir: string // Base directory where projects are stored
@@ -16,7 +17,11 @@ export interface ProjectServiceOptions {
     retentionDays?: number // Default retention period
 }
 
-export class ProjectService {
+interface ProjectServiceEvents {
+    projectChanged: [id: string]
+}
+
+export class ProjectService extends EventEmitter<ProjectServiceEvents> {
     private baseDir: string
     private maxTransactions: number
     private retentionDays: number
@@ -24,6 +29,7 @@ export class ProjectService {
     private activeProjectMetadataFile: string
 
     constructor(options: ProjectServiceOptions) {
+        super()
         this.baseDir = options.baseDir
         this.maxTransactions = options.maxTransactions ?? 10000
         this.retentionDays = options.retentionDays ?? 30
@@ -118,6 +124,10 @@ export class ProjectService {
             logger.debug('Saved active project metadata', {
                 projectId: this.currentProject,
             })
+
+            if (this.currentProject) {
+                this.emit('projectChanged', this.currentProject)
+            }
         } catch (error) {
             logger.error('Failed to save active project metadata', { error })
         }
@@ -632,8 +642,11 @@ export class ProjectService {
     /**
      * Get the current active project
      */
-    getCurrentProject(): string | null {
-        return this.currentProject
+    async getCurrentProject(): Promise<ProjectInfo | null> {
+        if (!this.currentProject) {
+            return null
+        }
+        return await this.getProject(this.currentProject)
     }
 
     /**
@@ -658,5 +671,9 @@ export class ProjectService {
                 projectId,
             })
         }
+    }
+
+    cleanup(): void {
+        this.removeAllListeners()
     }
 }

@@ -130,6 +130,7 @@ export function shouldIgnoreHost(
     hostFilter?: string[],
     hostFilterMode: 'blacklist' | 'whitelist' = 'blacklist'
 ): boolean {
+    console.log('shouldIgnoreHost', hostname, hostFilter, hostFilterMode)
     if (!hostFilter || hostFilter.length === 0) {
         // If no filter is set, default behavior depends on mode
         // Blacklist: don't ignore anything (capture all)

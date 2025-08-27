@@ -17,6 +17,7 @@ import { TunnelHandler } from './tunnel-handler'
 import { createServerCleanup } from './cleanup'
 import { logger } from '../logger'
 import { DEFAULT_HTTPS_PORT } from './constants'
+import { ProxyConfigStore } from './config-store'
 
 export class TlsManager {
     private tunnelHandler: TunnelHandler
@@ -27,8 +28,7 @@ export class TlsManager {
         private httpHandler: HttpHandler,
         private webSocketHandler: WebSocketHandler,
         private onError: (err: unknown, ctx: ErrorContext) => void,
-        private hostFilter?: string[],
-        private hostFilterMode: 'blacklist' | 'whitelist' = 'blacklist'
+        private configStore: ProxyConfigStore
     ) {
         this.tunnelHandler = new TunnelHandler(onError)
     }
@@ -58,7 +58,13 @@ export class TlsManager {
         })
 
         // Check if host should be ignored - if so, create direct tunnel
-        if (shouldIgnoreHost(hostname, this.hostFilter, this.hostFilterMode)) {
+        if (
+            shouldIgnoreHost(
+                hostname,
+                this.configStore.current.hostFilter,
+                this.configStore.current.hostFilterMode
+            )
+        ) {
             logger.debug('Creating direct tunnel for ignored host', {
                 requestId: correlation.full,
                 hostname,
@@ -109,8 +115,6 @@ export class TlsManager {
                     hostname,
                     port: connectPort,
                     isHttps: true,
-                    hostFilter: this.hostFilter,
-                    hostFilterMode: this.hostFilterMode,
                     requestId: undefined, // Let WebSocket handler create its own correlation extending from parent
                     connectId: correlation.full,
                 })

@@ -16,6 +16,7 @@ import { UpstreamHandler } from './upstream-handler'
 import { TunnelHandler } from './tunnel-handler'
 import { logger } from '../logger'
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
+import { ProxyConfigStore } from './config-store'
 
 export class HttpHandler {
     private requestBodyHandler: RequestBodyHandler
@@ -26,17 +27,15 @@ export class HttpHandler {
     constructor(
         private pluginManager: PluginManager,
         private onError: (err: unknown, ctx: ErrorContext) => void,
-        private hostFilter?: string[],
-        private hostFilterMode: 'blacklist' | 'whitelist' = 'blacklist',
-        maxBodySize?: number
+        private configStore: ProxyConfigStore
     ) {
         this.requestBodyHandler = new RequestBodyHandler(
             pluginManager,
-            maxBodySize
+            configStore.current.maxBodySize
         )
         this.responseBodyHandler = new ResponseBodyHandler(
             pluginManager,
-            maxBodySize
+            configStore.current.maxBodySize
         )
         this.upstreamHandler = new UpstreamHandler(onError)
         this.tunnelHandler = new TunnelHandler(onError)
@@ -77,8 +76,8 @@ export class HttpHandler {
             if (
                 shouldIgnoreHost(
                     fullUrl.hostname,
-                    this.hostFilter,
-                    this.hostFilterMode
+                    this.configStore.current.hostFilter,
+                    this.configStore.current.hostFilterMode
                 )
             ) {
                 logger.debug(
