@@ -67,7 +67,7 @@ export type ErrorContext =
     | {
           id?: string
           hostname?: string
-          socketInfo?: import('../proxy/utils/sockets').SocketInfo
+          socketInfo?: import('../core/utils/sockets').SocketInfo
       }
     | { [key: string]: any } // fallback for unknown context shapes
 

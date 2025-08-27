@@ -2,16 +2,16 @@ import winston from 'winston'
 import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
-import { 
-    SERVICE_NAME, 
-    DEFAULT_LOG_LEVEL, 
-    LOG_FILE_MAX_SIZE, 
+import {
+    SERVICE_NAME,
+    DEFAULT_LOG_LEVEL,
+    LOG_FILE_MAX_SIZE,
     LOG_MAX_FILES,
     DEFAULT_LOG_DIR,
     PROXY_LOG_FILENAME,
     ERROR_LOG_FILENAME,
-    COMPONENTS
-} from './proxy/constants'
+    COMPONENTS,
+} from './core/constants'
 
 export interface LogContext {
     requestId?: string
@@ -53,7 +53,7 @@ class ProxyLogger {
                     filename: path.join(this.logDir, PROXY_LOG_FILENAME),
                     maxsize: LOG_FILE_MAX_SIZE,
                     maxFiles: LOG_MAX_FILES,
-                    tailable: true
+                    tailable: true,
                 }),
                 // Separate file for errors
                 new winston.transports.File({
@@ -61,34 +61,50 @@ class ProxyLogger {
                     level: 'error',
                     maxsize: LOG_FILE_MAX_SIZE,
                     maxFiles: LOG_MAX_FILES,
-                    tailable: true
+                    tailable: true,
                 }),
                 // Console output with simple format
                 new winston.transports.Console({
                     format: winston.format.combine(
                         winston.format.colorize(),
                         winston.format.timestamp({ format: 'HH:mm:ss' }),
-                        winston.format.printf(({ timestamp, level, message, component, requestId, ...meta }) => {
-                            let log = `${timestamp} [${level}]`
-                            if (component) log += ` [${component}]`
-                            if (requestId) log += ` [${requestId}]`
-                            log += ` ${message}`
-                            
-                            // Add relevant metadata
-                            const relevantMeta = Object.keys(meta).length > 0 ? meta : null
-                            if (relevantMeta) {
-                                const metaStr = Object.entries(relevantMeta)
-                                    .filter(([key, value]) => value !== undefined && key !== 'service')
-                                    .map(([key, value]) => `${key}=${value}`)
-                                    .join(' ')
-                                if (metaStr) log += ` ${metaStr}`
+                        winston.format.printf(
+                            ({
+                                timestamp,
+                                level,
+                                message,
+                                component,
+                                requestId,
+                                ...meta
+                            }) => {
+                                let log = `${timestamp} [${level}]`
+                                if (component) log += ` [${component}]`
+                                if (requestId) log += ` [${requestId}]`
+                                log += ` ${message}`
+
+                                // Add relevant metadata
+                                const relevantMeta =
+                                    Object.keys(meta).length > 0 ? meta : null
+                                if (relevantMeta) {
+                                    const metaStr = Object.entries(relevantMeta)
+                                        .filter(
+                                            ([key, value]) =>
+                                                value !== undefined &&
+                                                key !== 'service'
+                                        )
+                                        .map(
+                                            ([key, value]) => `${key}=${value}`
+                                        )
+                                        .join(' ')
+                                    if (metaStr) log += ` ${metaStr}`
+                                }
+
+                                return log
                             }
-                            
-                            return log
-                        })
-                    )
-                })
-            ]
+                        )
+                    ),
+                }),
+            ],
         })
     }
 
@@ -115,16 +131,20 @@ class ProxyLogger {
         this.logger.warn(message, context)
     }
 
-    public error(message: string, error?: Error | unknown, context?: LogContext): void {
+    public error(
+        message: string,
+        error?: Error | unknown,
+        context?: LogContext
+    ): void {
         const logContext = { ...context }
-        
+
         if (error instanceof Error) {
             logContext.error = error.message
             logContext.stack = error.stack
         } else if (error) {
             logContext.error = String(error)
         }
-        
+
         this.logger.error(message, logContext)
     }
 
@@ -141,42 +161,62 @@ class ProxyLogger {
     }
 
     // Convenience methods for common proxy operations
-    public logRequest(requestId: string, method: string, url: string, context?: Partial<LogContext>): void {
+    public logRequest(
+        requestId: string,
+        method: string,
+        url: string,
+        context?: Partial<LogContext>
+    ): void {
         this.info('Request received', {
             requestId,
             method,
             url,
             component: COMPONENTS.HTTP_HANDLER,
-            ...context
+            ...context,
         })
     }
 
-    public logResponse(requestId: string, statusCode: number, duration?: number, context?: Partial<LogContext>): void {
+    public logResponse(
+        requestId: string,
+        statusCode: number,
+        duration?: number,
+        context?: Partial<LogContext>
+    ): void {
         this.info('Response sent', {
             requestId,
             statusCode,
             duration,
             component: COMPONENTS.HTTP_HANDLER,
-            ...context
+            ...context,
         })
     }
 
-    public logConnect(requestId: string, hostname: string, port: number, context?: Partial<LogContext>): void {
+    public logConnect(
+        requestId: string,
+        hostname: string,
+        port: number,
+        context?: Partial<LogContext>
+    ): void {
         this.info('CONNECT tunnel established', {
             requestId,
             hostname,
             port,
             component: COMPONENTS.TLS_MANAGER,
-            ...context
+            ...context,
         })
     }
 
-    public logUpstreamError(requestId: string, error: Error, url?: string, context?: Partial<LogContext>): void {
+    public logUpstreamError(
+        requestId: string,
+        error: Error,
+        url?: string,
+        context?: Partial<LogContext>
+    ): void {
         this.error('Upstream request failed', error, {
             requestId,
             url,
             component: COMPONENTS.UPSTREAM_HANDLER,
-            ...context
+            ...context,
         })
     }
 
@@ -184,13 +224,13 @@ class ProxyLogger {
         this.info('Proxy server started', {
             hostname: host,
             port,
-            component: COMPONENTS.SERVER_LIFECYCLE
+            component: COMPONENTS.SERVER_LIFECYCLE,
         })
     }
 
     public logProxyStop(): void {
         this.info('Proxy server stopped', {
-            component: COMPONENTS.SERVER_LIFECYCLE
+            component: COMPONENTS.SERVER_LIFECYCLE,
         })
     }
 
@@ -198,13 +238,13 @@ class ProxyLogger {
         this.info('System proxy enabled', {
             hostname: host,
             port,
-            component: COMPONENTS.SERVER_LIFECYCLE
+            component: COMPONENTS.SERVER_LIFECYCLE,
         })
     }
 
     public logSystemProxyDisabled(): void {
         this.info('System proxy disabled', {
-            component: COMPONENTS.SERVER_LIFECYCLE
+            component: COMPONENTS.SERVER_LIFECYCLE,
         })
     }
 }
