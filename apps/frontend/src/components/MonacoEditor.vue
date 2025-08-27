@@ -35,7 +35,7 @@ if (typeof window !== 'undefined') {
                 default:
                     return new editorWorker()
             }
-        }
+        },
     }
 }
 
@@ -51,7 +51,6 @@ interface Props {
     lineNumbers?: boolean
     wordWrap?: 'off' | 'on' | 'wordWrapColumn' | 'bounded'
     fontSize?: number
-    height?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -61,7 +60,6 @@ const props = withDefaults(defineProps<Props>(), {
     lineNumbers: true,
     wordWrap: 'on',
     fontSize: 12,
-    height: '400px'
 })
 
 const { isDark } = useTheme()
@@ -94,13 +92,12 @@ const initEditor = async () => {
                 vertical: 'auto',
                 horizontal: 'auto',
                 verticalScrollbarSize: 8,
-                horizontalScrollbarSize: 8
+                horizontalScrollbarSize: 8,
             },
             overviewRulerBorder: false,
             hideCursorInOverviewRuler: true,
-            overviewRulerLanes: 0
+            overviewRulerLanes: 0,
         })
-        
     } catch (error) {
         console.error('Failed to initialize Monaco editor:', error)
         emit('error')
@@ -110,7 +107,9 @@ const initEditor = async () => {
 const setupThemes = (monacoInstance: typeof monaco) => {
     // Get CSS variables from the document
     const getComputedCSSVar = (varName: string) => {
-        return getComputedStyle(document.documentElement).getPropertyValue(varName).trim()
+        return getComputedStyle(document.documentElement)
+            .getPropertyValue(varName)
+            .trim()
     }
 
     // Helper to convert CSS color to hex (removing # if present)
@@ -135,7 +134,7 @@ const setupThemes = (monacoInstance: typeof monaco) => {
             { token: 'attribute.value', foreground: '22c55e' },
             { token: 'operator', foreground: '0ea5e9' },
             { token: 'variable', foreground: '1e293b' },
-            { token: 'function', foreground: '0ea5e9' }
+            { token: 'function', foreground: '0ea5e9' },
         ],
         colors: {
             'editor.background': '#ffffff',
@@ -151,8 +150,8 @@ const setupThemes = (monacoInstance: typeof monaco) => {
             'editor.wordHighlightBackground': '#0ea5e915',
             'editor.wordHighlightStrongBackground': '#0ea5e925',
             'editorBracketMatch.background': '#0ea5e920',
-            'editorBracketMatch.border': '#0ea5e9'
-        }
+            'editorBracketMatch.border': '#0ea5e9',
+        },
     })
 
     // Dark theme using app's design system
@@ -172,7 +171,7 @@ const setupThemes = (monacoInstance: typeof monaco) => {
             { token: 'attribute.value', foreground: '22c55e' },
             { token: 'operator', foreground: '38bdf8' },
             { token: 'variable', foreground: 'f8fafc' },
-            { token: 'function', foreground: '38bdf8' }
+            { token: 'function', foreground: '38bdf8' },
         ],
         colors: {
             'editor.background': '#020617',
@@ -191,8 +190,8 @@ const setupThemes = (monacoInstance: typeof monaco) => {
             'editorBracketMatch.border': '#38bdf8',
             'scrollbarSlider.background': '#334155',
             'scrollbarSlider.hoverBackground': '#475569',
-            'scrollbarSlider.activeBackground': '#64748b'
-        }
+            'scrollbarSlider.activeBackground': '#64748b',
+        },
     })
 }
 
@@ -233,7 +232,7 @@ watch(isDark, updateTheme)
 onMounted(async () => {
     await nextTick()
     await initEditor()
-    
+
     // Handle window resize
     window.addEventListener('resize', resizeEditor)
 })
@@ -249,14 +248,14 @@ onUnmounted(() => {
 // Expose methods for parent components
 defineExpose({
     getEditor: () => editor,
-    resizeEditor
+    resizeEditor,
 })
 </script>
 
 <style scoped>
 .monaco-editor-container {
     width: 100%;
-    height: v-bind(height);
+    height: 100%;
     border: 1px solid var(--surface-border);
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -271,7 +270,8 @@ defineExpose({
 
 /* Ensure Monaco editor integrates well with the app theme */
 .monaco-editor-container :deep(.monaco-editor) {
-    font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas',
+        monospace;
 }
 
 /* Override Monaco's scrollbar styles to match app theme */
@@ -279,16 +279,19 @@ defineExpose({
     background-color: transparent;
 }
 
-.monaco-editor-container :deep(.monaco-scrollable-element > .scrollbar > .slider) {
+.monaco-editor-container
+    :deep(.monaco-scrollable-element > .scrollbar > .slider) {
     background-color: var(--color-neutral-400);
     border-radius: var(--radius-sm);
 }
 
-.monaco-editor-container :deep(.monaco-scrollable-element > .scrollbar > .slider:hover) {
+.monaco-editor-container
+    :deep(.monaco-scrollable-element > .scrollbar > .slider:hover) {
     background-color: var(--color-neutral-500);
 }
 
-.monaco-editor-container :deep(.monaco-scrollable-element > .scrollbar > .slider.active) {
+.monaco-editor-container
+    :deep(.monaco-scrollable-element > .scrollbar > .slider.active) {
     background-color: var(--color-neutral-600);
 }
 
@@ -306,11 +309,13 @@ defineExpose({
     box-shadow: var(--shadow-lg);
 }
 
-.monaco-editor-container :deep(.monaco-menu .monaco-action-bar .action-item .action-label) {
+.monaco-editor-container
+    :deep(.monaco-menu .monaco-action-bar .action-item .action-label) {
     color: var(--text-color);
 }
 
-.monaco-editor-container :deep(.monaco-menu .monaco-action-bar .action-item .action-label:hover) {
+.monaco-editor-container
+    :deep(.monaco-menu .monaco-action-bar .action-item .action-label:hover) {
     background-color: var(--surface-hover);
 }
 </style>
