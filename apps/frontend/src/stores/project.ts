@@ -82,10 +82,6 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    function setCurrentProject(project: ProjectInfo | null): void {
-        currentProject.value = project
-    }
-
     async function createProject(
         request: CreateProjectRequest
     ): Promise<ProjectInfo | null> {
@@ -198,7 +194,6 @@ export const useProjectStore = defineStore('project', () => {
         createProject,
         updateProject,
         deleteProject,
-        setCurrentProject,
         clearError,
     }
 })
