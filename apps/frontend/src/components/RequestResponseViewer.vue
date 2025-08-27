@@ -1,84 +1,43 @@
 <template>
-    <div
-        v-if="transactionsStore.selectedTransaction"
-        class="request-response-viewer"
-    >
+    <div v-if="transaction" class="request-response-viewer">
         <div class="viewer-header">
             <div class="request-response-line">
                 <span class="request-info">
                     <span
                         class="method"
-                        :class="
-                            getMethodClass(
-                                transactionsStore.selectedTransaction.request
-                                    .method
-                            )
-                        "
+                        :class="getMethodClass(transaction.request.method)"
                     >
-                        {{
-                            transactionsStore.selectedTransaction.request.method
-                        }}
+                        {{ transaction.request.method }}
                     </span>
                     <span class="url-parts">
                         <span class="host">{{
-                            getUrlHost(
-                                transactionsStore.selectedTransaction.request
-                                    .url.full
-                            )
+                            getUrlHost(transaction.request.url.full)
                         }}</span>
                         <span class="path">{{
-                            getUrlPath(
-                                transactionsStore.selectedTransaction.request
-                                    .url.full
-                            )
+                            getUrlPath(transaction.request.url.full)
                         }}</span>
                     </span>
                 </span>
-                <span
-                    v-if="transactionsStore.selectedTransaction.response"
-                    class="response-info"
-                >
+                <span v-if="transaction.response" class="response-info">
                     <span
                         class="status-code"
-                        :class="
-                            getStatusClass(
-                                transactionsStore.selectedTransaction.response
-                                    .statusCode
-                            )
-                        "
+                        :class="getStatusClass(transaction.response.statusCode)"
                     >
-                        {{
-                            transactionsStore.selectedTransaction.response
-                                .statusCode
-                        }}
+                        {{ transaction.response.statusCode }}
                     </span>
                     <span
-                        v-if="
-                            transactionsStore.selectedTransaction.response
-                                .statusMessage
-                        "
+                        v-if="transaction.response.statusMessage"
                         class="status-message"
                     >
-                        {{
-                            transactionsStore.selectedTransaction.response
-                                .statusMessage
-                        }}
+                        {{ transaction.response.statusMessage }}
                     </span>
                 </span>
             </div>
-            <button
-                class="close-viewer"
-                @click="transactionsStore.clearSelectedTransaction()"
-            >
-                ×
-            </button>
+            <button class="close-viewer" @click="emit('close')">×</button>
         </div>
 
         <div class="viewer-content">
-            <RequestPanel
-                ref="requestPanel"
-                :request="transactionsStore.selectedTransaction.request"
-            />
+            <RequestPanel ref="requestPanel" :request="transaction.request" />
             <Resizer
                 direction="horizontal"
                 :first-element="requestPanel?.$el"
@@ -88,7 +47,7 @@
             />
             <ResponsePanel
                 ref="responsePanel"
-                :response="transactionsStore.selectedTransaction.response"
+                :response="transaction.response"
             />
         </div>
     </div>
@@ -96,11 +55,24 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useTransactionsStore } from '../stores/transactions'
+import {
+    useTransactionsStore,
+    type TransactionWithMeta,
+} from '../stores/transactions'
 import RequestPanel from './RequestPanel.vue'
 import ResponsePanel from './ResponsePanel.vue'
 import Resizer from './Resizer.vue'
 import { getMethodClass, getStatusClass } from '../utils/http-colors'
+
+interface Props {
+    transaction: TransactionWithMeta
+}
+
+defineProps<Props>()
+
+const emit = defineEmits<{
+    (e: 'close'): void
+}>()
 
 const transactionsStore = useTransactionsStore()
 const requestPanel = ref<InstanceType<typeof RequestPanel>>()

@@ -45,7 +45,10 @@
                     ref="requestResponseContainer"
                     class="request-response-container"
                 >
-                    <RequestResponseViewer />
+                    <RequestResponseViewer
+                        @close="transactionsStore.clearSelectedTransaction()"
+                        :transaction="transactionsStore.selectedTransaction"
+                    />
                 </div>
             </template>
         </main>
