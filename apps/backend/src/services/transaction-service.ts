@@ -2,17 +2,30 @@ import {
     Transaction,
     TransactionCreateInput,
     TransactionRepository,
+    HostRepository,
 } from '@arachne/database'
 import { TransactionCompleteEvent } from '@arachne/api-types'
 
 export class TransactionService {
     constructor(
-        private readonly transactionRepository: TransactionRepository = new TransactionRepository()
+        private readonly transactionRepository: TransactionRepository = new TransactionRepository(),
+        private readonly hostRepository: HostRepository = new HostRepository()
     ) {}
 
     async addTransaction(projectId: string, event: TransactionCompleteEvent) {
         const input = this.toTransactionCreateInput(projectId, event)
-        await this.transactionRepository.create(input)
+
+        // Extract host and path info for analytics
+        const { request } = event.transaction
+        const host = request.url.host
+        const method = request.method
+        const path = request.url.path
+
+        // Record transaction and update host/endpoint analytics in parallel
+        await Promise.all([
+            this.transactionRepository.create(input),
+            this.hostRepository.recordTransactionActivity(host, method, path),
+        ])
     }
 
     async getTransaction(id: string) {

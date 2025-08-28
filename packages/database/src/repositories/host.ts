@@ -1,3 +1,4 @@
+import { getPrismaClient } from '../client'
 import type {
     Host,
     Endpoint,
@@ -13,7 +14,7 @@ import type {
 export class HostRepository {
     private prisma: PrismaClient
 
-    constructor(prismaClient: PrismaClient) {
+    constructor(prismaClient: PrismaClient = getPrismaClient()) {
         this.prisma = prismaClient
     }
 
