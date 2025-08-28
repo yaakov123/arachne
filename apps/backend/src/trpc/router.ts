@@ -4,7 +4,6 @@ import { certRouter } from './routers/cert'
 import { projectsRouter } from './routers/projects'
 import { proxyRouter } from './routers/proxy'
 import { caRouter } from './routers/ca'
-import { repeaterRouter } from './routers/repeater'
 import { subscriptionsRouter } from './routers/subscriptions'
 import { transactionsRouter } from './routers/transactions'
 import { hostsRouter } from './routers/hosts'
@@ -18,7 +17,6 @@ export const appRouter = router({
     projects: projectsRouter,
     proxy: proxyRouter,
     ca: caRouter,
-    repeater: repeaterRouter,
     subscriptions: subscriptionsRouter,
     transactions: transactionsRouter,
     hosts: hostsRouter,

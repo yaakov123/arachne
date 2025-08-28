@@ -186,7 +186,6 @@ export function createTransactionAggregatorPlugin(
             const timestamp = Date.now()
             const parsedURL = parseURL(ctx.url)
 
-            // Parse headers and filter out the repeater header for broadcast
             const parsedHeaders = parseHeaders(ctx.headers)
 
             // Initialize transaction state
