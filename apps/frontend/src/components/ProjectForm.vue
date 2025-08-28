@@ -226,10 +226,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { Project } from '@arachne/database'
+import type { ProjectFormData } from '@/composables/useProjectForm'
 
 interface Props {
-    modelValue: Project
+    modelValue: ProjectFormData
     loading?: boolean
     submitText?: string
     idPrefix?: string
@@ -242,7 +242,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-    'update:modelValue': [value: Project]
+    'update:modelValue': [value: ProjectFormData]
     submit: []
     cancel: []
 }>()
@@ -266,7 +266,7 @@ const maxBodySizeMB = computed(() => {
 })
 
 // Update methods
-function updateField(field: keyof Project, value: string) {
+function updateField(field: keyof ProjectFormData, value: string) {
     emit('update:modelValue', {
         ...props.modelValue,
         [field]: value,

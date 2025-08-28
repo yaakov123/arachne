@@ -107,14 +107,7 @@ export class ProjectService extends EventEmitter<ProjectServiceEvents> {
     async createProject(request: ProjectCreateInput) {
         this.validateProjectName(request.name)
 
-        return this.projectRepository.create({
-            name: request.name.trim(),
-            description: request.description?.trim(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            tags: JSON.stringify(request.tags),
-            settings: JSON.stringify(request.settings),
-        })
+        return this.projectRepository.create(request)
     }
 
     /**

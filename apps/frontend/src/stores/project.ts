@@ -41,6 +41,15 @@ export const useProjectStore = defineStore('project', () => {
             id: project.id,
             data: project.data,
         })
+
+        console.log('response', response)
+
+        projects.value = projects.value.map((p) => {
+            if (p.id === response.project.id) {
+                return response.project
+            }
+            return p
+        })
         loading.value = false
         return response
     }

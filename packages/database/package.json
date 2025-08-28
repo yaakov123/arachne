@@ -16,6 +16,7 @@
     "scripts": {
         "lint": "eslint src --max-warnings 0",
         "type-check": "tsc --noEmit",
+        "studio": "prisma studio",
         "db:generate": "prisma generate",
         "db:push": "prisma db push",
         "db:seed": "tsx src/seed.ts"

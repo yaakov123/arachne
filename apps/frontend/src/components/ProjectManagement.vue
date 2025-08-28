@@ -9,36 +9,22 @@
             <!-- Projects Section -->
             <div class="projects-section">
                 <div class="section-header-with-actions">
-                    <div class="section-title"></div>
+                    <div class="section-title">
+                        <h3>Projects</h3>
+                        <p>Create and manage your traffic recording projects</p>
+                    </div>
                     <div class="section-actions">
                         <button
                             class="btn btn-primary"
-                            @click="toggleCreateProject"
+                            @click="openCreateProject"
                             :disabled="loading"
                         >
-                            {{ showCreateProject ? 'Cancel' : 'New Project' }}
+                            New Project
                         </button>
                     </div>
                 </div>
 
-                <!-- Inline Create Project Form -->
-                <div v-if="showCreateProject" class="inline-form-section">
-                    <div class="inline-form-header">
-                        <h3>Create New Project</h3>
-                    </div>
-                    <div class="inline-form-content">
-                        <ProjectForm
-                            v-model="createFormData"
-                            :loading="createLoading"
-                            submit-text="Create Project"
-                            id-prefix="create"
-                            @submit="createProject"
-                            @cancel="cancelCreateProject"
-                        />
-                    </div>
-                </div>
-
-                <!-- Project List with inline edit -->
+                <!-- Project List -->
                 <div class="project-list-wrapper">
                     <div v-if="projectsLoading" class="loading-message">
                         Loading projects...
@@ -51,38 +37,15 @@
                         started.
                     </div>
                     <div v-else class="project-list">
-                        <div
+                        <ProjectItem
                             v-for="project in projects"
                             :key="project.id"
-                            class="project-item-wrapper"
-                        >
-                            <!-- Project Item (normal view) -->
-                            <ProjectItem
-                                v-if="editingProjectId !== project.id"
-                                :project="project"
-                                :is-active="isCurrentProject(project)"
-                                @select="selectProject"
-                                @edit="openEditProject"
-                                @delete="deleteProject"
-                            />
-
-                            <!-- Inline Edit Form -->
-                            <div v-else class="inline-form-section">
-                                <div class="inline-form-header">
-                                    <h3>Edit Project</h3>
-                                </div>
-                                <div class="inline-form-content">
-                                    <ProjectForm
-                                        v-model="editFormData"
-                                        :loading="editLoading"
-                                        submit-text="Save Changes"
-                                        id-prefix="edit"
-                                        @submit="saveEditProject"
-                                        @cancel="cancelEditProject"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                            :project="project"
+                            :is-active="isCurrentProject(project)"
+                            @select="selectProject"
+                            @edit="openEditProject"
+                            @delete="deleteProject"
+                        />
                     </div>
                 </div>
             </div>
@@ -92,60 +55,48 @@
                 {{ message }}
             </div>
         </div>
+
+        <!-- Project Modal -->
+        <ProjectModal
+            :show="showModal"
+            :mode="modalMode"
+            :project="editingProject"
+            :loading="modalLoading"
+            @close="closeModal"
+            @submit="handleModalSubmit"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useProjectStore } from '@/stores/project'
-
 import ProjectItem from './ProjectItem.vue'
-import ProjectForm from './ProjectForm.vue'
+import ProjectModal from './ProjectModal.vue'
 import type { Project } from '@arachne/database'
+import type {
+    ProjectFormMode,
+    ProjectFormData,
+} from '@/composables/useProjectForm'
+import {
+    isProjectCreateInput,
+    isProjectUpdateInput,
+    type ProjectCreateInput,
+    type ProjectUpdateInput,
+} from '@/services/trpc'
 
 // Project store
 const projectStore = useProjectStore()
 
-// Local state
-const showCreateProject = ref(false)
-const editingProjectId = ref<string | null>(null)
+// Modal state
+const showModal = ref(false)
+const modalMode = ref<ProjectFormMode>('create')
+const editingProject = ref<Project | null>(null)
+const modalLoading = ref(false)
+
+// Message state
 const message = ref('')
 const messageType = ref<'success' | 'error' | 'info'>('info')
-const createLoading = ref(false)
-const editLoading = ref(false)
-
-// Form data
-const createFormData = ref<Project>({
-    id: '',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    name: '',
-    description: '',
-    tags: [],
-    settings: {
-        maxTransactions: 10000,
-        retentionDays: 30,
-        hostFilter: [],
-        hostFilterMode: 'blacklist',
-        maxBodySize: 10 * 1024 * 1024, // 10MB default
-    },
-})
-
-const editFormData = ref<Project>({
-    id: '',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    name: '',
-    description: '',
-    tags: [],
-    settings: {
-        maxTransactions: 10000,
-        retentionDays: 30,
-        hostFilter: [],
-        hostFilterMode: 'blacklist',
-        maxBodySize: 10 * 1024 * 1024,
-    },
-})
 
 // Use project store state
 const currentProject = computed(() => projectStore.currentProject)
@@ -154,7 +105,7 @@ const loading = computed(() => projectStore.loading)
 const projectsLoading = computed(() => projectStore.loading)
 
 // Methods
-async function loadCurrentProject() {
+async function loadProjects() {
     await projectStore.loadCurrentProject()
     await projectStore.loadProjects()
 }
@@ -163,135 +114,86 @@ function isCurrentProject(project: Project): boolean {
     return currentProject.value?.id === project.id
 }
 
-function toggleCreateProject() {
-    if (showCreateProject.value) {
-        cancelCreateProject()
-    } else {
-        showCreateProject.value = true
-        resetCreateForm()
-    }
+function openCreateProject() {
+    modalMode.value = 'create'
+    editingProject.value = null
+    showModal.value = true
 }
 
-function resetCreateForm() {
-    createFormData.value = {
-        id: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        name: '',
-        description: '',
-        tags: [],
-        settings: {
-            maxTransactions: 10000,
-            retentionDays: 30,
-            hostFilter: [],
-            hostFilterMode: 'blacklist',
-            maxBodySize: 10 * 1024 * 1024,
-        },
-    }
+function openEditProject(project: Project) {
+    modalMode.value = 'edit'
+    editingProject.value = project
+    showModal.value = true
 }
 
-function cancelCreateProject() {
-    showCreateProject.value = false
-    resetCreateForm()
+function closeModal() {
+    showModal.value = false
+    modalLoading.value = false
+    editingProject.value = null
 }
 
-async function createProject() {
-    createLoading.value = true
+async function handleModalSubmit(
+    payload: ProjectCreateInput | ProjectUpdateInput
+) {
+    modalLoading.value = true
+
     try {
-        const project = await projectStore.createProject(createFormData.value)
-        if (project) {
-            showMessage('Project created successfully', 'success')
-            cancelCreateProject()
-        } else {
-            showMessage(
-                projectStore.error || 'Failed to create project',
-                'error'
-            )
+        if (modalMode.value === 'create') {
+            if (!isProjectCreateInput(payload)) {
+                console.error('Received unknown payload:', {
+                    payload,
+                    mode: modalMode.value,
+                })
+                return
+            }
+            const project = await projectStore.createProject(payload)
+            if (project) {
+                showMessage('Project created successfully', 'success')
+                closeModal()
+            } else {
+                showMessage(
+                    projectStore.error || 'Failed to create project',
+                    'error'
+                )
+            }
+        }
+
+        if (modalMode.value === 'edit') {
+            if (!isProjectUpdateInput(payload)) {
+                console.error('Received unknown payload:', {
+                    payload,
+                    mode: modalMode.value,
+                })
+                return
+            }
+            const updatedProject = await projectStore.updateProject(payload)
+            if (updatedProject) {
+                showMessage('Project updated successfully', 'success')
+                closeModal()
+            } else {
+                showMessage(
+                    projectStore.error || 'Failed to update project',
+                    'error'
+                )
+            }
         }
     } catch (error) {
         const errorMessage =
-            error instanceof Error ? error.message : 'Failed to create project'
+            error instanceof Error
+                ? error.message
+                : `Failed to ${modalMode.value} project`
         showMessage(errorMessage, 'error')
     } finally {
-        createLoading.value = false
+        modalLoading.value = false
     }
 }
 
 async function selectProject(project: Project) {
-    // Close any open edit forms when selecting a project
-    if (editingProjectId.value) {
-        cancelEditProject()
-    }
-
     const success = await projectStore.switchProject(project.id)
     if (success) {
         showMessage(`Switched to project: ${project.name}`, 'success')
     } else {
         showMessage(projectStore.error || 'Failed to switch project', 'error')
-    }
-}
-
-async function openEditProject(project: Project) {
-    // Close create form if open
-    if (showCreateProject.value) {
-        cancelCreateProject()
-    }
-
-    // Close any other edit forms
-    if (editingProjectId.value && editingProjectId.value !== project.id) {
-        cancelEditProject()
-    }
-
-    editingProjectId.value = project.id
-    populateEditForm(project)
-}
-
-function populateEditForm(project: Project) {
-    editFormData.value = {
-        id: project.id,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
-        name: project.name,
-        description: project.description || '',
-        tags: project.tags || [],
-        settings: {
-            maxTransactions: project.settings?.maxTransactions ?? 10000,
-            retentionDays: project.settings?.retentionDays ?? 30,
-            hostFilter: project.settings?.hostFilter ?? [],
-            hostFilterMode: project.settings?.hostFilterMode ?? 'blacklist',
-            maxBodySize: project.settings?.maxBodySize ?? 10 * 1024 * 1024,
-        },
-    }
-}
-
-function cancelEditProject() {
-    editingProjectId.value = null
-}
-
-async function saveEditProject() {
-    if (!editingProjectId.value) return
-
-    editLoading.value = true
-    try {
-        const updatedProject = await projectStore.updateProject({
-            id: editingProjectId.value,
-            data: editFormData.value,
-        })
-        if (updatedProject) {
-            showMessage('Project updated successfully', 'success')
-            cancelEditProject()
-        } else {
-            showMessage(
-                projectStore.error || 'Failed to update project',
-                'error'
-            )
-        }
-    } catch (error) {
-        const errorMessage =
-            error instanceof Error ? error.message : 'Failed to update project'
-        showMessage(errorMessage, 'error')
-    } finally {
-        editLoading.value = false
     }
 }
 
@@ -302,11 +204,6 @@ async function deleteProject(project: Project) {
         )
     ) {
         return
-    }
-
-    // Close edit form if this project is being edited
-    if (editingProjectId.value === project.id) {
-        cancelEditProject()
     }
 
     const success = await projectStore.deleteProject(project.id)
@@ -327,7 +224,7 @@ function showMessage(msg: string, type: 'success' | 'error' | 'info' = 'info') {
 
 // Load data on mount
 onMounted(() => {
-    loadCurrentProject()
+    loadProjects()
 })
 </script>
 
@@ -448,32 +345,6 @@ onMounted(() => {
     border: 1px solid var(--color-info-200);
 }
 
-/* Inline Form Styles */
-.inline-form-section {
-    background: var(--surface-card);
-    border: 1px solid var(--surface-border);
-    border-radius: var(--radius-lg);
-    margin-bottom: var(--space-lg);
-    overflow: hidden;
-}
-
-.inline-form-header {
-    padding: var(--space-lg) var(--space-xl);
-    background: var(--surface-ground);
-    border-bottom: 1px solid var(--surface-border);
-}
-
-.inline-form-header h3 {
-    font-size: var(--text-lg);
-    font-weight: var(--font-semibold);
-    color: var(--text-color);
-    margin: 0;
-}
-
-.inline-form-content {
-    padding: var(--space-xl);
-}
-
 /* Project List Wrapper */
 .project-list-wrapper {
     display: flex;
@@ -485,10 +356,6 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
-}
-
-.project-item-wrapper {
-    transition: all var(--transition-fast);
 }
 
 .loading-message,
@@ -511,11 +378,6 @@ onMounted(() => {
 
     .section-actions .btn {
         width: 100%;
-    }
-
-    .inline-form-header,
-    .inline-form-content {
-        padding: var(--space-lg);
     }
 }
 </style>
