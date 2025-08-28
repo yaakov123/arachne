@@ -13,16 +13,16 @@
             <div class="hosts-list">
                 <div
                     v-for="host in filteredHosts"
-                    :key="host"
+                    :key="host.id"
                     class="host-item"
-                    :class="{ active: hostsStore.selectedHost === host }"
-                    @click="hostsStore.selectHost(host)"
+                    :class="{ active: hostsStore.selectedHost === host.id }"
+                    @click="hostsStore.selectHost(host.id)"
                 >
                     <div class="host-info">
-                        <span class="host-name">{{ host }}</span>
+                        <span class="host-name">{{ host.hostname }}</span>
                     </div>
                     <span class="host-count">{{
-                        hostsStore.getHostCount(host)
+                        hostsStore.getHostCount(host.hostname)
                     }}</span>
                 </div>
             </div>
@@ -40,6 +40,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Sidebar from './Sidebar.vue'
 import { useHostsStore } from '../stores/hosts'
+import type { Host } from '@arachne/database'
 
 const hostsStore = useHostsStore()
 const searchQuery = ref('')
@@ -47,12 +48,12 @@ const searchQuery = ref('')
 // Computed property to filter hosts based on search query
 const filteredHosts = computed(() => {
     if (!searchQuery.value.trim()) {
-        return hostsStore.hostsList
+        return hostsStore.hosts
     }
 
     const query = searchQuery.value.toLowerCase().trim()
-    return hostsStore.hostsList.filter((host: string) =>
-        host.toLowerCase().includes(query)
+    return hostsStore.hosts.filter((host: Host) =>
+        host.hostname.toLowerCase().includes(query)
     )
 })
 

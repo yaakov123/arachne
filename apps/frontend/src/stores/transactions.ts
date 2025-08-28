@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { trpc } from '@/services/trpc'
 import type { FullTransaction, Transaction } from '@arachne/database'
 import { useProjectStore } from './project'
+import { useHostsStore } from './hosts'
 
 export const useTransactionsStore = defineStore('transactions', () => {
     // State
@@ -11,21 +12,79 @@ export const useTransactionsStore = defineStore('transactions', () => {
     const isLoading = ref(false)
     const isConnected = ref(false)
     const searchQuery = ref('')
+    const hostFilteredTransactions = ref<Transaction[]>([])
+    const isLoadingHostFiltered = ref(false)
 
     // Subscription state
     let subscriptionUnsubscribe: (() => void) | null = null
 
-    // Project store dependency
+    // Store dependencies
     const projectStore = useProjectStore()
+    const hostsStore = useHostsStore()
+
+    // Helper functions for host filtering
+    const fetchTransactionsByHost = async (hostId: string) => {
+        const currentProject = projectStore.currentProject
+        if (!currentProject) {
+            console.warn('No active project to fetch transactions for')
+            return
+        }
+
+        isLoadingHostFiltered.value = true
+        try {
+            const result = await trpc.transactions.getByHost.query({
+                projectId: currentProject.id,
+                hostId: hostId,
+                limit: 100, // Fetch large batch for now
+                offset: 0,
+                includeRelatedData: false,
+            })
+
+            hostFilteredTransactions.value = result.transactions
+        } catch (error) {
+            console.error('Failed to fetch transactions by host:', error)
+            throw error
+        } finally {
+            isLoadingHostFiltered.value = false
+        }
+    }
+
+    const clearHostFilter = () => {
+        hostFilteredTransactions.value = []
+        isLoadingHostFiltered.value = false
+    }
+
+    // Watch for host selection changes
+    watch(
+        () => hostsStore.selectedHost,
+        async (newHost, oldHost) => {
+            if (newHost !== oldHost) {
+                if (newHost) {
+                    await fetchTransactionsByHost(newHost)
+                } else {
+                    clearHostFilter()
+                }
+            }
+        }
+    )
 
     // Computed
+    const currentTransactions = computed(() => {
+        // Use host-filtered transactions if a host is selected, otherwise all transactions
+        return hostsStore.selectedHost
+            ? hostFilteredTransactions.value
+            : transactions.value
+    })
+
     const filteredTransactions = computed(() => {
+        const sourceTransactions = currentTransactions.value
+
         if (!searchQuery.value.trim()) {
-            return transactions.value
+            return sourceTransactions
         }
 
         const query = searchQuery.value.toLowerCase()
-        return transactions.value.filter((transaction) => {
+        return sourceTransactions.filter((transaction) => {
             // Search in URL, path, method, status, headers
             const url = transaction.urlFull.toLowerCase()
             const path = transaction.urlPath.toLowerCase()
@@ -39,6 +98,12 @@ export const useTransactionsStore = defineStore('transactions', () => {
                 status.includes(query)
             )
         })
+    })
+
+    const isCurrentlyLoading = computed(() => {
+        return hostsStore.selectedHost
+            ? isLoadingHostFiltered.value
+            : isLoading.value
     })
 
     // Actions
@@ -167,12 +232,18 @@ export const useTransactionsStore = defineStore('transactions', () => {
         isLoading,
         isConnected,
         searchQuery,
+        hostFilteredTransactions,
+        isLoadingHostFiltered,
 
         // Computed
+        currentTransactions,
         filteredTransactions,
+        isCurrentlyLoading,
 
         // Actions
         fetchExistingTransactions,
+        fetchTransactionsByHost,
+        clearHostFilter,
         connect,
         disconnect,
         selectTransaction,

@@ -3,7 +3,6 @@ import type {
     Host,
     Endpoint,
     PrismaClient,
-    HostWithEndpoints,
     HostFindManyArgs,
     EndpointFindManyArgs,
 } from '../types/index'
@@ -19,47 +18,57 @@ export class HostRepository {
     }
 
     /**
-     * Create or update host statistics
+     * Find or create host for a project
      */
-    async upsertHost(hostId: string): Promise<Host> {
+    async findOrCreateHost(projectId: string, hostname: string): Promise<Host> {
         return await this.prisma.host.upsert({
-            where: { id: hostId },
+            where: {
+                projectId_hostname: {
+                    projectId,
+                    hostname,
+                },
+            },
             create: {
-                id: hostId,
+                hostname,
+                projectId,
                 firstSeen: new Date(),
                 lastSeen: new Date(),
-                totalHits: 1,
             },
             update: {
                 lastSeen: new Date(),
-                totalHits: {
-                    increment: 1,
-                },
             },
         })
+    }
+
+    /**
+     * Create or update host statistics (legacy method - updated for new schema)
+     */
+    async upsertHost(projectId: string, hostname: string): Promise<Host> {
+        return this.findOrCreateHost(projectId, hostname)
     }
 
     /**
      * Create or update endpoint statistics
      */
     async upsertEndpoint(
-        hostId: string,
+        projectId: string,
+        hostname: string,
         method: string,
         path: string
     ): Promise<Endpoint> {
         // Ensure host exists first
-        await this.upsertHost(hostId)
+        const host = await this.findOrCreateHost(projectId, hostname)
 
         return await this.prisma.endpoint.upsert({
             where: {
                 hostId_method_path: {
-                    hostId,
+                    hostId: host.id,
                     method,
                     path,
                 },
             },
             create: {
-                hostId,
+                hostId: host.id,
                 method,
                 path,
                 firstSeen: new Date(),
@@ -79,11 +88,12 @@ export class HostRepository {
      * Record transaction activity for analytics
      */
     async recordTransactionActivity(
-        hostId: string,
+        projectId: string,
+        hostname: string,
         method: string,
         path: string
     ): Promise<void> {
-        await this.upsertEndpoint(hostId, method, path)
+        await this.upsertEndpoint(projectId, hostname, method, path)
     }
 
     /**
@@ -96,19 +106,34 @@ export class HostRepository {
     }
 
     /**
+     * Find host by project and hostname
+     */
+    async findHostByProjectAndHostname(
+        projectId: string,
+        hostname: string
+    ): Promise<Host | null> {
+        return await this.prisma.host.findUnique({
+            where: {
+                projectId_hostname: {
+                    projectId,
+                    hostname,
+                },
+            },
+        })
+    }
+
+    /**
      * Find host by ID with endpoints
      */
-    async findHostByIdWithEndpoints(
-        id: string
-    ): Promise<HostWithEndpoints | null> {
-        return (await this.prisma.host.findUnique({
+    async findHostByIdWithEndpoints(id: string) {
+        return await this.prisma.host.findUnique({
             where: { id },
             include: {
                 endpoints: {
                     orderBy: [{ hits: 'desc' }, { lastSeen: 'desc' }],
                 },
             },
-        })) as HostWithEndpoints | null
+        })
     }
 
     /**
@@ -119,20 +144,20 @@ export class HostRepository {
     }
 
     /**
-     * Find all hosts with endpoints
+     * Find hosts by project
      */
-    async findManyHostsWithEndpoints(
-        options?: HostFindManyArgs
-    ): Promise<HostWithEndpoints[]> {
-        return (await this.prisma.host.findMany({
-            ...options,
-            include: {
-                endpoints: {
-                    orderBy: [{ hits: 'desc' }, { lastSeen: 'desc' }],
-                },
-                ...options?.include,
-            },
-        })) as HostWithEndpoints[]
+    async findHostsByProject(projectId: string): Promise<Host[]> {
+        return await this.prisma.host.findMany({
+            where: { projectId },
+            orderBy: [{ lastSeen: 'desc' }],
+        })
+    }
+
+    async findHostWithTransactionCount(projectId: string) {
+        return await this.prisma.host.findMany({
+            where: { projectId },
+            include: { _count: { select: { transactions: true } } },
+        })
     }
 
     /**
@@ -154,7 +179,7 @@ export class HostRepository {
     async getTopHosts(limit: number = 10): Promise<Host[]> {
         return await this.prisma.host.findMany({
             take: limit,
-            orderBy: [{ totalHits: 'desc' }, { lastSeen: 'desc' }],
+            orderBy: [{ lastSeen: 'desc' }],
         })
     }
 
@@ -245,29 +270,21 @@ export class HostRepository {
     async getAnalyticsSummary(): Promise<{
         totalHosts: number
         totalEndpoints: number
-        totalHits: number
         mostActiveHost?: Host
     }> {
-        const [hostCount, endpointCount, hitsSum, mostActiveHost] =
-            await Promise.all([
-                this.prisma.host.count(),
-                this.prisma.endpoint.count(),
-                this.prisma.host.aggregate({
-                    _sum: {
-                        totalHits: true,
-                    },
-                }),
-                this.prisma.host.findFirst({
-                    orderBy: {
-                        totalHits: 'desc',
-                    },
-                }),
-            ])
+        const [hostCount, endpointCount, mostActiveHost] = await Promise.all([
+            this.prisma.host.count(),
+            this.prisma.endpoint.count(),
+            this.prisma.host.findFirst({
+                orderBy: {
+                    lastSeen: 'desc',
+                },
+            }),
+        ])
 
         return {
             totalHosts: hostCount,
             totalEndpoints: endpointCount,
-            totalHits: Number(hitsSum._sum.totalHits || 0),
             mostActiveHost: mostActiveHost || undefined,
         }
     }

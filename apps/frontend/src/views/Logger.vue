@@ -24,7 +24,10 @@
                 </div>
             </div>
             <div ref="trafficListContainer" class="traffic-list-container">
-                <div v-if="transactionsStore.isLoading" class="loading-overlay">
+                <div
+                    v-if="transactionsStore.isCurrentlyLoading"
+                    class="loading-overlay"
+                >
                     <div class="loading-spinner">
                         <div class="spinner"></div>
                         <p class="loading-text">Loading transactions...</p>
@@ -63,10 +66,12 @@ import RequestResponseViewer from '../components/RequestResponseViewer.vue'
 import Resizer from '../components/Resizer.vue'
 import { useTransactionsStore } from '../stores/transactions'
 import { useProjectStore } from '../stores/project'
+import { useHostsStore } from '../stores/hosts'
 import { Search } from 'lucide-vue-next'
 
 const transactionsStore = useTransactionsStore()
 const projectStore = useProjectStore()
+const hostsStore = useHostsStore()
 
 // Element references
 const trafficListContainer = ref<HTMLElement>()
@@ -134,7 +139,57 @@ onUnmounted(() => {
     background: var(--surface-card);
     border-bottom: 1px solid var(--surface-border);
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.host-filter-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--color-primary-50);
+    border: 1px solid var(--color-primary-200);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--text-sm);
+}
+
+[data-theme='dark'] .host-filter-indicator {
+    background: var(--color-primary-900);
+    border-color: var(--color-primary-700);
+}
+
+.filter-label {
+    color: var(--text-color-secondary);
+    font-weight: var(--font-medium);
+}
+
+.filter-host {
+    color: var(--primary-color);
+    font-weight: var(--font-semibold);
+}
+
+.filter-clear {
+    background: none;
+    border: none;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    font-size: var(--text-md);
+    font-weight: bold;
+    padding: var(--space-xs);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.filter-clear:hover {
+    background: var(--surface-hover);
+    color: var(--text-color);
 }
 
 .search-input-wrapper {

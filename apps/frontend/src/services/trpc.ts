@@ -7,12 +7,15 @@ import {
 } from '@trpc/client'
 import type { AppRouter } from '../types'
 import superjson from 'superjson'
-import type { inferRouterInputs } from '@trpc/server'
+import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server'
 
 type RouterInput = inferRouterInputs<AppRouter>
+type RouterOutput = inferRouterOutputs<AppRouter>
 
 export type ProjectCreateInput = RouterInput['projects']['create']
 export type ProjectUpdateInput = RouterInput['projects']['update']
+
+export type HostWithTransactionCount = RouterOutput['hosts']['list']
 
 export function isProjectCreateInput(
     input: ProjectCreateInput | ProjectUpdateInput

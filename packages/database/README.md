@@ -257,7 +257,7 @@ const interactions = await service.getHostEndpointInteractions(
 
 // Analytics summary
 const summary = await service.getAnalyticsSummary()
-// Returns: { totalHosts, totalEndpoints, totalHits, mostActiveHost }
+// Returns: { totalHosts, totalEndpoints, mostActiveHost }
 
 // Cleanup old data
 await service.cleanupOldAnalytics(30) // 30 days retention

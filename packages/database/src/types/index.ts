@@ -1,6 +1,4 @@
 import {
-    Endpoint,
-    Host,
     Prisma,
     Project as DatabaseProject,
     RepeaterMetadata,
@@ -78,10 +76,6 @@ export interface ProjectWithStats extends DatabaseProject {
             responseSize: number
         }
     }
-}
-
-export interface HostWithEndpoints extends Host {
-    endpoints: Endpoint[]
 }
 
 // Service layer types

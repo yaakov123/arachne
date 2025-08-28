@@ -3,7 +3,8 @@ import { Transaction } from '@arachne/database'
 
 export function mapTransactionCompleteEventToTransaction(
     event: TransactionCompleteEvent,
-    projectId: string
+    projectId: string,
+    hostId: string
 ): Transaction {
     return {
         id: event.id,
@@ -29,5 +30,6 @@ export function mapTransactionCompleteEventToTransaction(
         requestBodyId: null,
         responseBodyId: null,
         projectId,
+        hostId,
     }
 }

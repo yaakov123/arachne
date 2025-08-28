@@ -13,18 +13,29 @@ export class TransactionService {
     ) {}
 
     async addTransaction(projectId: string, event: TransactionCompleteEvent) {
-        const input = this.toTransactionCreateInput(projectId, event)
-
         // Extract host and path info for analytics
         const { request } = event.transaction
-        const host = request.url.host
+        const hostname = request.url.host
         const method = request.method
         const path = request.url.path
+
+        // Find or create host for this project
+        const host = await this.hostRepository.findOrCreateHost(
+            projectId,
+            hostname
+        )
+
+        const input = this.toTransactionCreateInput(projectId, host.id, event)
 
         // Record transaction and update host/endpoint analytics in parallel
         await Promise.all([
             this.transactionRepository.create(input),
-            this.hostRepository.recordTransactionActivity(host, method, path),
+            this.hostRepository.recordTransactionActivity(
+                projectId,
+                hostname,
+                method,
+                path
+            ),
         ])
     }
 
@@ -44,14 +55,62 @@ export class TransactionService {
     }
 
     /**
+     * Get transaction count for a specific host in a project
+     */
+    async getTransactionCountByHost(projectId: string, hostId: string) {
+        return this.transactionRepository
+            .findByProject(projectId, {
+                where: { hostId },
+            })
+            .then((transactions) => transactions.length)
+    }
+
+    /**
      * Get all transactions for a project
      */
     async getTransactions(projectId: string): Promise<Transaction[]> {
         return this.transactionRepository.findByProject(projectId)
     }
 
+    /**
+     * Get transactions filtered by host for a project
+     */
+    async getTransactionsByHost(
+        projectId: string,
+        hostId: string,
+        options?: {
+            limit?: number
+            offset?: number
+            orderBy?: 'desc' | 'asc'
+            includeRelatedData?: boolean
+        }
+    ): Promise<Transaction[]> {
+        const findOptions = {
+            where: {
+                projectId,
+                hostId,
+            },
+            orderBy: { timestamp: options?.orderBy || 'desc' },
+            ...(options?.limit && { take: options.limit }),
+            ...(options?.offset && { skip: options.offset }),
+        }
+
+        if (options?.includeRelatedData) {
+            return this.transactionRepository.findByProjectWithAllRelatedData(
+                projectId,
+                findOptions
+            )
+        } else {
+            return this.transactionRepository.findByProject(
+                projectId,
+                findOptions
+            )
+        }
+    }
+
     toTransactionCreateInput(
         projectId: string,
+        hostId: string,
         { id, transaction, ts }: TransactionCompleteEvent
     ): TransactionCreateInput {
         const { request, response, timing, summary } = transaction
@@ -63,6 +122,11 @@ export class TransactionService {
             // Project relationship
             project: {
                 connect: { id: projectId },
+            },
+
+            // Host relationship
+            host: {
+                connect: { id: hostId },
             },
 
             // Request data

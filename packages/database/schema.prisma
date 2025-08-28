@@ -24,6 +24,7 @@ model Project {
   
   // Relationships
   transactions Transaction[]
+  hosts        Host[]
   
   @@map("projects")
 }
@@ -36,6 +37,10 @@ model Transaction {
   // Project relationship
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Host relationship
+  hostId    String
+  host      Host @relation(fields: [hostId], references: [id], onDelete: Cascade)
   
   // Request data
   method   String
@@ -79,6 +84,7 @@ model Transaction {
   repeaterMeta    RepeaterMetadata?
   
   @@index([projectId])
+  @@index([hostId])
   @@index([timestamp])
   @@index([urlHost])
   @@index([method])
@@ -88,18 +94,20 @@ model Transaction {
 
 // Headers table - both request and response headers
 model TransactionHeader {
-  id            String  @id @default(cuid())
-  transactionId String
-  headerType    String  // 'request' | 'response'
-  name          String
-  value         String
-  sensitive     Boolean @default(false)
+  id                    String  @id @default(cuid())
+  requestTransactionId  String?
+  responseTransactionId String?
+  headerType            String  // 'request' | 'response'
+  name                  String
+  value                 String
+  sensitive             Boolean @default(false)
   
   // Relationships
-  requestTransaction  Transaction? @relation("RequestHeaders", fields: [transactionId], references: [id], onDelete: Cascade)
-  responseTransaction Transaction? @relation("ResponseHeaders", fields: [transactionId], references: [id], onDelete: Cascade)
+  requestTransaction  Transaction? @relation("RequestHeaders", fields: [requestTransactionId], references: [id], onDelete: Cascade)
+  responseTransaction Transaction? @relation("ResponseHeaders", fields: [responseTransactionId], references: [id], onDelete: Cascade)
   
-  @@index([transactionId])
+  @@index([requestTransactionId])
+  @@index([responseTransactionId])
   @@index([headerType])
   @@index([name])
   @@map("transaction_headers")
@@ -124,8 +132,8 @@ model TransactionBody {
   sample String // The actual body content sample
   
   // Relationships (back-references from Transaction)
-  requestTransaction  Transaction[] @relation("RequestBody")
-  responseTransaction Transaction[] @relation("ResponseBody")
+  requestTransactions  Transaction[] @relation("RequestBody")
+  responseTransactions Transaction[] @relation("ResponseBody")
   
   @@index([bodyType])
   @@index([detectedFormat])
@@ -159,13 +167,20 @@ model SystemConfig {
 
 // Inventory/Analytics tables for better querying
 model Host {
-  id          String @id // hostname
+  id          String @id @default(cuid()) // Changed from hostname to cuid
+  hostname    String // The actual hostname
   firstSeen   DateTime @default(now())
   lastSeen    DateTime @default(now())
-  totalHits   Int      @default(0)
   
-  endpoints   Endpoint[]
+  // Project relationship
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
+  endpoints     Endpoint[]
+  transactions  Transaction[]
+  
+  @@unique([projectId, hostname])
+  @@index([projectId])
   @@map("hosts")
 }
 

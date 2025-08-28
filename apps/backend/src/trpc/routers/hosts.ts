@@ -1,38 +1,23 @@
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, z } from '../init'
-import { HostRepository, getPrismaClient } from '@arachne/database'
+import { HostRepository } from '@arachne/database'
 
-const hostRepository = new HostRepository(getPrismaClient())
+const hostRepository = new HostRepository()
 
 export const hostsRouter = router({
-    // List all hosts with their endpoints
-    list: publicProcedure.query(async () => {
-        try {
-            const hosts = await hostRepository.findManyHostsWithEndpoints({
-                orderBy: [{ totalHits: 'desc' }, { lastSeen: 'desc' }],
-            })
-            console.log(hosts)
-            return { hosts }
-        } catch (error) {
-            throw new TRPCError({
-                code: 'INTERNAL_SERVER_ERROR',
-                message: 'Failed to list hosts',
-                cause: error,
-            })
-        }
-    }),
-
-    // Get top hosts by activity
-    getTopHosts: publicProcedure
-        .input(z.object({ limit: z.number().min(1).max(100).default(10) }))
+    // List hosts for a specific project
+    list: publicProcedure
+        .input(z.object({ projectId: z.string() }))
         .query(async ({ input }) => {
             try {
-                const hosts = await hostRepository.getTopHosts(input.limit)
-                return { hosts }
+                const hosts = await hostRepository.findHostWithTransactionCount(
+                    input.projectId
+                )
+                return hosts
             } catch (error) {
                 throw new TRPCError({
                     code: 'INTERNAL_SERVER_ERROR',
-                    message: 'Failed to get top hosts',
+                    message: 'Failed to list hosts',
                     cause: error,
                 })
             }
@@ -43,7 +28,7 @@ export const hostsRouter = router({
         .input(z.object({ id: z.string() }))
         .query(async ({ input }) => {
             try {
-                const host = await hostRepository.findHostByIdWithEndpoints(
+                const host = await hostRepository.findHostWithTransactionCount(
                     input.id
                 )
                 if (!host) {
