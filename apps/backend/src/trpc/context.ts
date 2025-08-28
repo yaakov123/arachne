@@ -1,4 +1,4 @@
-import { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify'
+import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify'
 import type { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
 import type { ProjectService } from '../services/project-service'
 import type { TransactionService } from '../services/transaction-service'

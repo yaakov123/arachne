@@ -1,5 +1,5 @@
 import { TransactionRepository } from '../repositories/index'
-import { Transaction, TransactionCreateInput } from '../types'
+import type { Transaction, TransactionCreateInput } from '../types'
 
 export class TransactionService {
     constructor(

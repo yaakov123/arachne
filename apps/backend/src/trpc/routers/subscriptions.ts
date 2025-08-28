@@ -59,7 +59,7 @@ export const subscriptionsRouter = router({
      * Subscribe to transaction-specific events
      */
     transactions: publicProcedure.subscription(async function* () {
-        const eventQueue: Omit<Transaction, 'projectId'>[] = []
+        const eventQueue: Omit<Transaction, 'projectId' | 'hostId'>[] = []
         let resolve: (() => void) | null = null
         let promise = new Promise<void>((res) => {
             resolve = res
@@ -67,9 +67,7 @@ export const subscriptionsRouter = router({
 
         const onEvent = (event: BackendEvent) => {
             if (event.type === 'transactionComplete') {
-                eventQueue.push(
-                    mapTransactionCompleteEventToTransaction(event, '1')
-                )
+                eventQueue.push(mapTransactionCompleteEventToTransaction(event))
                 if (resolve) {
                     resolve()
                     promise = new Promise<void>((res) => {

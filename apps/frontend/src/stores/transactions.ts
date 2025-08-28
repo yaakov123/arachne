@@ -189,34 +189,15 @@ export const useTransactionsStore = defineStore('transactions', () => {
         searchQuery.value = query
     }
 
-    const toggleGroupExpansion = (originalTransactionId: string) => {
-        //noop
-    }
-
-    const repeatRequest = async (transactionId: string) => {
-        const transaction = transactions.value.find(
-            (t) => t.id === transactionId
-        )
-        if (!transaction) {
-            throw new Error('Transaction not found')
-        }
-
-        try {
-            await trpc.repeater.send.mutate({
-                transactionId: transactionId,
-            })
-        } catch (error) {
-            console.error('Failed to repeat request:', error)
-            throw error
-        }
-    }
-
     // Helper functions
-    const onTransaction = (event: Omit<Transaction, 'projectId'>) => {
+    const onTransaction = (
+        event: Omit<Transaction, 'projectId' | 'hostId'>
+    ) => {
         if (!projectStore.currentProject) return
         const transaction: Transaction = {
             ...event,
             projectId: projectStore.currentProject.id,
+            hostId: '',
         }
         handleTransactionComplete(transaction)
     }
@@ -249,7 +230,5 @@ export const useTransactionsStore = defineStore('transactions', () => {
         selectTransaction,
         clearSelectedTransaction,
         updateSearchQuery,
-        toggleGroupExpansion,
-        repeatRequest,
     }
 })

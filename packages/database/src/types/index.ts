@@ -1,4 +1,4 @@
-import {
+import type {
     Prisma,
     Project as DatabaseProject,
     RepeaterMetadata,

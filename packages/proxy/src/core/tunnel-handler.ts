@@ -9,7 +9,7 @@ import { getSocketInfo } from './utils/sockets'
 import { safeSocketEnd } from './cleanup'
 import { logger } from '../logger'
 import { USER_AGENT, PROXY_AGENT_HEADER } from './constants'
-import { ErrorContext } from '../plugins/types'
+import type { ErrorContext } from '../plugins/types'
 
 const pipelineAsync = promisify(pipeline)
 

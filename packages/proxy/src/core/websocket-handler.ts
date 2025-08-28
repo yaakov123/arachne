@@ -13,7 +13,7 @@ import { logger } from '../logger'
 import { sendWebSocketErrorResponse } from './error-responses'
 import { createSocketCleanup, safeSocketEnd } from './cleanup'
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
-import { ErrorContext } from '../plugins/types'
+import type { ErrorContext } from '../plugins/types'
 import { ProxyConfigStore } from './config-store'
 
 const pipelineAsync = promisify(pipeline)

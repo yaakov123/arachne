@@ -1,9 +1,9 @@
 import { logger } from '../logger'
 import { EventEmitter } from 'events'
 import {
-    ProjectCreateInput,
+    type ProjectCreateInput,
+    type ProjectUpdateInput,
     ProjectRepository,
-    ProjectUpdateInput,
     SystemConfigService,
 } from '@arachne/database'
 

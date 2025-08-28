@@ -1,11 +1,9 @@
-import { TransactionCompleteEvent } from '@arachne/api-types'
-import { Transaction } from '@arachne/database'
+import type { TransactionCompleteEvent } from '@arachne/api-types'
+import type { Transaction } from '@arachne/database'
 
 export function mapTransactionCompleteEventToTransaction(
-    event: TransactionCompleteEvent,
-    projectId: string,
-    hostId: string
-): Transaction {
+    event: TransactionCompleteEvent
+): Omit<Transaction, 'projectId' | 'hostId'> {
     return {
         id: event.id,
         timestamp: new Date(event.ts),
@@ -29,7 +27,5 @@ export function mapTransactionCompleteEventToTransaction(
         responseTime: BigInt(event.transaction.timing.responseTime),
         requestBodyId: null,
         responseBodyId: null,
-        projectId,
-        hostId,
     }
 }

@@ -1,5 +1,5 @@
 import { SystemConfigRepository } from '../repositories/index'
-import { SystemConfigUpdateInput } from '../types'
+import type { SystemConfigUpdateInput } from '../types'
 
 export class SystemConfigService {
     constructor(

@@ -1,5 +1,5 @@
 import { ProjectRepository } from '../repositories/index'
-import { ProjectCreateInput, ProjectUpdateInput } from '../types'
+import type { ProjectCreateInput, ProjectUpdateInput } from '../types'
 
 export class ProjectService {
     constructor(

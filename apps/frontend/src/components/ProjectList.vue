@@ -7,7 +7,7 @@
         <div v-else class="project-list">
             <ProjectItem
                 v-for="project in projects"
-                :key="project.metadata.id"
+                :key="project.id"
                 :project="project"
                 :is-active="isCurrentProject(project)"
                 @select="$emit('select', project)"
@@ -19,12 +19,12 @@
 </template>
 
 <script setup lang="ts">
-import type { ProjectInfo } from '@arachne/api-types'
 import ProjectItem from './ProjectItem.vue'
+import type { Project } from '@arachne/database'
 
 interface Props {
-    projects: ProjectInfo[]
-    currentProject?: ProjectInfo | null
+    projects: Project[]
+    currentProject?: Project | null
     loading?: boolean
 }
 
@@ -34,13 +34,13 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 defineEmits<{
-    select: [project: ProjectInfo]
-    edit: [project: ProjectInfo]
-    delete: [project: ProjectInfo]
+    select: [project: Project]
+    edit: [project: Project]
+    delete: [project: Project]
 }>()
 
-function isCurrentProject(project: ProjectInfo): boolean {
-    return props.currentProject?.metadata.id === project.metadata.id
+function isCurrentProject(project: Project): boolean {
+    return props.currentProject?.id === project.id
 }
 </script>
 

@@ -1,10 +1,10 @@
 import {
-    Transaction,
-    TransactionCreateInput,
+    type Transaction,
+    type TransactionCreateInput,
     TransactionRepository,
     HostRepository,
 } from '@arachne/database'
-import { TransactionCompleteEvent } from '@arachne/api-types'
+import type { TransactionCompleteEvent } from '@arachne/api-types'
 
 export class TransactionService {
     constructor(

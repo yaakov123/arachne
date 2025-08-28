@@ -1,4 +1,4 @@
-import http, { IncomingMessage, RequestOptions } from 'node:http'
+import http, { type IncomingMessage, type RequestOptions } from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import { pipeline } from 'node:stream'
