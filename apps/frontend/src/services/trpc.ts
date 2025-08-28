@@ -1,4 +1,10 @@
-import { createTRPCClient, httpBatchLink } from '@trpc/client'
+import {
+    createTRPCClient,
+    createWSClient,
+    wsLink,
+    httpBatchLink,
+    splitLink,
+} from '@trpc/client'
 import type { AppRouter } from '../types'
 import superjson from 'superjson'
 import type { inferRouterInputs } from '@trpc/server'
@@ -20,11 +26,29 @@ export function isProjectUpdateInput(
     return 'id' in input
 }
 
+// Create persistent WebSocket connection for subscriptions
+const wsClient = createWSClient({
+    url: 'ws://127.0.0.1:8080/api',
+})
+
+// Configure TRPCClient to use HTTP for queries/mutations and WebSocket for subscriptions
 export const trpc = createTRPCClient<AppRouter>({
     links: [
-        httpBatchLink({
-            url: 'http://127.0.0.1:8080/api',
-            transformer: superjson,
+        splitLink({
+            condition: (op) => op.type === 'subscription',
+            // Use WebSocket for subscriptions
+            true: wsLink({
+                client: wsClient,
+                transformer: superjson,
+            }),
+            // Use HTTP for queries and mutations
+            false: httpBatchLink({
+                url: 'http://127.0.0.1:8080/api',
+                transformer: superjson,
+            }),
         }),
     ],
 })
+
+// Export WebSocket client for manual connection management if needed
+export { wsClient }

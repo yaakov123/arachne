@@ -13,6 +13,11 @@ export const useProjectStore = defineStore('project', () => {
     const loading = ref(false)
     const error = ref<string | null>(null)
 
+    const initialize = async () => {
+        await loadCurrentProject()
+        await loadProjects()
+    }
+
     const loadCurrentProject = async () => {
         loading.value = true
         const response = await trpc.projects.getCurrent.query()
@@ -91,6 +96,7 @@ export const useProjectStore = defineStore('project', () => {
         currentProject,
         loading,
         error,
+        initialize,
         loadCurrentProject,
         loadProjects,
         createProject,

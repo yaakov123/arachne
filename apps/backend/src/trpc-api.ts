@@ -30,9 +30,18 @@ export async function registerTRPCApi(
         opts.token
     )
 
-    // Register the tRPC plugin with Fastify
+    // Register the tRPC plugin with Fastify with WebSocket support
     await app.register(fastifyTRPCPlugin, {
         prefix: opts.prefix,
+        useWSS: true,
+        // Enable heartbeat messages to keep connection open (disabled by default)
+        keepAlive: {
+            enabled: true,
+            // server ping message interval in milliseconds
+            pingMs: 30000,
+            // connection is terminated if pong message is not received in this many milliseconds
+            pongWaitMs: 5000,
+        },
         trpcOptions: {
             router: appRouter,
             createContext,

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import type { WsHub } from '../ws-hub'
+import type { BackendEvent } from '@arachne/api-types'
 
 export class BroadcastService {
     private requestListener!: (event: any) => void
@@ -8,7 +8,10 @@ export class BroadcastService {
     private responseBodyListener!: (event: any) => void
     private transactionCompleteListener!: (event: any) => void
 
-    constructor(private hub: WsHub, private eventEmitter: EventEmitter) {
+    constructor(
+        private broadcastFunction: (event: BackendEvent) => void,
+        private eventEmitter: EventEmitter
+    ) {
         this.setupEventListeners()
     }
 
@@ -16,7 +19,7 @@ export class BroadcastService {
         // Request events
         this.requestListener = (event: any) => {
             try {
-                this.hub.broadcast({
+                this.broadcastFunction({
                     type: 'request',
                     ...event,
                 })
@@ -29,7 +32,7 @@ export class BroadcastService {
         // Response events
         this.responseListener = (event: any) => {
             try {
-                this.hub.broadcast({
+                this.broadcastFunction({
                     type: 'responseHead',
                     ...event,
                 })
@@ -41,7 +44,7 @@ export class BroadcastService {
         // Request body events
         this.requestBodyListener = (event: any) => {
             try {
-                this.hub.broadcast({
+                this.broadcastFunction({
                     type: 'requestBody',
                     ...event,
                 })
@@ -53,7 +56,7 @@ export class BroadcastService {
         // Response body events
         this.responseBodyListener = (event: any) => {
             try {
-                this.hub.broadcast({
+                this.broadcastFunction({
                     type: 'responseBody',
                     ...event,
                 })
@@ -66,7 +69,7 @@ export class BroadcastService {
         this.transactionCompleteListener = (event: any) => {
             try {
                 // Transaction complete events already have the correct format
-                this.hub.broadcast(event)
+                this.broadcastFunction(event)
             } catch (error) {
                 console.error(
                     'Failed to broadcast transaction complete event:',

@@ -10,12 +10,12 @@ import { EventEmitter } from 'events'
 import { createTransactionAggregatorPlugin } from './plugins/transaction-aggregator-plugin'
 import { BroadcastService } from './services/broadcast-service'
 import { StorageService } from './services/storage-service'
-import { WsHub } from './ws-hub'
 import { registerTRPCApi } from './trpc-api'
 import { logger } from './logger'
 import { ProjectService } from './services/project-service'
 import { buildProjectConfiguration } from './services/proxy-configuration-manager'
 import { TransactionService } from './services/transaction-service'
+import { broadcastEvent } from './trpc/routers/subscriptions'
 
 function envNum(name: string, def: number): number {
     const v = process.env[name]
@@ -32,7 +32,6 @@ async function main() {
     const BACKEND_HOST = envStr('BACKEND_HOST', '127.0.0.1')
     const BACKEND_PORT = envNum('BACKEND_PORT', 8080)
     const BACKEND_API_PREFIX = envStr('BACKEND_API_PREFIX', '/api')
-    const BACKEND_WS_PATH = envStr('BACKEND_WS_PATH', '/ws')
     const BACKEND_CORS = envStr('BACKEND_CORS', '*')
     const BACKEND_TOKEN = process.env['BACKEND_TOKEN']
 
@@ -70,9 +69,8 @@ async function main() {
         allowedHeaders: ['Authorization', 'Content-Type'],
     })
 
-    // WebSocket Hub
-    const hub = new WsHub()
-    hub.start()
+    // Note: WebSocket functionality now handled by tRPC subscriptions
+    // No need for custom WebSocket hub
 
     // Project Service
     const projectService = new ProjectService()
@@ -95,17 +93,18 @@ async function main() {
         projectName: currentProject.name,
     })
 
+    // Register WebSocket support for tRPC (required for subscriptions)
     await app.register(websocket)
-    app.get(BACKEND_WS_PATH, { websocket: true }, (conn) => {
-        const wsAny: any = (conn as any).socket ?? (conn as any)
-        hub.handleConnection(wsAny)
-    })
 
     // Event-driven architecture setup
     const transactionEvents = new EventEmitter()
 
     // Create services that listen to transaction events
-    const broadcastService = new BroadcastService(hub, transactionEvents)
+    // BroadcastService now uses tRPC subscriptions instead of custom WebSocket hub
+    const broadcastService = new BroadcastService(
+        broadcastEvent,
+        transactionEvents
+    )
     const storageService = new StorageService(
         transactionService,
         projectService,
@@ -159,7 +158,9 @@ async function main() {
     // Start HTTP server first
     await app.listen({ host: BACKEND_HOST, port: BACKEND_PORT })
     app.log.info(`Backend listening on http://${BACKEND_HOST}:${BACKEND_PORT}`)
-    app.log.info(`WS at ${BACKEND_WS_PATH}`)
+    app.log.info(
+        `tRPC WebSocket subscriptions available at ${BACKEND_API_PREFIX}`
+    )
 
     let stopping = false
     const shutdown = async (signal: string) => {
@@ -175,7 +176,6 @@ async function main() {
 
             projectService.cleanup()
             // Stop other services
-            hub.stop()
             await proxy.stop()
             await app.close()
 

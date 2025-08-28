@@ -289,8 +289,8 @@ export async function requestViaProxy(
                     chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c))
                 )
                 res.on('end', () => {
-                    let body = Buffer.concat(chunks)
-                    
+                    let body = Buffer.concat(chunks) as any
+
                     // Handle gzip decompression if needed
                     const encoding = res.headers['content-encoding']
                     if (encoding === 'gzip') {
@@ -298,22 +298,31 @@ export async function requestViaProxy(
                             body = zlib.gunzipSync(body)
                         } catch (err) {
                             // If decompression fails, return original body
-                            console.warn('Failed to decompress gzip response:', err)
+                            console.warn(
+                                'Failed to decompress gzip response:',
+                                err
+                            )
                         }
                     } else if (encoding === 'deflate') {
                         try {
                             body = zlib.inflateSync(body)
                         } catch (err) {
-                            console.warn('Failed to decompress deflate response:', err)
+                            console.warn(
+                                'Failed to decompress deflate response:',
+                                err
+                            )
                         }
                     } else if (encoding === 'br') {
                         try {
                             body = zlib.brotliDecompressSync(body)
                         } catch (err) {
-                            console.warn('Failed to decompress brotli response:', err)
+                            console.warn(
+                                'Failed to decompress brotli response:',
+                                err
+                            )
                         }
                     }
-                    
+
                     resolve({
                         status: res.statusCode || 0,
                         headers: res.headers,

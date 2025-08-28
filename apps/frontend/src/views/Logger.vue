@@ -62,9 +62,11 @@ import TrafficList from '../components/TrafficList.vue'
 import RequestResponseViewer from '../components/RequestResponseViewer.vue'
 import Resizer from '../components/Resizer.vue'
 import { useTransactionsStore } from '../stores/transactions'
+import { useProjectStore } from '../stores/project'
 import { Search } from 'lucide-vue-next'
 
 const transactionsStore = useTransactionsStore()
+const projectStore = useProjectStore()
 
 // Element references
 const trafficListContainer = ref<HTMLElement>()
@@ -93,6 +95,7 @@ watch(searchQuery, (newQuery) => {
 // Lifecycle
 onMounted(async () => {
     try {
+        await projectStore.initialize()
         // First fetch existing transactions from the current project
         await transactionsStore.fetchExistingTransactions()
         // Then connect to WebSocket for real-time updates
