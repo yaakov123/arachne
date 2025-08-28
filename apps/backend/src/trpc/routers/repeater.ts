@@ -3,34 +3,9 @@ import * as http from 'http'
 import { router, publicProcedure, z } from '../init'
 
 // Define the transaction structure for repeater
-const displayHeaderSchema = z.object({
-    name: z.string(),
-    value: z.string(),
-})
-
-const bodyContentSchema = z.object({
-    encoding: z.string(),
-})
-
-const requestBodySchema = z.object({
-    sample: z.string(),
-    content: bodyContentSchema,
-})
-
-const transactionRequestSchema = z.object({
-    method: z.string(),
-    url: z.object({
-        full: z.string(),
-    }),
-    headers: z.array(displayHeaderSchema),
-    body: requestBodySchema.optional(),
-})
 
 const repeatRequestSchema = z.object({
-    originalTransactionId: z.string().min(1),
-    transaction: z.object({
-        request: transactionRequestSchema,
-    }),
+    transactionId: z.string().min(1),
 })
 
 export const repeaterRouter = router({
@@ -39,7 +14,19 @@ export const repeaterRouter = router({
         .input(repeatRequestSchema)
         .mutation(async ({ ctx, input }) => {
             try {
-                const { originalTransactionId, transaction } = input
+                const { transactionId } = input
+
+                const transaction =
+                    await ctx.transactionService.getFullTransaction(
+                        transactionId
+                    )
+
+                if (!transaction) {
+                    throw new TRPCError({
+                        code: 'NOT_FOUND',
+                        message: 'Transaction not found',
+                    })
+                }
 
                 if (!ctx.proxy || !ctx.proxy.isRunning()) {
                     throw new TRPCError({
@@ -52,13 +39,13 @@ export const repeaterRouter = router({
                 // Create repeater metadata header
                 const repeaterMeta = {
                     source: 'repeater',
-                    originalId: originalTransactionId,
+                    originalId: transactionId,
                     timestamp: Date.now(),
                 }
 
                 // Prepare headers - convert DisplayHeader[] to the format needed for HTTP request
                 const headers: Record<string, string> = {}
-                transaction.request.headers.forEach((h) => {
+                transaction.requestHeaders.forEach((h) => {
                     headers[h.name] = h.value
                 })
 
@@ -76,9 +63,9 @@ export const repeaterRouter = router({
 
                 // Prepare body for sending
                 let body: string | Buffer | undefined = undefined
-                if (transaction.request.body?.sample) {
-                    const sample = transaction.request.body.sample
-                    const encoding = transaction.request.body.content.encoding
+                if (transaction.requestBody?.sample) {
+                    const sample = transaction.requestBody.sample
+                    const encoding = transaction.requestBody.encoding
 
                     if (encoding === 'base64') {
                         body = Buffer.from(sample, 'base64')
@@ -91,8 +78,8 @@ export const repeaterRouter = router({
                 await sendRepeaterRequest({
                     proxyHost: serverInfo.host,
                     proxyPort: serverInfo.port,
-                    method: transaction.request.method,
-                    url: transaction.request.url.full,
+                    method: transaction.method,
+                    url: transaction.urlFull,
                     headers,
                     body,
                 })

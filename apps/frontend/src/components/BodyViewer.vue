@@ -1,11 +1,11 @@
 <template>
     <div class="body-container" v-if="body">
-        <div v-if="body.content.contentType" class="content-type-header">
-            <span class="content-type">{{ body.content.contentType }}</span>
-            <span v-if="body.content.detectedFormat" class="detected-format">
-                ({{ body.content.detectedFormat }})
+        <div v-if="body.contentType" class="content-type-header">
+            <span class="content-type">{{ body.contentType }}</span>
+            <span v-if="body.detectedFormat" class="detected-format">
+                ({{ body.detectedFormat }})
             </span>
-            <span v-if="body.content.truncated" class="truncated-indicator">
+            <span v-if="body.truncated" class="truncated-indicator">
                 TRUNCATED
             </span>
         </div>
@@ -14,9 +14,9 @@
         <BinaryBodyViewer
             v-if="isBinaryContent"
             :content="body.sample"
-            :content-type="body.content.contentType"
-            :content-size="body.content.size"
-            :encoding="body.content.encoding"
+            :content-type="body.contentType"
+            :content-size="body.size"
+            :encoding="body.encoding as 'utf8' | 'base64'"
         />
 
         <!-- Form Data Content (keep original viewer) -->
@@ -26,10 +26,10 @@
         <MonacoBodyViewer
             v-else
             :content="body.sample"
-            :detected-format="body.content.detectedFormat"
-            :content-type="body.content.contentType"
-            :content-size="body.content.size"
-            :encoding="body.content.encoding"
+            :detected-format="body.detectedFormat"
+            :content-type="body.contentType"
+            :content-size="body.size"
+            :encoding="body.encoding"
             :editor-height="editorHeight"
         />
     </div>
@@ -37,14 +37,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import CollapsibleSection from './CollapsibleSection.vue'
-import JsonBodyViewer from './JsonBodyViewer.vue'
-import XmlBodyViewer from './XmlBodyViewer.vue'
 import FormDataViewer from './FormDataViewer.vue'
 import BinaryBodyViewer from './BinaryBodyViewer.vue'
-import TextBodyViewer from './TextBodyViewer.vue'
 import MonacoBodyViewer from './MonacoBodyViewer.vue'
-import type { TransactionBody } from '@arachne/api-types'
+import type { TransactionBody } from '@arachne/database'
 
 interface Props {
     body?: TransactionBody | null
@@ -54,20 +50,18 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
     defaultCollapsed: false,
-    editorHeight: '400px'
+    editorHeight: '400px',
 })
 
 // Content type detection
 const isFormContent = computed(() => {
-    return props.body?.content.detectedFormat === 'form'
+    return props.body?.detectedFormat === 'form'
 })
 
 const isBinaryContent = computed(() => {
-    const format = props.body?.content.detectedFormat
-    return format === 'binary' || props.body?.content.encoding === 'base64'
+    const format = props.body?.detectedFormat
+    return format === 'binary' || props.body?.encoding === 'base64'
 })
-
-
 
 // Formatting functions
 const formatBodySize = (size: number): string => {
@@ -79,7 +73,7 @@ const formatBodySize = (size: number): string => {
 const formatBadge = (): string => {
     if (!props.body?.sample) return ''
     const size = formatBodySize(props.body.sample.length)
-    const format = props.body.content.detectedFormat
+    const format = props.body.detectedFormat
     return format ? `${format.toUpperCase()} (${size})` : `(${size})`
 }
 </script>

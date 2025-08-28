@@ -1,7 +1,11 @@
 <template>
     <div class="binary-content">
         <div v-if="isImageContent" class="image-preview">
-            <img :src="imageDataUrl" alt="Response image" class="response-image" />
+            <img
+                :src="imageDataUrl"
+                alt="Response image"
+                class="response-image"
+            />
             <div class="image-info">
                 {{ contentType }} - {{ formatBodySize(contentSize) }}
             </div>
@@ -9,8 +13,8 @@
         <div v-else class="binary-info">
             <div class="binary-type">Binary Content</div>
             <div class="binary-details">
-                Type: {{ contentType || 'Unknown' }}<br>
-                Size: {{ formatBodySize(contentSize) }}<br>
+                Type: {{ contentType || 'Unknown' }}<br />
+                Size: {{ formatBodySize(contentSize) }}<br />
                 Encoding: {{ encoding }}
             </div>
             <details class="binary-raw">
@@ -26,7 +30,7 @@ import { computed } from 'vue'
 
 interface Props {
     content: string
-    contentType?: string
+    contentType: string | null
     contentSize: number
     encoding: 'utf8' | 'base64'
 }
@@ -40,16 +44,16 @@ const isImageContent = computed(() => {
 
 const imageDataUrl = computed(() => {
     if (!isImageContent.value) return ''
-    
+
     const sample = props.content
     const contentType = props.contentType || 'image/png'
-    
+
     if (sample.startsWith('base64:')) {
         return `data:${contentType};base64,${sample.substring(7)}`
     } else if (props.encoding === 'base64') {
         return `data:${contentType};base64,${sample}`
     }
-    
+
     return ''
 })
 

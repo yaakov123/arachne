@@ -1,7 +1,5 @@
 <template>
     <div class="monaco-body-viewer">
-
-
         <div class="viewer-content">
             <MonacoEditor
                 :content="formattedContent"
@@ -22,15 +20,15 @@ import MonacoEditor from './MonacoEditor.vue'
 
 interface Props {
     content: string
-    detectedFormat?: string
-    contentType?: string
-    contentSize?: number
-    encoding?: 'utf8' | 'base64'
+    detectedFormat: string | null
+    contentType: string | null
+    contentSize: number
+    encoding: string
     editorHeight?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    editorHeight: '400px'
+    editorHeight: '400px',
 })
 
 const showMinimap = ref(false)
@@ -108,7 +106,7 @@ const monacoLanguage = computed(() => {
 // Format content for Monaco editor
 const formattedContent = computed(() => {
     const format = props.detectedFormat?.toLowerCase()
-    
+
     try {
         switch (format) {
             case 'json':
@@ -127,8 +125,6 @@ const formattedContent = computed(() => {
         return props.content
     }
 })
-
-
 </script>
 
 <style scoped>

@@ -1,6 +1,8 @@
 import { router, publicProcedure } from '../init'
 import type { BackendEvent } from '@arachne/api-types'
+import type { Transaction } from '@arachne/database'
 import { EventEmitter } from 'events'
+import { mapTransactionCompleteEventToTransaction } from '../../utils/mapper'
 
 // Create a global event emitter for broadcasting events
 // This will replace the WsHub functionality
@@ -57,22 +59,17 @@ export const subscriptionsRouter = router({
      * Subscribe to transaction-specific events
      */
     transactions: publicProcedure.subscription(async function* () {
-        const eventQueue: BackendEvent[] = []
+        const eventQueue: Omit<Transaction, 'projectId'>[] = []
         let resolve: (() => void) | null = null
         let promise = new Promise<void>((res) => {
             resolve = res
         })
 
         const onEvent = (event: BackendEvent) => {
-            // Only queue transaction-related events (all proxy traffic events)
-            if (
-                event.type === 'request' ||
-                event.type === 'requestBody' ||
-                event.type === 'responseHead' ||
-                event.type === 'responseBody' ||
-                event.type === 'transactionComplete'
-            ) {
-                eventQueue.push(event)
+            if (event.type === 'transactionComplete') {
+                eventQueue.push(
+                    mapTransactionCompleteEventToTransaction(event, '1')
+                )
                 if (resolve) {
                     resolve()
                     promise = new Promise<void>((res) => {

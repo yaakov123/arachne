@@ -3,7 +3,6 @@ import type {
     PrismaClient,
     TransactionCreateInput,
     TransactionFindManyArgs,
-    TransactionWithHeaders,
 } from '../types/index'
 import { getPrismaClient } from '../client'
 
@@ -38,10 +37,8 @@ export class TransactionRepository {
     /**
      * Find transaction by ID with all related data
      */
-    async findByIdWithHeaders(
-        id: string
-    ): Promise<TransactionWithHeaders | null> {
-        return (await this.prisma.transaction.findUnique({
+    async findByIdWithAllRelatedData(id: string) {
+        return this.prisma.transaction.findUnique({
             where: { id },
             include: {
                 requestHeaders: true,
@@ -50,7 +47,7 @@ export class TransactionRepository {
                 responseBody: true,
                 repeaterMeta: true,
             },
-        })) as TransactionWithHeaders | null
+        })
     }
 
     /**
@@ -72,11 +69,11 @@ export class TransactionRepository {
     /**
      * Find transactions by project ID with headers
      */
-    async findByProjectWithHeaders(
+    async findByProjectWithAllRelatedData(
         projectId: string,
         options?: TransactionFindManyArgs
-    ): Promise<TransactionWithHeaders[]> {
-        return (await this.prisma.transaction.findMany({
+    ) {
+        return this.prisma.transaction.findMany({
             ...options,
             where: {
                 projectId,
@@ -90,7 +87,7 @@ export class TransactionRepository {
                 repeaterMeta: true,
                 ...options?.include,
             },
-        })) as TransactionWithHeaders[]
+        })
     }
 
     /**

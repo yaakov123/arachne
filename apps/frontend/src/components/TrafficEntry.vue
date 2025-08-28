@@ -4,74 +4,31 @@
         :data-transaction-id="transaction.id"
         :class="{
             selected: isSelected,
-            'parent-highlighted': isParentHighlighted,
-            'is-original': transaction.repeaterGroup?.isOriginal,
-            'is-repeated': transaction.repeaterGroup?.isRepeated,
-            'has-children': hasRepeatedRequests,
         }"
         @click="handleEntryClick"
         @contextmenu="showContextMenu"
     >
-        <!-- Collapse/Expand controls - moved to far left -->
-        <div class="expand-controls">
-            <button
-                v-if="hasRepeatedRequests"
-                class="expand-button"
-                @click.stop="toggleExpanded"
-                :title="
-                    isExpanded
-                        ? 'Collapse repeated requests'
-                        : 'Expand repeated requests'
-                "
-            >
-                <ChevronDown v-if="isExpanded" :size="14" />
-                <ChevronRight v-else :size="14" />
-                <span class="repeat-count">{{ repeatCount }}</span>
-            </button>
-            <div
-                v-else-if="transaction.repeaterGroup?.isRepeated"
-                class="nested-indent"
-            >
-                <RotateCcw :size="12" class="repeat-icon" />
-            </div>
+        <div class="entry-expand"></div>
+        <div class="entry-method" :class="getMethodClass(transaction.method)">
+            {{ transaction.method }}
         </div>
 
-        <div
-            class="entry-method"
-            :class="getMethodClass(transaction.request.method)"
-        >
-            {{ transaction.request.method }}
-        </div>
-
-        <div class="entry-url" :title="transaction.request.url.full">
-            {{ transaction.request.url.path
-            }}{{
-                transaction.request.url.query
-                    ? '?' + transaction.request.url.query
-                    : ''
-            }}
+        <div class="entry-url" :title="transaction.urlFull">
+            {{ transaction.urlPath
+            }}{{ transaction.urlQuery ? '?' + transaction.urlQuery : '' }}
         </div>
 
         <div
             class="entry-status"
             :style="{
-                color: transaction.response?.statusCode
-                    ? getStatusTextColor(transaction.response.statusCode)
+                color: transaction.statusCode
+                    ? getStatusTextColor(transaction.statusCode)
                     : 'var(--text-color-muted)',
             }"
         >
-            {{ transaction.response?.statusCode || '-' }}
+            {{ transaction.statusCode || '-' }}
         </div>
-        <div class="entry-size">
-            {{ formatSize(transaction.summary.responseSize || 0) }}
-        </div>
-        <div class="entry-time">
-            {{
-                transaction.timing.duration
-                    ? transaction.timing.duration.toFixed(0) + 'ms'
-                    : '-'
-            }}
-        </div>
+        <div class="entry-time">{{ transaction.duration || '-' }}</div>
     </div>
 
     <!-- Context Menu -->
@@ -90,46 +47,26 @@
                 <Terminal :size="14" />
                 Copy as cURL
             </div>
-            <div
-                v-if="!transaction.repeaterGroup?.isRepeated"
-                class="context-menu-separator"
-            ></div>
-            <div
-                v-if="!transaction.repeaterGroup?.isRepeated"
-                class="context-menu-item"
-                @click="repeatRequest"
-                :class="{ disabled: isRepeating }"
-            >
-                <RotateCcw :size="14" />
-                {{ isRepeating ? 'Repeating...' : 'Repeat Request' }}
-            </div>
         </div>
     </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import {
-    ChevronDown,
-    ChevronRight,
-    RotateCcw,
-    Link,
-    Terminal,
-} from 'lucide-vue-next'
-import type { TransactionWithMeta } from '../stores/transactions'
+import { ref } from 'vue'
+import { Link, Terminal } from 'lucide-vue-next'
 import { useTransactionsStore } from '../stores/transactions'
 import { getMethodClass, getStatusTextColor } from '../utils/http-colors'
+import type { Transaction } from '@arachne/database'
 
 interface Props {
-    transaction: TransactionWithMeta
+    transaction: Transaction
     isSelected: boolean
-    isParentHighlighted?: boolean
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-    select: [transaction: TransactionWithMeta]
+    select: [transaction: Transaction]
 }>()
 
 // Get store instance
@@ -142,20 +79,6 @@ const contextMenuY = ref(0)
 const isRepeating = ref(false)
 
 // Computed properties
-const hasRepeatedRequests = computed(
-    () =>
-        props.transaction.repeaterGroup?.isOriginal &&
-        (props.transaction.repeaterGroup?.childTransactionIds.length ?? 0) > 0
-)
-
-const isExpanded = computed(
-    () => props.transaction.repeaterGroup?.isExpanded ?? false
-)
-
-const repeatCount = computed(
-    () => props.transaction.repeaterGroup?.childTransactionIds.length ?? 0
-)
-
 // Event handlers
 const handleEntryClick = () => {
     emit('select', props.transaction)
@@ -190,34 +113,19 @@ const repeatRequest = async () => {
 }
 
 const copyUrl = () => {
-    navigator.clipboard.writeText(props.transaction.request.url.full)
+    navigator.clipboard.writeText(props.transaction.urlFull)
 }
 
 const copyCurl = () => {
     // TODO: Generate cURL command
     console.log('Copy as cURL not implemented yet')
 }
-
-const toggleExpanded = () => {
-    if (props.transaction.repeaterGroup?.isOriginal) {
-        store.toggleGroupExpansion(props.transaction.id)
-    }
-}
-
-// Helper function to format file sizes
-function formatSize(bytes: number): string {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
 </script>
 
 <style scoped>
 .traffic-entry {
     display: grid;
-    grid-template-columns: 40px 80px 1fr 80px 80px 80px;
+    grid-template-columns: 40px 80px 1fr 80px 80px;
     gap: var(--space-md);
     padding: var(--space-md) var(--space-sm) var(--space-md) 0;
     border-bottom: 1px solid var(--surface-border);

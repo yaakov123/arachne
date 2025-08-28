@@ -1,17 +1,21 @@
-import { EventEmitter } from 'events'
-import type { BackendEvent } from '@arachne/api-types'
+import type {
+    ResponseBodyEvent,
+    RequestBodyEvent,
+    RequestEvent,
+    TransactionCompleteEvent,
+} from '@arachne/api-types'
+import { BroadcastEmitter } from './broadcast-emitter'
+import { broadcastEvent } from '../trpc/routers/subscriptions'
 
 export class BroadcastService {
-    private requestListener!: (event: any) => void
-    private responseListener!: (event: any) => void
-    private requestBodyListener!: (event: any) => void
-    private responseBodyListener!: (event: any) => void
-    private transactionCompleteListener!: (event: any) => void
+    private requestListener!: (event: RequestEvent) => void
+    private requestBodyListener!: (event: RequestBodyEvent) => void
+    private responseBodyListener!: (event: ResponseBodyEvent) => void
+    private transactionCompleteListener!: (
+        event: TransactionCompleteEvent
+    ) => void
 
-    constructor(
-        private broadcastFunction: (event: BackendEvent) => void,
-        private eventEmitter: EventEmitter
-    ) {
+    constructor(private eventEmitter: BroadcastEmitter) {
         this.setupEventListeners()
     }
 
@@ -19,7 +23,7 @@ export class BroadcastService {
         // Request events
         this.requestListener = (event: any) => {
             try {
-                this.broadcastFunction({
+                broadcastEvent({
                     type: 'request',
                     ...event,
                 })
@@ -29,22 +33,10 @@ export class BroadcastService {
             }
         }
 
-        // Response events
-        this.responseListener = (event: any) => {
-            try {
-                this.broadcastFunction({
-                    type: 'responseHead',
-                    ...event,
-                })
-            } catch (error) {
-                console.error('Failed to broadcast response event:', error)
-            }
-        }
-
         // Request body events
         this.requestBodyListener = (event: any) => {
             try {
-                this.broadcastFunction({
+                broadcastEvent({
                     type: 'requestBody',
                     ...event,
                 })
@@ -56,7 +48,7 @@ export class BroadcastService {
         // Response body events
         this.responseBodyListener = (event: any) => {
             try {
-                this.broadcastFunction({
+                broadcastEvent({
                     type: 'responseBody',
                     ...event,
                 })
@@ -69,7 +61,7 @@ export class BroadcastService {
         this.transactionCompleteListener = (event: any) => {
             try {
                 // Transaction complete events already have the correct format
-                this.broadcastFunction(event)
+                broadcastEvent(event)
             } catch (error) {
                 console.error(
                     'Failed to broadcast transaction complete event:',
@@ -80,7 +72,6 @@ export class BroadcastService {
 
         // Register all listeners
         this.eventEmitter.on('request', this.requestListener)
-        this.eventEmitter.on('response', this.responseListener)
         this.eventEmitter.on('requestBody', this.requestBodyListener)
         this.eventEmitter.on('responseBody', this.responseBodyListener)
         this.eventEmitter.on(
@@ -94,7 +85,6 @@ export class BroadcastService {
      */
     cleanup() {
         this.eventEmitter.removeListener('request', this.requestListener)
-        this.eventEmitter.removeListener('response', this.responseListener)
         this.eventEmitter.removeListener(
             'requestBody',
             this.requestBodyListener

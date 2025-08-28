@@ -5,31 +5,31 @@
                 <span class="request-info">
                     <span
                         class="method"
-                        :class="getMethodClass(transaction.request.method)"
+                        :class="getMethodClass(transaction.method)"
                     >
-                        {{ transaction.request.method }}
+                        {{ transaction.method }}
                     </span>
                     <span class="url-parts">
                         <span class="host">{{
-                            getUrlHost(transaction.request.url.full)
+                            getUrlHost(transaction.urlFull)
                         }}</span>
                         <span class="path">{{
-                            getUrlPath(transaction.request.url.full)
+                            getUrlPath(transaction.urlFull)
                         }}</span>
                     </span>
                 </span>
-                <span v-if="transaction.response" class="response-info">
+                <span v-if="transaction.statusCode" class="response-info">
                     <span
                         class="status-code"
-                        :class="getStatusClass(transaction.response.statusCode)"
+                        :class="getStatusClass(transaction.statusCode)"
                     >
-                        {{ transaction.response.statusCode }}
+                        {{ transaction.statusCode }}
                     </span>
                     <span
-                        v-if="transaction.response.statusMessage"
+                        v-if="transaction.statusMessage"
                         class="status-message"
                     >
-                        {{ transaction.response.statusMessage }}
+                        {{ transaction.statusMessage }}
                     </span>
                 </span>
             </div>
@@ -37,7 +37,7 @@
         </div>
 
         <div class="viewer-content">
-            <RequestPanel ref="requestPanel" :request="transaction.request" />
+            <RequestPanel ref="requestPanel" :transaction="transaction" />
             <Resizer
                 direction="horizontal"
                 :first-element="requestPanel?.$el"
@@ -45,34 +45,31 @@
                 :min-size="200"
                 @resize-start="onResizeStart"
             />
-            <ResponsePanel
-                ref="responsePanel"
-                :response="transaction.response"
-            />
+            <ResponsePanel ref="responsePanel" :transaction="transaction" />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import {
-    useTransactionsStore,
-    type TransactionWithMeta,
-} from '../stores/transactions'
+import { useTransactionsStore } from '../stores/transactions'
 import RequestPanel from './RequestPanel.vue'
 import ResponsePanel from './ResponsePanel.vue'
 import Resizer from './Resizer.vue'
 import { getMethodClass, getStatusClass } from '../utils/http-colors'
+import type { FullTransaction } from '@arachne/database'
 
 interface Props {
-    transaction: TransactionWithMeta
+    transaction: FullTransaction
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
     (e: 'close'): void
 }>()
+
+console.log(props.transaction)
 
 const transactionsStore = useTransactionsStore()
 const requestPanel = ref<InstanceType<typeof RequestPanel>>()

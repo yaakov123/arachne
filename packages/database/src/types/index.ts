@@ -60,12 +60,12 @@ export interface ProjectSettings {
 }
 
 // Extended types for complex queries
-export interface TransactionWithHeaders extends Transaction {
+export interface FullTransaction extends Transaction {
     requestHeaders: TransactionHeader[]
     responseHeaders: TransactionHeader[]
-    requestBody?: TransactionBody
-    responseBody?: TransactionBody
-    repeaterMeta?: RepeaterMetadata
+    requestBody: TransactionBody | null
+    responseBody: TransactionBody | null
+    repeaterMeta: RepeaterMetadata | null
 }
 
 export interface ProjectWithStats extends DatabaseProject {

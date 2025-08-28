@@ -1,10 +1,9 @@
 <template>
     <div class="traffic-header">
-        <div class="header-expand"></div>
+        <div class="header-method"></div>
         <div class="header-method">Method</div>
         <div class="header-url">URL</div>
         <div class="header-status">Status</div>
-        <div class="header-size">Size</div>
         <div class="header-time">Time</div>
     </div>
 </template>
@@ -16,7 +15,7 @@
 <style scoped>
 .traffic-header {
     display: grid;
-    grid-template-columns: 40px 80px 1fr 80px 80px 80px;
+    grid-template-columns: 40px 80px 1fr 80px 80px;
     gap: var(--space-md);
     padding: var(--space-md) 0;
     background: var(--surface-section);

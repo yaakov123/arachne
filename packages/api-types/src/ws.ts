@@ -36,7 +36,16 @@ export interface ContentInfo {
     size: number // actual content size in bytes
     sampleSize: number // size of the sample provided
     truncated: boolean
-    detectedFormat?: 'json' | 'xml' | 'html' | 'css' | 'javascript' | 'text' | 'binary' | 'image' | 'form'
+    detectedFormat?:
+        | 'json'
+        | 'xml'
+        | 'html'
+        | 'css'
+        | 'javascript'
+        | 'text'
+        | 'binary'
+        | 'image'
+        | 'form'
     encoding: 'utf8' | 'base64'
     isCompressed?: boolean // was originally compressed
 }
@@ -118,8 +127,8 @@ export interface TransactionResponse {
 
 export interface TransactionTiming {
     startTime: number
-    responseTime?: number
-    duration?: number
+    responseTime: number
+    duration: number
 }
 
 export interface TransactionSummary {
@@ -139,8 +148,8 @@ export interface TransactionData {
 
 export interface RepeaterMetadata {
     source: 'proxy' | 'repeater'
-    originalTransactionId?: string  // For repeated requests only
-    repeatedAt?: string             // ISO timestamp when repeated
+    originalTransactionId?: string // For repeated requests only
+    repeatedAt?: string // ISO timestamp when repeated
 }
 
 // Dependency analysis types
@@ -149,12 +158,12 @@ export interface TransactionDependency {
     sourceTransactionId: string
     targetTransactionId: string
     detail: {
-        field: string           // source field -> target field
-        value: string          // the actual value that flowed
-        confidence: number     // 0-1 confidence score
+        field: string // source field -> target field
+        value: string // the actual value that flowed
+        confidence: number // 0-1 confidence score
         sourceLocation?: 'header' | 'body_field' | 'status_code'
         targetLocation?: 'header' | 'query_param' | 'url_path' | 'body_field'
-        timespan?: number      // milliseconds between source and target
+        timespan?: number // milliseconds between source and target
     }
 }
 

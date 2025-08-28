@@ -3,13 +3,12 @@
         <TrafficHeader />
         <div class="traffic-entries" ref="entriesContainer">
             <TrafficEntry
-                v-for="transaction in transactionsStore.displayTransactions"
+                v-for="transaction in transactionsStore.filteredTransactions"
                 :key="transaction.id"
                 :transaction="transaction"
                 :is-selected="
                     transactionsStore.selectedTransaction?.id === transaction.id
                 "
-                :is-parent-highlighted="isParentHighlighted(transaction)"
                 @select="transactionsStore.selectTransaction"
             />
         </div>
@@ -30,41 +29,18 @@
 import { ref, computed, nextTick } from 'vue'
 import { LocateFixed } from 'lucide-vue-next'
 import { useTransactionsStore } from '../stores/transactions'
-import type { TransactionWithMeta } from '../stores/transactions'
 import TrafficHeader from './TrafficHeader.vue'
 import TrafficEntry from './TrafficEntry.vue'
+import type { Transaction } from '@arachne/database'
 
 const transactionsStore = useTransactionsStore()
 
 // Template refs
 const entriesContainer = ref<HTMLElement>()
 
-// Check if a transaction should be highlighted as a parent
-function isParentHighlighted(transaction: TransactionWithMeta): boolean {
-    const selectedTransaction = transactionsStore.selectedTransaction
-
-    // If no transaction is selected, no parent highlighting
-    if (!selectedTransaction) return false
-
-    // If the selected transaction is a repeated request, highlight its parent
-    if (
-        selectedTransaction.repeaterGroup?.isRepeated &&
-        selectedTransaction.repeaterGroup.parentTransactionId === transaction.id
-    ) {
-        return true
-    }
-
-    return false
-}
-
 // Computed property to check if there's any highlighted item
 const hasHighlightedItem = computed(() => {
-    return (
-        transactionsStore.selectedTransaction !== null ||
-        transactionsStore.displayTransactions.some((t) =>
-            isParentHighlighted(t)
-        )
-    )
+    return transactionsStore.selectedTransaction !== null
 })
 
 // Function to scroll to the highlighted item
@@ -80,14 +56,6 @@ async function scrollToHighlighted() {
     // First priority: selected transaction
     if (transactionsStore.selectedTransaction) {
         targetTransactionId = transactionsStore.selectedTransaction.id
-    } else {
-        // Second priority: parent highlighted transaction
-        const parentHighlighted = transactionsStore.displayTransactions.find(
-            (t) => isParentHighlighted(t)
-        )
-        if (parentHighlighted) {
-            targetTransactionId = parentHighlighted.id
-        }
     }
 
     if (!targetTransactionId) return

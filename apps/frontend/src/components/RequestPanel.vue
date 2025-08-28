@@ -5,19 +5,19 @@
         </div>
         <TabContainer :tabs="tabs" default-tab="headers">
             <template #query>
-                <QueryParamsViewer :query-string="request.url.query" />
+                <QueryParamsViewer :query-string="transaction.urlQuery" />
             </template>
             <template #headers>
-                <HeadersList :headers="request.headers" />
+                <HeadersList :headers="transaction.requestHeaders" />
             </template>
-            <template #body v-if="request.body">
-                <BodyViewer :body="request.body" />
+            <template #body v-if="transaction.requestBody">
+                <BodyViewer :body="transaction.requestBody" />
             </template>
             <template #cookies>
-                <CookiesViewer :headers="request.headers" />
+                <CookiesViewer :headers="transaction.requestHeaders" />
             </template>
             <template #raw>
-                <RawViewer :request="request" />
+                <RawViewer :transaction="transaction" />
             </template>
         </TabContainer>
     </div>
@@ -31,24 +31,24 @@ import BodyViewer from './BodyViewer.vue'
 import QueryParamsViewer from './QueryParamsViewer.vue'
 import CookiesViewer from './CookiesViewer.vue'
 import RawViewer from './RawViewer.vue'
-import type { TransactionRequest } from '@arachne/api-types'
+import type { FullTransaction } from '@arachne/database'
 
 interface Props {
-    request: TransactionRequest
+    transaction: FullTransaction
 }
 
 const props = defineProps<Props>()
 
 const tabs = computed<Tab[]>(() => {
-    const queryParamsCount = props.request.url.query
-        ? new URLSearchParams(props.request.url.query).size
+    const queryParamsCount = props.transaction.urlQuery
+        ? new URLSearchParams(props.transaction.urlQuery).size
         : 0
 
-    const cookiesCount = props.request.headers.filter(
+    const cookiesCount = props.transaction.requestHeaders.filter(
         (h) => h.name.toLowerCase() === 'cookie'
     ).length
 
-    const bodySize = props.request.body?.content.size || 0
+    const bodySize = props.transaction.requestBody?.size || 0
 
     const tabs: Tab[] = []
 
@@ -60,11 +60,11 @@ const tabs = computed<Tab[]>(() => {
         })
     }
 
-    if (props.request.headers.length > 0) {
+    if (props.transaction.requestHeaders.length > 0) {
         tabs.push({
             id: 'headers',
             label: 'Headers',
-            badge: props.request.headers.length.toString(),
+            badge: props.transaction.requestHeaders.length.toString(),
         })
     }
 

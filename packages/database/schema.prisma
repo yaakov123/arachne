@@ -67,11 +67,15 @@ model Transaction {
   
 
   
+  // Body foreign keys
+  requestBodyId   String?
+  responseBodyId  String?
+
   // Relationships
   requestHeaders  TransactionHeader[] @relation("RequestHeaders")
   responseHeaders TransactionHeader[] @relation("ResponseHeaders")
-  requestBody     TransactionBody?    @relation("RequestBody")
-  responseBody    TransactionBody?    @relation("ResponseBody")
+  requestBody     TransactionBody?    @relation("RequestBody", fields: [requestBodyId], references: [id])
+  responseBody    TransactionBody?    @relation("ResponseBody", fields: [responseBodyId], references: [id])
   repeaterMeta    RepeaterMetadata?
   
   @@index([projectId])
@@ -104,7 +108,6 @@ model TransactionHeader {
 // Body content table - both request and response bodies
 model TransactionBody {
   id            String  @id @default(cuid())
-  transactionId String  @unique
   bodyType      String  // 'request' | 'response'
   
   // Content metadata
@@ -120,11 +123,10 @@ model TransactionBody {
   // Content sample (limited size)
   sample String // The actual body content sample
   
-  // Relationships
-  requestTransaction  Transaction? @relation("RequestBody", fields: [transactionId], references: [id], onDelete: Cascade)
-  responseTransaction Transaction? @relation("ResponseBody", fields: [transactionId], references: [id], onDelete: Cascade)
+  // Relationships (back-references from Transaction)
+  requestTransaction  Transaction[] @relation("RequestBody")
+  responseTransaction Transaction[] @relation("ResponseBody")
   
-  @@index([transactionId])
   @@index([bodyType])
   @@index([detectedFormat])
   @@map("transaction_bodies")

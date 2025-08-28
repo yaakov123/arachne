@@ -3,19 +3,19 @@
         <div class="panel-header">
             <h4>Response</h4>
         </div>
-        <div v-if="response" class="response-content">
+        <div v-if="hasResponseData" class="response-content">
             <TabContainer :tabs="tabs" default-tab="headers">
                 <template #headers>
-                    <HeadersList :headers="response.headers" />
+                    <HeadersList :headers="transaction.responseHeaders" />
                 </template>
                 <template #body>
-                    <BodyViewer :body="response.body" />
+                    <BodyViewer :body="transaction.responseBody" />
                 </template>
                 <template #cookies>
-                    <CookiesViewer :headers="response.headers" />
+                    <CookiesViewer :headers="transaction.responseHeaders" />
                 </template>
                 <template #raw>
-                    <RawViewer :response="response" />
+                    <RawViewer :transaction="transaction" />
                 </template>
             </TabContainer>
         </div>
@@ -30,30 +30,37 @@ import HeadersList from './HeadersList.vue'
 import BodyViewer from './BodyViewer.vue'
 import CookiesViewer from './CookiesViewer.vue'
 import RawViewer from './RawViewer.vue'
-import type { TransactionResponse } from '@arachne/api-types'
+import type { FullTransaction } from '@arachne/database'
 
 interface Props {
-    response?: TransactionResponse | null
+    transaction: FullTransaction
 }
 
 const props = defineProps<Props>()
 
-const tabs = computed<Tab[]>(() => {
-    if (!props.response) return []
+const hasResponseData = computed(() => {
+    return (
+        props.transaction.responseHeaders.length > 0 ||
+        (props.transaction.responseBody?.size || 0) > 0
+    )
+})
 
-    const cookiesCount = props.response.headers.filter(
+const tabs = computed<Tab[]>(() => {
+    if (!props.transaction) return []
+
+    const cookiesCount = props.transaction.responseHeaders.filter(
         (h) => h.name.toLowerCase() === 'set-cookie'
     ).length
 
-    const bodySize = props.response.body?.content.size || 0
+    const bodySize = props.transaction.responseBody?.size || 0
 
     const tabs: Tab[] = []
 
-    if (props.response.headers.length > 0) {
+    if (props.transaction.responseHeaders.length > 0) {
         tabs.push({
             id: 'headers',
             label: 'Headers',
-            badge: props.response.headers.length.toString(),
+            badge: props.transaction.responseHeaders.length.toString(),
         })
     }
 

@@ -6,6 +6,7 @@ import { proxyRouter } from './routers/proxy'
 import { caRouter } from './routers/ca'
 import { repeaterRouter } from './routers/repeater'
 import { subscriptionsRouter } from './routers/subscriptions'
+import { transactionsRouter } from './routers/transactions'
 
 /**
  * Main tRPC router that combines all sub-routers
@@ -18,6 +19,7 @@ export const appRouter = router({
     ca: caRouter,
     repeater: repeaterRouter,
     subscriptions: subscriptionsRouter,
+    transactions: transactionsRouter,
 })
 
 export type AppRouter = typeof appRouter

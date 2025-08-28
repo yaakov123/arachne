@@ -15,6 +15,14 @@ export class TransactionService {
         await this.transactionRepository.create(input)
     }
 
+    async getTransaction(id: string) {
+        return this.transactionRepository.findById(id)
+    }
+
+    async getFullTransaction(id: string) {
+        return this.transactionRepository.findByIdWithAllRelatedData(id)
+    }
+
     /**
      * Get transaction count for a project
      */
