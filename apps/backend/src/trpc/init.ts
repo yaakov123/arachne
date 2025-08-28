@@ -41,14 +41,5 @@ export const middleware = t.middleware
 /**
  * Common validation schemas
  */
-export const schemas = {
-    id: z.string().min(1, 'ID is required'),
-    pagination: z
-        .object({
-            limit: z.number().min(1).max(100).default(20),
-            offset: z.number().min(0).default(0),
-        })
-        .optional(),
-}
 
 export { z }
