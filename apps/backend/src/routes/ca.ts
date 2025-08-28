@@ -24,7 +24,6 @@ export function registerCARoutes(
         const exists = certExists && keyExists
 
         const response: CAStatusResponse = {
-            ok: true,
             exists,
             message: exists
                 ? 'Root CA certificate exists on filesystem'
@@ -38,14 +37,12 @@ export function registerCARoutes(
         try {
             const result = await ca.ensureRootCA()
             const response: CACreateResponse = {
-                ok: true,
                 message: 'Root CA created/ensured successfully',
                 certPem: result.certPem,
             }
             rep.send(response)
         } catch (error) {
             const response: CAErrorResponse = {
-                ok: false,
                 error: 'Failed to create Root CA',
                 message:
                     error instanceof Error ? error.message : 'Unknown error',
@@ -66,7 +63,6 @@ export function registerCARoutes(
 
                 if (!certExists) {
                     const response: CAErrorResponse = {
-                        ok: false,
                         error: 'Certificate not found',
                         message:
                             'Root CA certificate has not been created yet. Create the certificate first.',
@@ -77,7 +73,6 @@ export function registerCARoutes(
 
                 const instructions = await getTrustInstructions(certPath)
                 const response: CATrustInstructionsResponse = {
-                    ok: true,
                     trustCommand: instructions.trustCommand,
                     untrustCommands: instructions.untrustCommands,
                     certPath,
@@ -85,7 +80,6 @@ export function registerCARoutes(
                 rep.send(response)
             } catch (error) {
                 const response: CAErrorResponse = {
-                    ok: false,
                     error: 'Failed to get trust instructions',
                     message:
                         error instanceof Error

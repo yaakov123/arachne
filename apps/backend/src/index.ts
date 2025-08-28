@@ -15,6 +15,7 @@ import { registerApi } from './api'
 import { logger } from './logger'
 import { ProjectService } from './services/project-service'
 import { buildProjectConfiguration } from './services/proxy-configuration-manager'
+import { TransactionService } from './services/transaction-service'
 
 function envNum(name: string, def: number): number {
     const v = process.env[name]
@@ -74,25 +75,24 @@ async function main() {
     hub.start()
 
     // Project Service
-    const projectService = new ProjectService({
-        baseDir: PROJECTS_BASE_DIR,
-        maxTransactions: 10000,
-        retentionDays: 30,
-    })
+    const projectService = new ProjectService()
+    const transactionService = new TransactionService()
 
     projectService.on('projectChanged', async (id) => {
         const project = await projectService.getProject(id)
-        proxy.updateConfiguration(buildProjectConfiguration(project.metadata))
+        if (project) {
+            proxy.updateConfiguration(
+                buildProjectConfiguration(project.settings)
+            )
+        }
     })
 
-    await projectService.initialize()
+    const currentProject = await projectService.initialize()
 
     // Ensure there's always a default project available
-    const currentProject = await projectService.ensureDefaultProject()
     logger.info('Current active project', {
-        projectId: currentProject.metadata.id,
-        projectName: currentProject.metadata.name,
-        transactionCount: currentProject.transactionCount,
+        projectId: currentProject.id,
+        projectName: currentProject.name,
     })
 
     await app.register(websocket)
@@ -106,7 +106,11 @@ async function main() {
 
     // Create services that listen to transaction events
     const broadcastService = new BroadcastService(hub, transactionEvents)
-    const storageService = new StorageService(projectService, transactionEvents)
+    const storageService = new StorageService(
+        transactionService,
+        projectService,
+        transactionEvents
+    )
 
     // Create the single plugin that emits events
     const transactionAggregatorPlugin = createTransactionAggregatorPlugin(
@@ -144,6 +148,7 @@ async function main() {
         ca,
         proxy,
         projectService,
+        transactionService,
     })
 
     // Start HTTP server first

@@ -1,0 +1,185 @@
+// Prisma schema for Arachne HTTP Proxy
+// Database: SQLite for simplicity and portability
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Projects table - replaces metadata.json files
+model Project {
+  id          String   @id @default(cuid()) // UUID with fallback to existing project IDs
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tags        String?  // JSON array as string
+  
+  // Settings stored as JSON
+  settings     Json
+  
+  // Relationships
+  transactions Transaction[]
+  
+  @@map("projects")
+}
+
+// Main transactions table - replaces transactions.jsonl
+model Transaction {
+  id        String   @id // conn_xxx:req_xxx format
+  timestamp DateTime
+  
+  // Project relationship
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Request data
+  method   String
+  clientIp String?
+  
+  // URL data (denormalized for performance)
+  urlFull     String
+  urlProtocol String
+  urlHost     String
+  urlPort     Int?
+  urlPath     String
+  urlQuery    String?
+  urlFragment String?
+  
+  // Response data
+  statusCode    Int?
+  statusMessage String?
+  
+  // Timing data
+  startTime    BigInt // Unix timestamp in milliseconds
+  responseTime BigInt? // Unix timestamp in milliseconds  
+  duration     Int?    // Duration in milliseconds
+  
+  // Summary data
+  requestSize     Int?     @default(0)
+  responseSize    Int?     @default(0)
+  hasRequestBody  Boolean  @default(false)
+  hasResponseBody Boolean  @default(false)
+  
+
+  
+  // Relationships
+  requestHeaders  TransactionHeader[] @relation("RequestHeaders")
+  responseHeaders TransactionHeader[] @relation("ResponseHeaders")
+  requestBody     TransactionBody?    @relation("RequestBody")
+  responseBody    TransactionBody?    @relation("ResponseBody")
+  repeaterMeta    RepeaterMetadata?
+  
+  @@index([projectId])
+  @@index([timestamp])
+  @@index([urlHost])
+  @@index([method])
+  @@index([statusCode])
+  @@map("transactions")
+}
+
+// Headers table - both request and response headers
+model TransactionHeader {
+  id            String  @id @default(cuid())
+  transactionId String
+  headerType    String  // 'request' | 'response'
+  name          String
+  value         String
+  sensitive     Boolean @default(false)
+  
+  // Relationships
+  requestTransaction  Transaction? @relation("RequestHeaders", fields: [transactionId], references: [id], onDelete: Cascade)
+  responseTransaction Transaction? @relation("ResponseHeaders", fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  @@index([transactionId])
+  @@index([headerType])
+  @@index([name])
+  @@map("transaction_headers")
+}
+
+// Body content table - both request and response bodies
+model TransactionBody {
+  id            String  @id @default(cuid())
+  transactionId String  @unique
+  bodyType      String  // 'request' | 'response'
+  
+  // Content metadata
+  contentType     String?
+  contentEncoding String?
+  size            Int
+  sampleSize      Int
+  truncated       Boolean
+  detectedFormat  String? // 'json' | 'xml' | 'html' | 'css' | 'javascript' | 'text' | 'binary' | 'image' | 'form'
+  encoding        String  // 'utf8' | 'base64'
+  isCompressed    Boolean @default(false)
+  
+  // Content sample (limited size)
+  sample String // The actual body content sample
+  
+  // Relationships
+  requestTransaction  Transaction? @relation("RequestBody", fields: [transactionId], references: [id], onDelete: Cascade)
+  responseTransaction Transaction? @relation("ResponseBody", fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  @@index([transactionId])
+  @@index([bodyType])
+  @@index([detectedFormat])
+  @@map("transaction_bodies")
+}
+
+// Repeater metadata table - tracks repeated requests
+model RepeaterMetadata {
+  id                    String    @id @default(cuid())
+  transactionId         String    @unique
+  source                String    // 'proxy' | 'repeater'
+  originalTransactionId String?   // For repeated requests, links to original
+  repeatedAt            DateTime? // When this was repeated
+  
+  // Relationship
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  @@index([source])
+  @@index([originalTransactionId])
+  @@map("repeater_metadata")
+}
+
+// Active project tracking - replaces active-project.json
+model SystemConfig {
+  id               String    @id @default("system")
+  activeProjectId  String?
+  lastUpdated      DateTime  @default(now())
+  
+  @@map("system_config")
+}
+
+// Inventory/Analytics tables for better querying
+model Host {
+  id          String @id // hostname
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  totalHits   Int      @default(0)
+  
+  endpoints   Endpoint[]
+  
+  @@map("hosts")
+}
+
+model Endpoint {
+  id          String @id @default(cuid())
+  hostId      String
+  method      String
+  path        String
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  hits        Int      @default(0)
+  
+  host        Host @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  
+  @@unique([hostId, method, path])
+  @@index([hostId])
+  @@index([method])
+  @@map("endpoints")
+}

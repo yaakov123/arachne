@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import type { ProjectService } from './project-service'
 import type { TransactionCompleteEvent } from '@arachne/api-types'
+import { TransactionService } from './transaction-service'
 
 export class StorageService {
     private transactionCompleteListener!: (
@@ -8,6 +9,7 @@ export class StorageService {
     ) => void
 
     constructor(
+        private transactionService: TransactionService,
         private projectService: ProjectService,
         private eventEmitter: EventEmitter
     ) {
@@ -19,7 +21,11 @@ export class StorageService {
             event: TransactionCompleteEvent
         ) => {
             try {
-                await this.projectService.addTransactionToCurrentProject(event)
+                const projectId = this.projectService.getCurrentProjectId()
+                if (!projectId) {
+                    return
+                }
+                await this.transactionService.addTransaction(projectId, event)
             } catch (error) {
                 // Log error but don't throw to prevent disrupting the event flow
                 console.error('Failed to store transaction:', error)

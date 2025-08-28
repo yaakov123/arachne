@@ -1,5 +1,5 @@
-import type { ProjectMetadata } from '@arachne/api-types'
 import type { ProxyRuntimeConfig } from '@arachne/proxy'
+import type { ProjectSettings } from '@arachne/database'
 
 const baseConfig: ProxyRuntimeConfig = {
     hostFilter: [],
@@ -11,13 +11,11 @@ const baseConfig: ProxyRuntimeConfig = {
  * Builds a ProxyRuntimeConfig for a project, merging baseConfig and projectMetadata.
  */
 export function buildProjectConfiguration(
-    projectMetadata?: ProjectMetadata
+    settings: ProjectSettings | null
 ): ProxyRuntimeConfig {
-    const settings = projectMetadata?.settings
-
     return {
         hostFilter: [...baseConfig.hostFilter, ...(settings?.hostFilter || [])],
-        hostFilterMode: baseConfig.hostFilterMode,
+        hostFilterMode: settings?.hostFilterMode || baseConfig.hostFilterMode,
         maxBodySize: settings?.maxBodySize || baseConfig.maxBodySize,
     }
 }

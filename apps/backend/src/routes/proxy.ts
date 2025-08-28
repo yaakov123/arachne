@@ -23,20 +23,18 @@ export function registerProxyRoutes(
                 const currentProject = await projectService.getCurrentProject()
                 if (currentProject) {
                     proxy.updateConfiguration(
-                        buildProjectConfiguration(currentProject.metadata)
+                        buildProjectConfiguration(currentProject.settings)
                     )
                 }
 
                 const serverInfo = await proxy.start()
                 const response: ProxyStartResponse = {
-                    ok: true,
                     message: 'Proxy started successfully',
                     serverInfo,
                 }
                 rep.send(response)
             } catch (error) {
                 const response: ProxyErrorResponse = {
-                    ok: false,
                     error: 'Failed to start proxy',
                     message:
                         error instanceof Error
@@ -56,13 +54,11 @@ export function registerProxyRoutes(
             try {
                 await proxy.stop()
                 const response: ProxyStopResponse = {
-                    ok: true,
                     message: 'Proxy stopped successfully',
                 }
                 rep.send(response)
             } catch (error) {
                 const response: ProxyErrorResponse = {
-                    ok: false,
                     error: 'Failed to stop proxy',
                     message:
                         error instanceof Error
@@ -81,7 +77,6 @@ export function registerProxyRoutes(
         async (_req, rep) => {
             const isRunning = proxy.isRunning()
             const response: ProxyStatusResponse = {
-                ok: true,
                 isRunning,
                 serverInfo: proxy.getServerInfo() ?? undefined,
             }

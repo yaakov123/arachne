@@ -19,7 +19,6 @@ export function registerRepeaterRoutes(
 
                 if (!proxy || !proxy.isRunning()) {
                     const response: RepeatResponse = {
-                        ok: false,
                         message: 'Proxy is not running',
                         error: 'Cannot repeat request when proxy is not running',
                     }
@@ -47,7 +46,6 @@ export function registerRepeaterRoutes(
                 const serverInfo = proxy.getServerInfo()
                 if (!serverInfo) {
                     const response: RepeatResponse = {
-                        ok: false,
                         message: 'Proxy server info not available',
                         error: 'Cannot get proxy server configuration',
                     }
@@ -79,13 +77,11 @@ export function registerRepeaterRoutes(
                 })
 
                 const response: RepeatResponse = {
-                    ok: true,
                     message: 'Request repeated successfully',
                 }
                 rep.send(response)
             } catch (error) {
                 const response: RepeatResponse = {
-                    ok: false,
                     message: 'Failed to repeat request',
                     error:
                         error instanceof Error
