@@ -15,6 +15,7 @@ type EventMap = {
     responseBody: [ResponseBodyEvent]
     error: [ErrorEvent]
     transactionComplete: [TransactionCompleteEvent]
+    response: [ResponseHeadEvent]
 }
 
 export class BroadcastEmitter extends EventEmitter<EventMap> {

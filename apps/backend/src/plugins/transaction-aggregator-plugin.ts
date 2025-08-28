@@ -5,8 +5,8 @@ import type {
     RequestBodyContext,
     ResponseBodyContext,
 } from '@arachne/proxy'
-import { EventEmitter } from 'events'
 import type { DisplayHeader, ContentInfo, RequestURL } from '@arachne/api-types'
+import { BroadcastEmitter } from '../services/broadcast-emitter'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
 
@@ -174,7 +174,7 @@ function nowIso() {
 }
 
 export function createTransactionAggregatorPlugin(
-    eventEmitter: EventEmitter,
+    eventEmitter: BroadcastEmitter,
     maxSampleBytes = DEFAULT_MAX
 ): ProxyPlugin {
     const transactions = new Map<string, TransactionState>()
@@ -203,6 +203,8 @@ export function createTransactionAggregatorPlugin(
 
             // Emit request event
             eventEmitter.emit('request', {
+                type: 'request',
+                rawHeaders: ctx.headers,
                 id: ctx.id,
                 method: ctx.method,
                 url: parsedURL,
@@ -230,6 +232,8 @@ export function createTransactionAggregatorPlugin(
 
             // Emit response event
             eventEmitter.emit('response', {
+                type: 'responseHead',
+                rawHeaders: ctx.responseHeaders,
                 id: ctx.id,
                 statusCode: ctx.statusCode,
                 statusMessage: ctx.statusMessage,
@@ -261,6 +265,7 @@ export function createTransactionAggregatorPlugin(
 
             // Emit request body event
             eventEmitter.emit('requestBody', {
+                type: 'requestBody',
                 id: ctx.id,
                 content,
                 sample,
@@ -286,6 +291,7 @@ export function createTransactionAggregatorPlugin(
 
             // Emit response body event
             eventEmitter.emit('responseBody', {
+                type: 'responseBody',
                 id: ctx.id,
                 content,
                 sample,
@@ -319,11 +325,15 @@ export function createTransactionAggregatorPlugin(
                     : undefined,
                 timing: {
                     startTime: transaction.requestStartTime,
-                    responseTime: transaction.responseStartTime,
-                    duration: transaction.responseStartTime
-                        ? transaction.responseStartTime -
-                          transaction.requestStartTime
-                        : undefined,
+                    responseTime:
+                        transaction.responseStartTime ||
+                        transaction.requestStartTime,
+                    duration:
+                        transaction.responseStartTime &&
+                        transaction.requestStartTime
+                            ? transaction.responseStartTime -
+                              transaction.requestStartTime
+                            : 0,
                 },
                 summary: {
                     requestSize: transaction.requestSize,
