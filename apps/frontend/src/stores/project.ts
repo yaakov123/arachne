@@ -1,199 +1,107 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { api } from '../services/http'
-import type {
-    ProjectInfo,
-    CreateProjectRequest,
-    UpdateProjectRequest,
-} from '@arachne/api-types'
+import type { Project } from '@arachne/database'
+import { ref } from 'vue'
+import {
+    trpc,
+    type ProjectCreateInput,
+    type ProjectUpdateInput,
+} from '@/services/trpc'
 
 export const useProjectStore = defineStore('project', () => {
-    // State
-    const currentProject = ref<ProjectInfo | null>(null)
-    const projects = ref<ProjectInfo[]>([])
+    const projects = ref<Project[]>([])
+    const currentProject = ref<Project | null>(null)
     const loading = ref(false)
     const error = ref<string | null>(null)
 
-    // Computed
-    const currentProjectId = computed(
-        () => currentProject.value?.metadata.id || null
-    )
-    const hasActiveProject = computed(() => !!currentProject.value)
-
-    // Actions
-    async function loadCurrentProject(): Promise<void> {
-        try {
-            loading.value = true
-            error.value = null
-
-            const response = await api.getCurrentProject()
-            if (response.ok && response.project) {
-                currentProject.value = response.project
-            } else {
-                currentProject.value = null
-            }
-        } catch (err) {
-            error.value =
-                err instanceof Error
-                    ? err.message
-                    : 'Failed to load current project'
-            currentProject.value = null
-        } finally {
-            loading.value = false
-        }
+    const initialize = async () => {
+        await loadCurrentProject()
+        await loadProjects()
     }
 
-    async function loadProjects(): Promise<void> {
-        try {
-            const response = await api.getProjects()
-            if (response.ok) {
-                projects.value = response.projects
-            }
-        } catch (err) {
-            console.error('Failed to load projects:', err)
-        }
+    const loadCurrentProject = async () => {
+        loading.value = true
+        const response = await trpc.projects.getCurrent.query()
+        currentProject.value = response.currentProject
+        loading.value = false
     }
 
-    async function switchProject(projectId: string): Promise<boolean> {
-        try {
-            loading.value = true
-            error.value = null
+    const loadProjects = async () => {
+        loading.value = true
+        const response = await trpc.projects.list.query()
+        projects.value = response.projects
+        loading.value = false
+    }
 
-            const response = await api.switchProject(projectId)
-            if (response.ok) {
-                // Find the project in our list and set it as current
-                const project = projects.value.find(
-                    (p) => p.metadata.id === projectId
-                )
-                if (project) {
-                    currentProject.value = project
-                }
-                return true
-            } else {
-                error.value = 'Failed to switch project'
-                return false
+    const createProject = async (project: ProjectCreateInput) => {
+        loading.value = true
+        const response = await trpc.projects.create.mutate(project)
+        projects.value.push(response)
+        loading.value = false
+        return response
+    }
+
+    const updateProject = async (project: ProjectUpdateInput) => {
+        loading.value = true
+        const response = await trpc.projects.update.mutate({
+            id: project.id,
+            data: project.data,
+        })
+
+        console.log('response', response)
+
+        projects.value = projects.value.map((p) => {
+            if (p.id === response.project.id) {
+                return response.project
             }
-        } catch (err) {
+            return p
+        })
+        loading.value = false
+        return response
+    }
+
+    const deleteProject = async (projectId: string) => {
+        loading.value = true
+        try {
+            await trpc.projects.delete.mutate({ id: projectId })
+        } catch (e) {
             error.value =
-                err instanceof Error ? err.message : 'Failed to switch project'
+                e instanceof Error ? e.message : 'Failed to delete project'
             return false
         } finally {
             loading.value = false
         }
+        return true
     }
 
-    async function createProject(
-        request: CreateProjectRequest
-    ): Promise<ProjectInfo | null> {
-        try {
-            loading.value = true
-            error.value = null
+    const switchProject = async (projectId: string) => {
+        loading.value = true
 
-            const response = await api.createProject(request)
-            if (response.ok && response.project) {
-                // Reload projects to get updated list
-                await loadProjects()
-                // Set as current project
-                currentProject.value = response.project
-                return response.project
-            } else {
-                error.value = 'Failed to create project'
-                return null
-            }
-        } catch (err) {
-            error.value =
-                err instanceof Error ? err.message : 'Failed to create project'
-            return null
-        } finally {
+        try {
+            await trpc.projects.activate.mutate({ id: projectId })
+        } catch (error) {
             loading.value = false
-        }
-    }
-
-    async function updateProject(
-        projectId: string,
-        request: UpdateProjectRequest
-    ): Promise<ProjectInfo | null> {
-        try {
-            loading.value = true
-            error.value = null
-
-            const response = await api.updateProject(projectId, request)
-            if (response.ok && response.project) {
-                // Update the projects list
-                const index = projects.value.findIndex(
-                    (p) => p.metadata.id === projectId
-                )
-                if (index !== -1) {
-                    projects.value[index] = response.project
-                }
-                // Update current project if it's the one being edited
-                if (currentProject.value?.metadata.id === projectId) {
-                    currentProject.value = response.project
-                }
-                return response.project
-            } else {
-                error.value = 'Failed to update project'
-                return null
-            }
-        } catch (err) {
-            error.value =
-                err instanceof Error ? err.message : 'Failed to update project'
-            return null
-        } finally {
-            loading.value = false
-        }
-    }
-
-    async function deleteProject(projectId: string): Promise<boolean> {
-        try {
-            loading.value = true
-            error.value = null
-
-            await api.deleteProject(projectId)
-
-            // Remove from projects list
-            projects.value = projects.value.filter(
-                (p) => p.metadata.id !== projectId
-            )
-
-            // If deleted project was current, clear it
-            if (currentProject.value?.metadata.id === projectId) {
-                currentProject.value =
-                    projects.value.length > 0 ? projects.value[0] : null
-            }
-
-            return true
-        } catch (err) {
-            error.value =
-                err instanceof Error ? err.message : 'Failed to delete project'
             return false
-        } finally {
-            loading.value = false
         }
-    }
 
-    function clearError(): void {
-        error.value = null
+        const newProject = projects.value.find((p) => p.id === projectId)
+        if (newProject) {
+            currentProject.value = newProject
+        }
+        loading.value = false
+        return true
     }
 
     return {
-        // State
-        currentProject,
         projects,
+        currentProject,
         loading,
         error,
-
-        // Computed
-        currentProjectId,
-        hasActiveProject,
-
-        // Actions
+        initialize,
         loadCurrentProject,
         loadProjects,
-        switchProject,
         createProject,
         updateProject,
         deleteProject,
-        clearError,
+        switchProject,
     }
 })

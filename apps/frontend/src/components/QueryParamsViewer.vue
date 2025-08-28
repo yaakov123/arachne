@@ -1,6 +1,6 @@
 <template>
-    <KeyValueViewer 
-        :items="queryParamItems" 
+    <KeyValueViewer
+        :items="queryParamItems"
         empty-message="No query parameters"
         max-height="300px"
     />
@@ -16,22 +16,22 @@ interface QueryParam {
 }
 
 interface Props {
-    queryString?: string
+    queryString: string | null
 }
 
 const props = defineProps<Props>()
 
 const queryParams = computed<QueryParam[]>(() => {
     if (!props.queryString) return []
-    
+
     try {
         const params = new URLSearchParams(props.queryString)
         const result: QueryParam[] = []
-        
+
         for (const [name, value] of params.entries()) {
             result.push({ name, value })
         }
-        
+
         return result
     } catch (error) {
         console.warn('Failed to parse query string:', props.queryString, error)
@@ -39,11 +39,11 @@ const queryParams = computed<QueryParam[]>(() => {
     }
 })
 
-const queryParamItems = computed<KeyValueItem[]>(() => 
-    queryParams.value.map(param => ({
+const queryParamItems = computed<KeyValueItem[]>(() =>
+    queryParams.value.map((param) => ({
         key: param.name,
         value: param.value,
-        muted: true // Query param values are typically muted
+        muted: true, // Query param values are typically muted
     }))
 )
 </script>

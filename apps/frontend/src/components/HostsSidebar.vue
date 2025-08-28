@@ -3,7 +3,7 @@
         <div class="sidebar-content">
             <h2>Hosts</h2>
             <div class="search-container">
-                <input 
+                <input
                     v-model="searchQuery"
                     type="text"
                     placeholder="Search hosts..."
@@ -11,52 +11,56 @@
                 />
             </div>
             <div class="hosts-list">
-                <div 
-                    v-for="host in filteredHosts" 
-                    :key="host"
+                <div
+                    v-for="host in filteredHosts"
+                    :key="host.id"
                     class="host-item"
-                    :class="{ active: transactionsStore.selectedHost === host }"
-                    @click="transactionsStore.selectHost(host)"
+                    :class="{ active: hostsStore.selectedHost === host.id }"
+                    @click="hostsStore.selectHost(host.id)"
                 >
                     <div class="host-info">
-    
-                        <span class="host-name">{{ host }}</span>
+                        <span class="host-name">{{ host.hostname }}</span>
                     </div>
-                    <span class="host-count">{{ transactionsStore.getHostCount(host) }}</span>
+                    <span class="host-count">{{
+                        hostsStore.getHostCount(host.hostname)
+                    }}</span>
                 </div>
             </div>
-            <div class="connection-status">
-                <span :class="['status-indicator', { connected: transactionsStore.isConnected }]"></span>
-                {{ transactionsStore.isConnected ? 'Connected' : 'Disconnected' }}
-                <div v-if="transactionsStore.connectionError" class="connection-error">
-                    {{ transactionsStore.connectionError }}
-                </div>
+            <div v-if="hostsStore.error" class="error-message">
+                {{ hostsStore.error }}
+            </div>
+            <div v-if="hostsStore.isLoading" class="loading-message">
+                Loading hosts...
             </div>
         </div>
     </Sidebar>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Sidebar from './Sidebar.vue'
-import { useTransactionsStore } from '../stores/transactions'
+import { useHostsStore } from '../stores/hosts'
+import type { Host } from '@arachne/database'
 
-const transactionsStore = useTransactionsStore()
+const hostsStore = useHostsStore()
 const searchQuery = ref('')
 
 // Computed property to filter hosts based on search query
 const filteredHosts = computed(() => {
     if (!searchQuery.value.trim()) {
-        return transactionsStore.uniqueHosts
+        return hostsStore.hosts
     }
-    
+
     const query = searchQuery.value.toLowerCase().trim()
-    return transactionsStore.uniqueHosts.filter(host => 
-        host.toLowerCase().includes(query)
+    return hostsStore.hosts.filter((host: Host) =>
+        host.hostname.toLowerCase().includes(query)
     )
 })
 
-
+// Initialize hosts data when component mounts
+onMounted(() => {
+    hostsStore.initialize()
+})
 </script>
 
 <style scoped>
@@ -103,7 +107,7 @@ const filteredHosts = computed(() => {
     box-shadow: 0 0 0 3px var(--color-primary-100);
 }
 
-[data-theme="dark"] .search-input:focus {
+[data-theme='dark'] .search-input:focus {
     box-shadow: 0 0 0 3px var(--color-primary-900);
 }
 
@@ -155,7 +159,7 @@ const filteredHosts = computed(() => {
     color: var(--primary-color);
 }
 
-[data-theme="dark"] .host-item.active {
+[data-theme='dark'] .host-item.active {
     background: var(--color-primary-200);
     color: var(--color-primary-950);
 }
@@ -178,7 +182,7 @@ const filteredHosts = computed(() => {
     text-align: center;
 }
 
-[data-theme="dark"] .host-count {
+[data-theme='dark'] .host-count {
     background: var(--color-neutral-700);
     color: var(--color-neutral-200);
 }
@@ -188,37 +192,26 @@ const filteredHosts = computed(() => {
     color: var(--color-primary-800);
 }
 
-[data-theme="dark"] .host-item.active .host-count {
+[data-theme='dark'] .host-item.active .host-count {
     background: var(--color-primary-800);
     color: var(--color-primary-200);
 }
 
-.connection-status {
+.error-message {
     margin-top: auto;
     padding-top: var(--space-lg);
     border-top: 1px solid var(--surface-border);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
+    font-size: var(--text-sm);
+    color: var(--color-error-500);
+    font-style: italic;
+}
+
+.loading-message {
+    margin-top: auto;
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--surface-border);
     font-size: var(--text-sm);
     color: var(--text-color-secondary);
-}
-
-.status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--radius-full);
-    background: var(--color-error-500);
-}
-
-.status-indicator.connected {
-    background: var(--color-success-500);
-}
-
-.connection-error {
-    margin-top: var(--space-sm);
-    font-size: var(--text-xs);
-    color: var(--color-error-500);
     font-style: italic;
 }
 </style>

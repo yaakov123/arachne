@@ -6,16 +6,13 @@ import {
     CertificateAuthority,
     getDefaultCertStoreOptions,
 } from '@arachne/proxy'
-import { EventEmitter } from 'events'
-import { createTransactionAggregatorPlugin } from './plugins/transaction-aggregator-plugin'
-import { BroadcastService } from './services/broadcast-service'
-import { StorageService } from './services/storage-service'
-import { WsHub } from './ws-hub'
-import { registerApi } from './api'
+import { registerTRPCApi } from './trpc-api'
 import { logger } from './logger'
-import { ProjectService } from './services/project-service'
 import { buildProjectConfiguration } from './services/proxy-configuration-manager'
+import { ServiceContainer } from './services/service-container'
+import { AppConfig } from './types'
 
+// Environment variable utilities
 function envNum(name: string, def: number): number {
     const v = process.env[name]
     const n = v ? Number(v) : NaN
@@ -27,41 +24,52 @@ function envStr(name: string, def: string): string {
     return v && v.length > 0 ? v : def
 }
 
-async function main() {
-    const BACKEND_HOST = envStr('BACKEND_HOST', '127.0.0.1')
-    const BACKEND_PORT = envNum('BACKEND_PORT', 8080)
-    const BACKEND_API_PREFIX = envStr('BACKEND_API_PREFIX', '/api')
-    const BACKEND_WS_PATH = envStr('BACKEND_WS_PATH', '/ws')
-    const BACKEND_CORS = envStr('BACKEND_CORS', '*')
-    const BACKEND_TOKEN = process.env['BACKEND_TOKEN']
+function loadConfiguration(): AppConfig {
+    return {
+        backend: {
+            host: envStr('BACKEND_HOST', '127.0.0.1'),
+            port: envNum('BACKEND_PORT', 8080),
+            apiPrefix: envStr('BACKEND_API_PREFIX', '/api'),
+            cors: envStr('BACKEND_CORS', '*'),
+            token: process.env['BACKEND_TOKEN'],
+        },
+        proxy: {
+            host: envStr('ARACHNE_PROXY_HOST', '127.0.0.1'),
+            port: envNum('ARACHNE_PROXY_PORT', 8899),
+            caBaseDir: process.env['ARACHNE_CA_STORE_DIR'],
+        },
+        recording: {
+            outDir: process.env['ARACHNE_REC_OUT_DIR'],
+            maxBytes: envNum('ARACHNE_REC_MAX_BYTES', 1024 * 1024),
+        },
+        projects: {
+            baseDir: envStr('ARACHNE_PROJECTS_DIR', './projects'),
+        },
+    }
+}
 
-    const PROXY_HOST = envStr('ARACHNE_PROXY_HOST', '127.0.0.1')
-    const PROXY_PORT = envNum('ARACHNE_PROXY_PORT', 8899)
-    const CA_BASE_DIR = process.env['ARACHNE_CA_STORE_DIR']
-
-    const REC_OUT_DIR = process.env['ARACHNE_REC_OUT_DIR']
-    const REC_MAX_BYTES = envNum('ARACHNE_REC_MAX_BYTES', 1024 * 1024)
-
-    const PROJECTS_BASE_DIR = envStr('ARACHNE_PROJECTS_DIR', './projects')
-
+function logStartupInfo(config: AppConfig): void {
     logger.info('Starting Arachne backend server', {
-        backendHost: BACKEND_HOST,
-        backendPort: BACKEND_PORT,
-        proxyHost: PROXY_HOST,
-        proxyPort: PROXY_PORT,
-        recMaxBytes: REC_MAX_BYTES,
-        hasToken: !!BACKEND_TOKEN,
-        recOutDir: REC_OUT_DIR,
-        projectsBaseDir: PROJECTS_BASE_DIR,
+        backendHost: config.backend.host,
+        backendPort: config.backend.port,
+        proxyHost: config.proxy.host,
+        proxyPort: config.proxy.port,
+        recMaxBytes: config.recording.maxBytes,
+        hasToken: !!config.backend.token,
+        recOutDir: config.recording.outDir,
+        projectsBaseDir: config.projects.baseDir,
     })
+}
 
+async function setupServer(config: AppConfig) {
     const app = fastify({ logger: true })
 
-    // CORS
+    // CORS setup
     const origin =
-        BACKEND_CORS === '*'
+        config.backend.cors === '*'
             ? true
-            : BACKEND_CORS.split(',')
+            : config.backend.cors
+                  .split(',')
                   .map((s) => s.trim())
                   .filter(Boolean)
     await app.register(cors, {
@@ -69,88 +77,67 @@ async function main() {
         allowedHeaders: ['Authorization', 'Content-Type'],
     })
 
-    // WebSocket Hub
-    const hub = new WsHub()
-    hub.start()
-
-    // Project Service
-    const projectService = new ProjectService({
-        baseDir: PROJECTS_BASE_DIR,
-        maxTransactions: 10000,
-        retentionDays: 30,
-    })
-
-    projectService.on('projectChanged', async (id) => {
-        const project = await projectService.getProject(id)
-        proxy.updateConfiguration(buildProjectConfiguration(project.metadata))
-    })
-
-    await projectService.initialize()
-
-    // Ensure there's always a default project available
-    const currentProject = await projectService.ensureDefaultProject()
-    logger.info('Current active project', {
-        projectId: currentProject.metadata.id,
-        projectName: currentProject.metadata.name,
-        transactionCount: currentProject.transactionCount,
-    })
-
+    // Register WebSocket support for tRPC (required for subscriptions)
     await app.register(websocket)
-    app.get(BACKEND_WS_PATH, { websocket: true }, (conn) => {
-        const wsAny: any = (conn as any).socket ?? (conn as any)
-        hub.handleConnection(wsAny)
+
+    // Health endpoint (traditional REST for monitoring)
+    app.get('/health', async (_req, rep) => {
+        rep.send({ ok: true })
     })
 
-    // Event-driven architecture setup
-    const transactionEvents = new EventEmitter()
+    return app
+}
 
-    // Create services that listen to transaction events
-    const broadcastService = new BroadcastService(hub, transactionEvents)
-    const storageService = new StorageService(projectService, transactionEvents)
-
-    // Create the single plugin that emits events
-    const transactionAggregatorPlugin = createTransactionAggregatorPlugin(
-        transactionEvents,
-        REC_MAX_BYTES
-    )
+async function initializeServices(
+    config: AppConfig
+): Promise<ServiceContainer> {
+    const container = new ServiceContainer()
+    await container.initialize(config)
 
     logger.info('Event-driven architecture initialized', {
-        maxSampleBytes: REC_MAX_BYTES,
+        maxSampleBytes: config.recording.maxBytes,
         eventListeners: {
             broadcast: 'BroadcastService',
             storage: 'StorageService',
         },
     })
 
+    return container
+}
+
+function setupProxyServer(config: AppConfig, container: ServiceContainer) {
     // Certificate Authority
-    const store = CA_BASE_DIR
-        ? { baseDir: CA_BASE_DIR }
+    const store = config.proxy.caBaseDir
+        ? { baseDir: config.proxy.caBaseDir }
         : getDefaultCertStoreOptions()
     const ca = new CertificateAuthority({ store })
-    // Certificate creation is now manually controlled from the UI
 
     // Create proxy instance with the single transaction aggregator plugin
     const proxy = new MitmProxyServer({
-        host: PROXY_HOST,
-        port: PROXY_PORT,
+        host: config.proxy.host,
+        port: config.proxy.port,
         ca,
-        plugins: [transactionAggregatorPlugin],
+        plugins: [container.transactionAggregatorPlugin],
     })
 
-    // API routes
-    await registerApi(app, {
-        prefix: BACKEND_API_PREFIX,
-        token: BACKEND_TOKEN,
-        ca,
-        proxy,
-        projectService,
+    // Set up project change handler
+    container.projectService.on('projectChanged', async (id) => {
+        const project = await container.projectService.getProject(id)
+        if (project) {
+            proxy.updateConfiguration(
+                buildProjectConfiguration(project.settings)
+            )
+        }
     })
 
-    // Start HTTP server first
-    await app.listen({ host: BACKEND_HOST, port: BACKEND_PORT })
-    app.log.info(`Backend listening on http://${BACKEND_HOST}:${BACKEND_PORT}`)
-    app.log.info(`WS at ${BACKEND_WS_PATH}`)
+    return { ca, proxy }
+}
 
+function setupGracefulShutdown(
+    app: any,
+    proxy: any,
+    container: ServiceContainer
+) {
     let stopping = false
     const shutdown = async (signal: string) => {
         try {
@@ -160,12 +147,9 @@ async function main() {
 
             // Clean up event-driven services
             logger.info('Cleaning up event-driven services...')
-            broadcastService.cleanup()
-            storageService.cleanup()
+            container.cleanup()
 
-            projectService.cleanup()
             // Stop other services
-            hub.stop()
             await proxy.stop()
             await app.close()
 
@@ -180,9 +164,38 @@ async function main() {
     process.on('SIGTERM', () => void shutdown('SIGTERM'))
 }
 
+async function main() {
+    const config = loadConfiguration()
+    logStartupInfo(config)
+
+    const app = await setupServer(config)
+    const container = await initializeServices(config)
+    const { ca, proxy } = setupProxyServer(config, container)
+
+    // Register tRPC API routes
+    await registerTRPCApi(app, {
+        prefix: config.backend.apiPrefix,
+        token: config.backend.token,
+        ca,
+        proxy,
+        projectService: container.projectService,
+        transactionService: container.transactionService,
+    })
+
+    // Start HTTP server
+    await app.listen({ host: config.backend.host, port: config.backend.port })
+    app.log.info(
+        `Backend listening on http://${config.backend.host}:${config.backend.port}`
+    )
+    app.log.info(
+        `tRPC WebSocket subscriptions available at ${config.backend.apiPrefix}`
+    )
+
+    // Set up graceful shutdown
+    setupGracefulShutdown(app, proxy, container)
+}
+
 main().catch((err) => {
     console.error(err)
     process.exit(1)
 })
-
-export { main }

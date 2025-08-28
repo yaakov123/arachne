@@ -51,7 +51,6 @@ export interface CertResponse {
 
 // Proxy management responses
 export interface ProxyStartResponse {
-    ok: boolean
     message: string
     serverInfo?: {
         host: string
@@ -60,12 +59,10 @@ export interface ProxyStartResponse {
 }
 
 export interface ProxyStopResponse {
-    ok: boolean
     message: string
 }
 
 export interface ProxyStatusResponse {
-    ok: boolean
     isRunning: boolean
     serverInfo?: {
         host: string
@@ -74,39 +71,33 @@ export interface ProxyStatusResponse {
 }
 
 export interface ProxyErrorResponse {
-    ok: false
     error: string
     message: string
 }
 
 // Certificate Authority management responses
 export interface CACreateResponse {
-    ok: boolean
     message: string
     certPem?: string
 }
 
 export interface CATrustResponse {
-    ok: boolean
     message: string
     code?: number | null
 }
 
 export interface CAErrorResponse {
-    ok: false
     error: string
     message: string
 }
 
 export interface CATrustInstructionsResponse {
-    ok: boolean
     trustCommand: string
     untrustCommands: string[]
     certPath: string
 }
 
 export interface CAStatusResponse {
-    ok: boolean
     exists: boolean
     message: string
 }
@@ -118,7 +109,6 @@ export interface RepeatRequestBody {
 }
 
 export interface RepeatResponse {
-    ok: boolean
     message: string
     error?: string
 }
@@ -162,42 +152,35 @@ export interface UpdateProjectRequest {
 }
 
 export interface ProjectListResponse {
-    ok: boolean
-    projects: ProjectInfo[]
+    projects: []
 }
 
 export interface ProjectResponse {
-    ok: boolean
     project: ProjectInfo
 }
 
 export interface ProjectCreateResponse {
-    ok: boolean
     project: ProjectInfo
     message: string
 }
 
 export interface ProjectErrorResponse {
-    ok: false
     error: string
     message: string
 }
 
 export interface ProjectCurrentResponse {
-    ok: boolean
     currentProject: string | null
     project?: ProjectInfo
     message?: string
 }
 
 export interface ProjectActivateResponse {
-    ok: boolean
     message: string
     currentProject: string | null
 }
 
 export interface ProjectTransactionsResponse {
-    ok: boolean
     transactions: TransactionCompleteEvent[]
     total: number
 }

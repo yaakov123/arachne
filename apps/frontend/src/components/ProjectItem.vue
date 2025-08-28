@@ -9,45 +9,39 @@
                 <div class="project-item-header">
                     <div class="project-item-name">
                         <span class="project-name-text">{{
-                            project.metadata.name
+                            project.name
                         }}</span>
                         <span v-if="isActive" class="active-badge">
                             ✓ Active
                         </span>
                     </div>
                     <div class="project-item-meta">
-                        {{ project.transactionCount }}
-                        transactions •
-                        {{ formatFileSize(project.sizeBytes) }}
-                        • Created
-                        {{ formatDate(project.metadata.createdAt) }}
+                        Created
+                        {{ formatDate(project.createdAt.toISOString()) }}
                     </div>
                 </div>
                 <div
-                    v-if="project.metadata.description"
+                    v-if="project.description"
                     class="project-item-description"
                 >
-                    {{ project.metadata.description }}
+                    {{ project.description }}
                 </div>
                 <div
-                    v-if="
-                        project.metadata.tags &&
-                        project.metadata.tags.length > 0
-                    "
+                    v-if="project.tags && project.tags.length > 0"
                     class="project-item-tags"
                 >
                     <span
-                        v-for="tag in project.metadata.tags.slice(0, 5)"
+                        v-for="tag in project.tags.slice(0, 5)"
                         :key="tag"
                         class="tag tag-sm"
                     >
                         {{ tag }}
                     </span>
                     <span
-                        v-if="project.metadata.tags.length > 5"
+                        v-if="project.tags.length > 5"
                         class="tag tag-sm tag-more"
                     >
-                        +{{ project.metadata.tags.length - 5 }}
+                        +{{ project.tags.length - 5 }}
                     </span>
                 </div>
             </div>
@@ -71,19 +65,19 @@
 </template>
 
 <script setup lang="ts">
-import type { ProjectInfo } from '@arachne/api-types'
+import type { Project } from '@arachne/database'
 
 interface Props {
-    project: ProjectInfo
+    project: Project
     isActive: boolean
 }
 
 defineProps<Props>()
 
 defineEmits<{
-    select: [project: ProjectInfo]
-    edit: [project: ProjectInfo]
-    delete: [project: ProjectInfo]
+    select: [project: Project]
+    edit: [project: Project]
+    delete: [project: Project]
 }>()
 
 function formatDate(dateString: string): string {

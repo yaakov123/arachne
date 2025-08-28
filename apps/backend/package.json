@@ -1,31 +1,39 @@
 {
-  "name": "@arachne/backend",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "main": "./src/index.ts",
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "lint": "eslint src --max-warnings 0",
-    "type-check": "tsc --noEmit",
-    "cleanup": "tsx src/cleanup.ts",
-    "test": "vitest run",
-    "test:watch": "vitest watch"
-  },
-  "dependencies": {
-    "@arachne/api-types": "*",
-    "@arachne/os": "*",
-    "@arachne/proxy": "*",
-    "@fastify/cors": "^11.1.0",
-    "@fastify/websocket": "^11.2.0",
-    "fastify": "^5.5.0",
-    "undici": "^7.15.0",
-    "winston": "^3.17.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/winston": "^2.4.4",
-    "tsx": "^4.20.4",
-    "typescript": "^5.9.2"
-  }
+    "name": "@arachne/backend",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "main": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/trpc/router.ts"
+        }
+    },
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "lint": "eslint src --max-warnings 0",
+        "type-check": "tsc --noEmit",
+        "cleanup": "tsx src/cleanup.ts",
+        "test": "vitest run",
+        "test:watch": "vitest watch"
+    },
+    "dependencies": {
+        "@arachne/api-types": "*",
+        "@arachne/database": "*",
+        "@arachne/os": "*",
+        "@arachne/proxy": "*",
+        "@fastify/cors": "^11.1.0",
+        "@fastify/websocket": "^11.2.0",
+        "@trpc/server": "^11.5.0",
+        "fastify": "^5.5.0",
+        "undici": "^7.15.0",
+        "winston": "^3.17.0",
+        "zod": "^4.1.4"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/winston": "^2.4.4",
+        "tsx": "^4.20.4",
+        "typescript": "^5.9.2"
+    }
 }

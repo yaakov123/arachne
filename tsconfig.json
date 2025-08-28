@@ -20,6 +20,7 @@
     "references": [
         { "path": "./packages/proxy" },
         { "path": "./packages/api-types" },
+        { "path": "./packages/database" },
         { "path": "./apps/backend" },
         { "path": "./apps/frontend" }
     ]

@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
 import type { ProjectService } from '../services/project-service'
+import { TransactionService } from '../services/transaction-service'
 
 export interface RouteOptions {
     prefix: string
@@ -8,6 +9,7 @@ export interface RouteOptions {
     ca: CertificateAuthority
     proxy: MitmProxyServer
     projectService: ProjectService
+    transactionService: TransactionService
 }
 
 export type AuthMiddleware = (

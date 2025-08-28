@@ -1,6 +1,6 @@
 import winston from 'winston'
 import { join } from 'node:path'
-
+const DEFAULT_LOG_LEVEL = 'info'
 // Create logs directory path
 const logsDir = join(process.cwd(), 'logs')
 
@@ -29,7 +29,7 @@ const appFormat = winston.format.combine(
 
 // Create the main logger
 export const logger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'debug',
+    level: process.env.LOG_LEVEL || DEFAULT_LOG_LEVEL,
     format: appFormat,
     transports: [
         // Console transport for development
@@ -74,7 +74,6 @@ export const broadcastLogger = winston.createLogger({
 
 // Ensure logs directory exists
 import { mkdirSync } from 'node:fs'
-import { DEFAULT_LOG_LEVEL } from 'packages/proxy/src/core/constants'
 try {
     mkdirSync(logsDir, { recursive: true })
 } catch (error) {

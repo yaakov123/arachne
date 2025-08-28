@@ -4,4 +4,3 @@ dist
 *.tsbuildinfo
 .turbo
 *.log
-/apps/backend/projects/*

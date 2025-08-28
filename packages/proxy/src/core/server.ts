@@ -165,6 +165,7 @@ export class MitmProxyServer {
 
     updateConfiguration(newConfig: Partial<ProxyRuntimeConfig>): void {
         this.configStore.update(newConfig)
+        logger.info('Configuration updated' + JSON.stringify({ newConfig }))
     }
 
     getCurrentConfiguration(): ProxyRuntimeConfig {

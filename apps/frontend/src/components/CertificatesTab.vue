@@ -133,7 +133,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api } from '@/services/http'
+import { trpc } from '@/services/trpc'
 
 // CA state
 const caLoading = ref(false)
@@ -150,7 +150,7 @@ const trustInstructions = ref<{
 // CA methods
 async function checkCAStatus() {
     try {
-        const response = await api.getCAStatus()
+        const response = await trpc.ca.status.query()
         caExists.value = response.exists
     } catch (error) {
         // Silently fail - assume CA doesn't exist
@@ -163,20 +163,15 @@ async function createCA() {
     caMessage.value = ''
 
     try {
-        const response = await api.createCA()
-        if (response.ok) {
-            caMessage.value = response.message
-            caMessageType.value = 'success'
-            if (response.certPem) {
-                caCertPem.value = response.certPem
-            }
-            // Update CA status and load trust instructions after CA is created
-            await checkCAStatus()
-            await loadTrustInstructions()
-        } else {
-            caMessage.value = response.message || 'Failed to create CA'
-            caMessageType.value = 'error'
+        const response = await trpc.ca.create.mutate()
+        caMessage.value = response.message
+        caMessageType.value = 'success'
+        if (response.certPem) {
+            caCertPem.value = response.certPem
         }
+        // Update CA status and load trust instructions after CA is created
+        await checkCAStatus()
+        await loadTrustInstructions()
     } catch (error) {
         caMessage.value =
             error instanceof Error ? error.message : 'Unknown error occurred'
@@ -188,13 +183,11 @@ async function createCA() {
 
 async function loadTrustInstructions() {
     try {
-        const response = await api.getTrustInstructions()
-        if (response.ok) {
-            trustInstructions.value = {
-                trustCommand: response.trustCommand,
-                untrustCommands: response.untrustCommands,
-                certPath: response.certPath,
-            }
+        const response = await trpc.ca.getTrustInstructions.query()
+        trustInstructions.value = {
+            trustCommand: response.trustCommand,
+            untrustCommands: response.untrustCommands,
+            certPath: response.certPath,
         }
     } catch (error) {
         console.warn('Failed to load trust instructions:')
@@ -226,7 +219,7 @@ async function copyToClipboard(text: string) {
 // Load existing certificate on mount
 async function loadExistingCert() {
     try {
-        const response = await api.getCert()
+        const response = await trpc.cert.get.query()
         caCertPem.value = response.pem
     } catch (error) {
         // Certificate doesn't exist yet - this is expected now

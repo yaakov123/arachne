@@ -6,25 +6,22 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { TransactionRequest, TransactionResponse } from '@arachne/api-types'
+import type { FullTransaction } from '@arachne/database'
 
 interface Props {
-    request?: TransactionRequest
-    response?: TransactionResponse
+    transaction?: FullTransaction
 }
 
 const props = defineProps<Props>()
 
 const rawContent = computed(() => {
-    if (props.request && props.response) {
+    if (props.transaction) {
         // Show both request and response
-        return formatRequest(props.request) + '\n\n' + formatResponse(props.response)
-    } else if (props.request) {
-        // Show only request
-        return formatRequest(props.request)
-    } else if (props.response) {
-        // Show only response
-        return formatResponse(props.response)
+        return (
+            formatRequest(props.transaction) +
+            '\n\n' +
+            formatResponse(props.transaction)
+        )
     }
     return 'No data available'
 })
@@ -34,72 +31,81 @@ const coloredContent = computed(() => {
     if (content === 'No data available') {
         return `<span class="no-data">${content}</span>`
     }
-    
+
     return colorizeHttpContent(content)
 })
 
-const formatRequest = (request: TransactionRequest): string => {
+const formatRequest = (transaction: FullTransaction): string => {
     const lines: string[] = []
-    
+
     // Request line
-    const url = request.url.path + (request.url.query ? `?${request.url.query}` : '')
-    lines.push(`${request.method} ${url} HTTP/1.1`)
-    
+    const url =
+        transaction.urlPath +
+        (transaction.urlQuery ? `?${transaction.urlQuery}` : '')
+    lines.push(`${transaction.method} ${url} HTTP/1.1`)
+
     // Host header (should be first)
-    lines.push(`Host: ${request.url.host}${request.url.port ? `:${request.url.port}` : ''}`)
-    
+    lines.push(
+        `Host: ${transaction.urlHost}${
+            transaction.urlPort ? `:${transaction.urlPort}` : ''
+        }`
+    )
+
     // Other headers
-    request.headers
-        .filter(h => h.name.toLowerCase() !== 'host')
-        .forEach(header => {
+    transaction.requestHeaders
+        .filter((h) => h.name.toLowerCase() !== 'host')
+        .forEach((header) => {
             lines.push(`${header.name}: ${header.value}`)
         })
-    
+
     // Empty line before body
     lines.push('')
-    
+
     // Body (if present)
-    if (request.body?.sample) {
-        if (request.body.content.encoding === 'base64') {
+    if (transaction.requestBody?.sample) {
+        if (transaction.requestBody.encoding === 'base64') {
             lines.push('[Binary content - base64 encoded]')
-            lines.push(request.body.sample)
+            lines.push(transaction.requestBody.sample)
         } else {
-            lines.push(request.body.sample)
+            lines.push(transaction.requestBody.sample)
         }
     }
-    
+
     return lines.join('\n')
 }
 
-const formatResponse = (response: TransactionResponse): string => {
+const formatResponse = (transaction: FullTransaction): string => {
     const lines: string[] = []
-    
+
     // Status line
-    const statusMessage = response.statusMessage || getDefaultStatusMessage(response.statusCode)
-    lines.push(`HTTP/1.1 ${response.statusCode} ${statusMessage}`)
-    
+    const statusMessage =
+        transaction.statusMessage ||
+        getDefaultStatusMessage(transaction.statusCode)
+    lines.push(`HTTP/1.1 ${transaction.statusCode} ${statusMessage}`)
+
     // Headers
-    response.headers.forEach(header => {
+    transaction.responseHeaders.forEach((header) => {
         lines.push(`${header.name}: ${header.value}`)
     })
-    
+
     // Empty line before body
     lines.push('')
-    
+
     // Body (if present)
-    if (response.body?.sample) {
-        if (response.body.content.encoding === 'base64') {
+    if (transaction.responseBody?.sample) {
+        if (transaction.responseBody.encoding === 'base64') {
             lines.push('[Binary content - base64 encoded]')
-            lines.push(response.body.sample)
+            lines.push(transaction.responseBody.sample)
         } else {
-            lines.push(response.body.sample)
+            lines.push(transaction.responseBody.sample)
         }
     }
-    
+
     return lines.join('\n')
 }
 
-const getDefaultStatusMessage = (statusCode: number): string => {
+const getDefaultStatusMessage = (statusCode: number | null): string => {
+    if (!statusCode) return 'Unknown'
     const statusMessages: Record<number, string> = {
         200: 'OK',
         201: 'Created',
@@ -122,19 +128,21 @@ const getDefaultStatusMessage = (statusCode: number): string => {
 const colorizeHttpContent = (content: string): string => {
     const lines = content.split('\n')
     const coloredLines: string[] = []
-    
+
     let inRequestBody = false
     let inResponseBody = false
     let isFirstLine = true
-    
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
-        
+
         // Empty line - usually separates headers from body
         if (line.trim() === '') {
             if (i > 0 && !inRequestBody && !inResponseBody) {
                 // Next non-empty line will be body
-                const nextNonEmptyIndex = lines.findIndex((l, idx) => idx > i && l.trim() !== '')
+                const nextNonEmptyIndex = lines.findIndex(
+                    (l, idx) => idx > i && l.trim() !== ''
+                )
                 if (nextNonEmptyIndex !== -1) {
                     if (lines[0].startsWith('HTTP/')) {
                         inResponseBody = true
@@ -146,18 +154,22 @@ const colorizeHttpContent = (content: string): string => {
             coloredLines.push('')
             continue
         }
-        
+
         // Request line (GET /path HTTP/1.1)
         if (isFirstLine && line.match(/^[A-Z]+ .+ HTTP\/\d\.\d$/)) {
             const parts = line.split(' ')
             const method = `<span class="http-method">${parts[0]}</span>`
-            const url = `<span class="http-url">${parts.slice(1, -1).join(' ')}</span>`
-            const version = `<span class="http-version">${parts[parts.length - 1]}</span>`
+            const url = `<span class="http-url">${parts
+                .slice(1, -1)
+                .join(' ')}</span>`
+            const version = `<span class="http-version">${
+                parts[parts.length - 1]
+            }</span>`
             coloredLines.push(`${method} ${url} ${version}`)
             isFirstLine = false
             continue
         }
-        
+
         // Response status line (HTTP/1.1 200 OK)
         if (isFirstLine && line.match(/^HTTP\/\d\.\d \d{3}/)) {
             const parts = line.split(' ')
@@ -165,12 +177,14 @@ const colorizeHttpContent = (content: string): string => {
             const statusCode = parseInt(parts[1])
             const statusClass = getStatusClass(statusCode)
             const status = `<span class="http-status ${statusClass}">${parts[1]}</span>`
-            const message = `<span class="http-status-message">${parts.slice(2).join(' ')}</span>`
+            const message = `<span class="http-status-message">${parts
+                .slice(2)
+                .join(' ')}</span>`
             coloredLines.push(`${version} ${status} ${message}`)
             isFirstLine = false
             continue
         }
-        
+
         // Headers (Name: Value)
         if (!inRequestBody && !inResponseBody && line.includes(':')) {
             const colonIndex = line.indexOf(':')
@@ -178,39 +192,58 @@ const colorizeHttpContent = (content: string): string => {
             const headerValue = line.substring(colonIndex + 1)
             const nameClass = getHeaderClass(headerName.toLowerCase())
             coloredLines.push(
-                `<span class="http-header-name ${nameClass}">${escapeHtml(headerName)}</span><span class="http-colon">:</span><span class="http-header-value">${escapeHtml(headerValue)}</span>`
+                `<span class="http-header-name ${nameClass}">${escapeHtml(
+                    headerName
+                )}</span><span class="http-colon">:</span><span class="http-header-value">${escapeHtml(
+                    headerValue
+                )}</span>`
             )
             continue
         }
-        
+
         // Body content
         if (inRequestBody || inResponseBody) {
             // Check if it's a binary content indicator
             if (line.startsWith('[Binary content')) {
-                coloredLines.push(`<span class="http-binary-indicator">${escapeHtml(line)}</span>`)
+                coloredLines.push(
+                    `<span class="http-binary-indicator">${escapeHtml(
+                        line
+                    )}</span>`
+                )
             } else {
                 // Try to detect and colorize JSON
                 const trimmedLine = line.trim()
-                if ((trimmedLine.startsWith('{') || trimmedLine.startsWith('[')) && 
-                    (trimmedLine.endsWith('}') || trimmedLine.endsWith(']'))) {
+                if (
+                    (trimmedLine.startsWith('{') ||
+                        trimmedLine.startsWith('[')) &&
+                    (trimmedLine.endsWith('}') || trimmedLine.endsWith(']'))
+                ) {
                     try {
                         JSON.parse(line)
-                        coloredLines.push(`<span class="http-body-json">${escapeHtml(line)}</span>`)
+                        coloredLines.push(
+                            `<span class="http-body-json">${escapeHtml(
+                                line
+                            )}</span>`
+                        )
                     } catch {
-                        coloredLines.push(`<span class="http-body">${escapeHtml(line)}</span>`)
+                        coloredLines.push(
+                            `<span class="http-body">${escapeHtml(line)}</span>`
+                        )
                     }
                 } else {
-                    coloredLines.push(`<span class="http-body">${escapeHtml(line)}</span>`)
+                    coloredLines.push(
+                        `<span class="http-body">${escapeHtml(line)}</span>`
+                    )
                 }
             }
             continue
         }
-        
+
         // Default case
         coloredLines.push(escapeHtml(line))
         isFirstLine = false
     }
-    
+
     return coloredLines.join('\n')
 }
 
@@ -225,8 +258,18 @@ const getStatusClass = (statusCode: number): string => {
 const getHeaderClass = (headerName: string): string => {
     if (headerName === 'host') return 'header-host'
     if (headerName.includes('content-')) return 'header-content'
-    if (headerName.includes('auth') || headerName === 'cookie' || headerName === 'set-cookie') return 'header-auth'
-    if (headerName.includes('cache') || headerName.includes('etag') || headerName.includes('expires')) return 'header-cache'
+    if (
+        headerName.includes('auth') ||
+        headerName === 'cookie' ||
+        headerName === 'set-cookie'
+    )
+        return 'header-auth'
+    if (
+        headerName.includes('cache') ||
+        headerName.includes('etag') ||
+        headerName.includes('expires')
+    )
+        return 'header-cache'
     return 'header-standard'
 }
 
@@ -361,15 +404,15 @@ const escapeHtml = (text: string): string => {
     :deep(.http-method) {
         color: #3b82f6; /* Vibrant blue for dark theme */
     }
-    
+
     :deep(.http-url) {
         color: #22c55e; /* Vibrant green for dark theme */
     }
-    
+
     :deep(.http-version) {
         color: #6b7280; /* Medium gray for dark theme */
     }
-    
+
     :deep(.http-status.status-success) {
         color: #22c55e; /* Vibrant green for 2xx in dark */
     }
@@ -389,31 +432,31 @@ const escapeHtml = (text: string): string => {
     :deep(.http-status.status-info) {
         color: #3b82f6; /* Vibrant blue for 1xx in dark */
     }
-    
+
     :deep(.http-header-name) {
         color: #8b5cf6; /* Vibrant purple for dark theme */
     }
-    
+
     :deep(.http-header-name.header-host) {
         color: #3b82f6; /* Vibrant blue for dark theme */
     }
-    
+
     :deep(.http-header-name.header-content) {
         color: #059669; /* Vibrant teal for dark theme */
     }
-    
+
     :deep(.http-header-name.header-auth) {
         color: #ef4444; /* Vibrant red for auth headers in dark */
     }
-    
+
     :deep(.http-header-name.header-cache) {
         color: #7c3aed; /* Vibrant purple for cache headers in dark */
     }
-    
+
     :deep(.http-body-json) {
         color: #06b6d4; /* Vibrant cyan for dark theme */
     }
-    
+
     :deep(.http-binary-indicator) {
         color: #f59e0b; /* Vibrant orange for binary indicators in dark */
     }
