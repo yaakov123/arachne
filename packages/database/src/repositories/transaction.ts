@@ -63,6 +63,9 @@ export class TransactionRepository {
                 projectId,
                 ...options?.where,
             },
+            orderBy: {
+                timestamp: 'desc',
+            },
         })
     }
 
