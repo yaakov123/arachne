@@ -218,17 +218,6 @@ export class TransactionService {
                       },
                   }
                 : undefined,
-
-            // Repeater metadata
-            repeaterMeta: transaction.repeater
-                ? {
-                      create: {
-                          source: transaction.repeater.source,
-                          originalTransactionId:
-                              transaction.repeater.originalTransactionId,
-                      },
-                  }
-                : undefined,
         }
 
         return input

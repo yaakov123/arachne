@@ -143,13 +143,6 @@ export interface TransactionData {
     response?: TransactionResponse
     timing: TransactionTiming
     summary: TransactionSummary
-    repeater?: RepeaterMetadata
-}
-
-export interface RepeaterMetadata {
-    source: 'proxy' | 'repeater'
-    originalTransactionId?: string // For repeated requests only
-    repeatedAt?: string // ISO timestamp when repeated
 }
 
 // Dependency analysis types

@@ -6,12 +6,7 @@ import type {
     ResponseBodyContext,
 } from '@arachne/proxy'
 import { EventEmitter } from 'events'
-import type {
-    DisplayHeader,
-    ContentInfo,
-    RequestURL,
-    RepeaterMetadata,
-} from '@arachne/api-types'
+import type { DisplayHeader, ContentInfo, RequestURL } from '@arachne/api-types'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
 
@@ -54,8 +49,6 @@ interface TransactionState {
     responseSize?: number
     hasRequestBody: boolean
     hasResponseBody: boolean
-    // Repeater metadata
-    repeaterMeta?: RepeaterMetadata
 }
 
 function detectContentFormat(
@@ -193,33 +186,8 @@ export function createTransactionAggregatorPlugin(
             const timestamp = Date.now()
             const parsedURL = parseURL(ctx.url)
 
-            // Check for repeater header
-            let repeaterMeta: RepeaterMetadata | undefined
-            const repeaterHeader = ctx.headers['x-arachne-repeater']
-
-            if (repeaterHeader) {
-                try {
-                    const headerValue = Array.isArray(repeaterHeader)
-                        ? repeaterHeader[0]
-                        : repeaterHeader
-
-                    const parsed = JSON.parse(headerValue)
-                    repeaterMeta = {
-                        source: 'repeater',
-                        originalTransactionId: parsed.originalId,
-                        repeatedAt: new Date(parsed.timestamp).toISOString(),
-                    }
-                } catch {
-                    repeaterMeta = { source: 'proxy' }
-                }
-            } else {
-                repeaterMeta = { source: 'proxy' }
-            }
-
             // Parse headers and filter out the repeater header for broadcast
-            const parsedHeaders = parseHeaders(ctx.headers).filter(
-                (h) => h.name !== 'x-arachne-repeater'
-            )
+            const parsedHeaders = parseHeaders(ctx.headers)
 
             // Initialize transaction state
             transactions.set(ctx.id, {
@@ -232,7 +200,6 @@ export function createTransactionAggregatorPlugin(
                 clientIp: ctx.clientIp,
                 hasRequestBody: false,
                 hasResponseBody: false,
-                repeaterMeta,
             })
 
             // Emit request event
@@ -244,7 +211,6 @@ export function createTransactionAggregatorPlugin(
                 clientIp: ctx.clientIp,
                 timestamp,
                 ts: nowIso(),
-                repeaterMeta,
             })
         },
 
@@ -366,7 +332,6 @@ export function createTransactionAggregatorPlugin(
                     hasRequestBody: transaction.hasRequestBody,
                     hasResponseBody: transaction.hasResponseBody,
                 },
-                repeater: transaction.repeaterMeta,
             }
 
             // Emit transaction complete event
