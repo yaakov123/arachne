@@ -127,21 +127,9 @@ const copyCurl = () => {
 .traffic-entry:hover {
     background: var(--surface-hover);
 }
-/* 
-.traffic-entry.is-repeated:hover {
-    background: var(--color-neutral-100);
-}
-
-.traffic-entry.has-children:hover {
-    background: var(--surface-hover);
-} */
 
 .traffic-entry.selected {
     background: var(--color-primary-50);
-}
-
-.traffic-entry.selected.is-repeated {
-    background: var(--color-neutral-100);
 }
 
 .traffic-entry.selected.has-children {
@@ -151,15 +139,6 @@ const copyCurl = () => {
 .traffic-entry.parent-highlighted {
     background: var(--color-neutral-50);
     opacity: 0.9;
-}
-
-/* Repeater-specific styling */
-.traffic-entry.is-repeated {
-    opacity: 0.8;
-    background: var(--color-neutral-50);
-    border-left: 2px solid var(--color-neutral-300);
-    margin-left: var(--space-md);
-    position: relative;
 }
 
 .traffic-entry.has-children {
@@ -172,10 +151,6 @@ const copyCurl = () => {
     align-items: center;
     gap: var(--space-xs);
     padding-left: var(--space-md);
-    color: var(--text-color-muted);
-}
-
-.repeat-icon {
     color: var(--text-color-muted);
 }
 
@@ -204,17 +179,6 @@ const copyCurl = () => {
 .expand-button:hover {
     background: var(--surface-hover);
     color: var(--text-color);
-}
-
-.repeat-count {
-    background: var(--color-neutral-200);
-    color: var(--text-color-muted);
-    padding: 2px 6px;
-    border-radius: var(--radius-full);
-    font-size: var(--text-xs);
-    font-weight: var(--font-medium);
-    min-width: 16px;
-    text-align: center;
 }
 
 .entry-method {

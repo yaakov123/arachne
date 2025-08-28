@@ -48,17 +48,6 @@ export const caActionSchema = z.object({
     action: z.enum(['create', 'trust', 'untrust', 'status']),
 })
 
-// Repeater schemas
-export const repeatRequestSchema = z.object({
-    originalTransactionId: z.string().min(1),
-    transaction: z.object({
-        method: z.string(),
-        url: z.string().url(),
-        headers: z.record(z.string(), z.string()).optional(),
-        body: z.string().optional(),
-    }),
-})
-
 // Common response schemas
 export const errorResponseSchema = z.object({
     error: z.string(),

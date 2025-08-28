@@ -8,7 +8,7 @@ const baseConfig: ProxyRuntimeConfig = {
 }
 
 /**
- * Builds a ProxyRuntimeConfig for a project, merging baseConfig and projectMetadata.
+ * Builds a ProxyRuntimeConfig for a project, merging baseConfig and ProjectSettings
  */
 export function buildProjectConfiguration(
     settings: ProjectSettings | null

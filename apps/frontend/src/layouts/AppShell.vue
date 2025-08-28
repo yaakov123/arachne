@@ -32,7 +32,6 @@ import { Settings } from 'lucide-vue-next'
 import ProxyToggle from '@/components/ProxyToggle.vue'
 import ProjectDropdown from '@/components/ProjectDropdown.vue'
 import { useProjectStore } from '@/stores/project'
-import type { ProjectInfo } from '@arachne/api-types'
 
 const router = useRouter()
 const projectStore = useProjectStore()
