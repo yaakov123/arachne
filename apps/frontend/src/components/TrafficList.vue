@@ -87,6 +87,10 @@ async function scrollToHighlighted() {
 
 <style scoped>
 .traffic-list {
+    /* Define shared grid layout variables */
+    --traffic-grid-columns: 40px 80px 1fr 80px 100px;
+    --traffic-grid-gap: var(--space-md);
+
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -160,5 +164,20 @@ async function scrollToHighlighted() {
 .scroll-to-highlighted-btn:active {
     transform: translateY(0);
     box-shadow: var(--shadow-md);
+}
+
+/* Responsive grid layout adjustments */
+@media (max-width: 768px) {
+    .traffic-list {
+        --traffic-grid-columns: 32px 60px 1fr 60px 80px;
+        --traffic-grid-gap: var(--space-sm);
+    }
+}
+
+@media (max-width: 480px) {
+    .traffic-list {
+        --traffic-grid-columns: 24px 50px 1fr 50px;
+        --traffic-grid-gap: var(--space-xs);
+    }
 }
 </style>

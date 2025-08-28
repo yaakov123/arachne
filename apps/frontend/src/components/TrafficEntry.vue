@@ -76,7 +76,6 @@ const store = useTransactionsStore()
 const contextMenuVisible = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
-const isRepeating = ref(false)
 
 // Computed properties
 // Event handlers
@@ -98,20 +97,6 @@ const hideContextMenu = () => {
     contextMenuVisible.value = false
 }
 
-const repeatRequest = async () => {
-    if (isRepeating.value) return
-
-    isRepeating.value = true
-    try {
-        await store.repeatRequest(props.transaction.id)
-    } catch (error) {
-        console.error('Failed to repeat request:', error)
-        // TODO: Show user-friendly error message
-    } finally {
-        isRepeating.value = false
-    }
-}
-
 const copyUrl = () => {
     navigator.clipboard.writeText(props.transaction.urlFull)
 }
@@ -125,8 +110,11 @@ const copyCurl = () => {
 <style scoped>
 .traffic-entry {
     display: grid;
-    grid-template-columns: 40px 80px 1fr 80px 80px;
-    gap: var(--space-md);
+    grid-template-columns: var(
+        --traffic-grid-columns,
+        40px 80px 1fr 80px 100px
+    );
+    gap: var(--traffic-grid-gap, var(--space-md));
     padding: var(--space-md) var(--space-sm) var(--space-md) 0;
     border-bottom: 1px solid var(--surface-border);
     cursor: pointer;
@@ -283,6 +271,37 @@ const copyCurl = () => {
     text-align: right;
     color: var(--text-color-muted);
     font-variant-numeric: tabular-nums;
+    padding-right: var(--space-sm);
+}
+
+/* Responsive adjustments to match header */
+@media (max-width: 768px) {
+    .traffic-entry {
+        grid-template-columns: 32px 60px 1fr 60px 80px;
+        gap: var(--space-sm);
+        font-size: var(--text-xs);
+    }
+
+    .entry-method {
+        font-size: var(--text-xs);
+        padding: 2px var(--space-xs);
+    }
+}
+
+@media (max-width: 480px) {
+    .traffic-entry {
+        grid-template-columns: 24px 50px 1fr 50px;
+        gap: var(--space-xs);
+    }
+
+    .entry-time {
+        display: none;
+    }
+
+    .entry-method {
+        font-size: 10px;
+        padding: 1px 2px;
+    }
 }
 
 /* Context menu styles */
