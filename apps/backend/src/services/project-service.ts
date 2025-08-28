@@ -33,9 +33,9 @@ export class ProjectService extends EventEmitter<ProjectServiceEvents> {
     }
 
     async ensureDefaultProject() {
-        const project = await this.projectRepository.findById('default')
+        let project = await this.projectRepository.findById('default')
         if (!project) {
-            return this.projectRepository.create({
+            project = await this.projectRepository.create({
                 id: 'default',
                 name: 'Default Project',
                 description: 'Default project for the application',
@@ -63,6 +63,8 @@ export class ProjectService extends EventEmitter<ProjectServiceEvents> {
                 activeProjectId: projectId,
                 lastUpdated: new Date().toISOString(),
             })
+
+            logger.info('Active project saved', { projectId })
 
             if (projectId) {
                 this.emit('projectChanged', projectId)
@@ -121,7 +123,15 @@ export class ProjectService extends EventEmitter<ProjectServiceEvents> {
      * Update project metadata
      */
     async updateProject(projectId: string, project: ProjectUpdateInput) {
-        return this.projectRepository.update(projectId, project)
+        const updatedProject = await this.projectRepository.update(
+            projectId,
+            project
+        )
+
+        // Emit projectChanged event to notify listeners of the update
+        this.emit('projectChanged', projectId)
+
+        return updatedProject
     }
 
     /**

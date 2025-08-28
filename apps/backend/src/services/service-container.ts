@@ -5,6 +5,7 @@ import { StorageService } from './storage-service'
 import { BroadcastEmitter } from './broadcast-emitter'
 import { createTransactionAggregatorPlugin } from '../plugins/transaction-aggregator-plugin'
 import { AppConfig } from '../types'
+import { logger } from '../logger'
 
 /**
  * Service container that manages all application services and their dependencies.
@@ -22,17 +23,14 @@ export class ServiceContainer {
      * Initialize all services in the correct order
      */
     async initialize(config: AppConfig): Promise<void> {
+        logger.info('Initializing services')
         // Core services first (no dependencies)
         this._broadcastEmitter = new BroadcastEmitter()
         this._projectService = new ProjectService()
         this._transactionService = new TransactionService()
 
         // Initialize project service and get current project
-        const currentProject = await this._projectService.initialize()
-        console.log('Current active project', {
-            projectId: currentProject.id,
-            projectName: currentProject.name,
-        })
+        await this._projectService.initialize()
 
         // Services that depend on the core services
         this._broadcastService = new BroadcastService(this._broadcastEmitter)
