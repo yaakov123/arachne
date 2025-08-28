@@ -226,13 +226,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type {
-    CreateProjectRequest,
-    UpdateProjectRequest,
-} from '@arachne/api-types'
+import type { Project } from '@arachne/database'
 
 interface Props {
-    modelValue: CreateProjectRequest | UpdateProjectRequest
+    modelValue: Project
     loading?: boolean
     submitText?: string
     idPrefix?: string
@@ -245,7 +242,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-    'update:modelValue': [value: CreateProjectRequest | UpdateProjectRequest]
+    'update:modelValue': [value: Project]
     submit: []
     cancel: []
 }>()
@@ -269,10 +266,7 @@ const maxBodySizeMB = computed(() => {
 })
 
 // Update methods
-function updateField(
-    field: keyof (CreateProjectRequest | UpdateProjectRequest),
-    value: string
-) {
+function updateField(field: keyof Project, value: string) {
     emit('update:modelValue', {
         ...props.modelValue,
         [field]: value,

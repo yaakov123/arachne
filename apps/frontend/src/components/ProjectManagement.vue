@@ -53,12 +53,12 @@
                     <div v-else class="project-list">
                         <div
                             v-for="project in projects"
-                            :key="project.metadata.id"
+                            :key="project.id"
                             class="project-item-wrapper"
                         >
                             <!-- Project Item (normal view) -->
                             <ProjectItem
-                                v-if="editingProjectId !== project.metadata.id"
+                                v-if="editingProjectId !== project.id"
                                 :project="project"
                                 :is-active="isCurrentProject(project)"
                                 @select="selectProject"
@@ -98,13 +98,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useProjectStore } from '@/stores/project'
-import type {
-    ProjectInfo,
-    CreateProjectRequest,
-    UpdateProjectRequest,
-} from '@arachne/api-types'
+
 import ProjectItem from './ProjectItem.vue'
 import ProjectForm from './ProjectForm.vue'
+import type { Project } from '@arachne/database'
 
 // Project store
 const projectStore = useProjectStore()
@@ -118,7 +115,10 @@ const createLoading = ref(false)
 const editLoading = ref(false)
 
 // Form data
-const createFormData = ref<CreateProjectRequest>({
+const createFormData = ref<Project>({
+    id: '',
+    createdAt: new Date(),
+    updatedAt: new Date(),
     name: '',
     description: '',
     tags: [],
@@ -131,7 +131,10 @@ const createFormData = ref<CreateProjectRequest>({
     },
 })
 
-const editFormData = ref<UpdateProjectRequest>({
+const editFormData = ref<Project>({
+    id: '',
+    createdAt: new Date(),
+    updatedAt: new Date(),
     name: '',
     description: '',
     tags: [],
@@ -156,8 +159,8 @@ async function loadCurrentProject() {
     await projectStore.loadProjects()
 }
 
-function isCurrentProject(project: ProjectInfo): boolean {
-    return currentProject.value?.metadata.id === project.metadata.id
+function isCurrentProject(project: Project): boolean {
+    return currentProject.value?.id === project.id
 }
 
 function toggleCreateProject() {
@@ -171,6 +174,9 @@ function toggleCreateProject() {
 
 function resetCreateForm() {
     createFormData.value = {
+        id: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
         name: '',
         description: '',
         tags: [],
@@ -211,52 +217,49 @@ async function createProject() {
     }
 }
 
-async function selectProject(project: ProjectInfo) {
+async function selectProject(project: Project) {
     // Close any open edit forms when selecting a project
     if (editingProjectId.value) {
         cancelEditProject()
     }
 
-    const success = await projectStore.switchProject(project.metadata.id)
+    const success = await projectStore.switchProject(project.id)
     if (success) {
-        showMessage(`Switched to project: ${project.metadata.name}`, 'success')
+        showMessage(`Switched to project: ${project.name}`, 'success')
     } else {
         showMessage(projectStore.error || 'Failed to switch project', 'error')
     }
 }
 
-async function openEditProject(project: ProjectInfo) {
+async function openEditProject(project: Project) {
     // Close create form if open
     if (showCreateProject.value) {
         cancelCreateProject()
     }
 
     // Close any other edit forms
-    if (
-        editingProjectId.value &&
-        editingProjectId.value !== project.metadata.id
-    ) {
+    if (editingProjectId.value && editingProjectId.value !== project.id) {
         cancelEditProject()
     }
 
-    editingProjectId.value = project.metadata.id
+    editingProjectId.value = project.id
     populateEditForm(project)
 }
 
-function populateEditForm(project: ProjectInfo) {
+function populateEditForm(project: Project) {
     editFormData.value = {
-        name: project.metadata.name,
-        description: project.metadata.description || '',
-        tags: project.metadata.tags || [],
+        id: project.id,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        name: project.name,
+        description: project.description || '',
+        tags: project.tags || [],
         settings: {
-            maxTransactions:
-                project.metadata.settings?.maxTransactions ?? 10000,
-            retentionDays: project.metadata.settings?.retentionDays ?? 30,
-            hostFilter: project.metadata.settings?.hostFilter ?? [],
-            hostFilterMode:
-                project.metadata.settings?.hostFilterMode ?? 'blacklist',
-            maxBodySize:
-                project.metadata.settings?.maxBodySize ?? 10 * 1024 * 1024,
+            maxTransactions: project.settings?.maxTransactions ?? 10000,
+            retentionDays: project.settings?.retentionDays ?? 30,
+            hostFilter: project.settings?.hostFilter ?? [],
+            hostFilterMode: project.settings?.hostFilterMode ?? 'blacklist',
+            maxBodySize: project.settings?.maxBodySize ?? 10 * 1024 * 1024,
         },
     }
 }
@@ -270,10 +273,10 @@ async function saveEditProject() {
 
     editLoading.value = true
     try {
-        const updatedProject = await projectStore.updateProject(
-            editingProjectId.value,
-            editFormData.value
-        )
+        const updatedProject = await projectStore.updateProject({
+            id: editingProjectId.value,
+            data: editFormData.value,
+        })
         if (updatedProject) {
             showMessage('Project updated successfully', 'success')
             cancelEditProject()
@@ -292,26 +295,23 @@ async function saveEditProject() {
     }
 }
 
-async function deleteProject(project: ProjectInfo) {
+async function deleteProject(project: Project) {
     if (
         !confirm(
-            `Are you sure you want to delete project "${project.metadata.name}"? This action cannot be undone.`
+            `Are you sure you want to delete project "${project.name}"? This action cannot be undone.`
         )
     ) {
         return
     }
 
     // Close edit form if this project is being edited
-    if (editingProjectId.value === project.metadata.id) {
+    if (editingProjectId.value === project.id) {
         cancelEditProject()
     }
 
-    const success = await projectStore.deleteProject(project.metadata.id)
+    const success = await projectStore.deleteProject(project.id)
     if (success) {
-        showMessage(
-            `Project "${project.metadata.name}" deleted successfully`,
-            'success'
-        )
+        showMessage(`Project "${project.name}" deleted successfully`, 'success')
     } else {
         showMessage(projectStore.error || 'Failed to delete project', 'error')
     }

@@ -23,37 +23,26 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { ProjectInfo, UpdateProjectRequest } from '@arachne/api-types'
 import ProjectForm from './ProjectForm.vue'
+import type { Project } from '@arachne/database'
+import type { ProjectUpdateInput } from '@/services/trpc'
 
 interface Props {
     show: boolean
-    project?: ProjectInfo | null
+    project: Project
     loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    project: null,
     loading: false,
 })
 
 const emit = defineEmits<{
     close: []
-    submit: [data: UpdateProjectRequest]
+    submit: [data: ProjectUpdateInput]
 }>()
 
-const formData = ref<UpdateProjectRequest>({
-    name: '',
-    description: '',
-    tags: [],
-    settings: {
-        maxTransactions: 10000,
-        retentionDays: 30,
-        hostFilter: [],
-        hostFilterMode: 'blacklist',
-        maxBodySize: 10 * 1024 * 1024,
-    },
-})
+const formData = ref<Project>(props.project)
 
 // Reset form when modal is shown or project changes
 watch([() => props.show, () => props.project], ([newShow, newProject]) => {
@@ -62,26 +51,15 @@ watch([() => props.show, () => props.project], ([newShow, newProject]) => {
     }
 })
 
-function populateForm(project: ProjectInfo) {
-    formData.value = {
-        name: project.metadata.name,
-        description: project.metadata.description || '',
-        tags: project.metadata.tags || [],
-        settings: {
-            maxTransactions:
-                project.metadata.settings?.maxTransactions ?? 10000,
-            retentionDays: project.metadata.settings?.retentionDays ?? 30,
-            hostFilter: project.metadata.settings?.hostFilter ?? [],
-            hostFilterMode:
-                project.metadata.settings?.hostFilterMode ?? 'blacklist',
-            maxBodySize:
-                project.metadata.settings?.maxBodySize ?? 10 * 1024 * 1024,
-        },
-    }
+function populateForm(project: Project) {
+    formData.value = project
 }
 
 function handleSubmit() {
-    emit('submit', formData.value)
+    emit('submit', {
+        id: formData.value.id,
+        data: formData.value,
+    })
 }
 
 function handleCancel() {

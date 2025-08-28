@@ -6,13 +6,13 @@
             :disabled="loading"
             :title="
                 currentProject
-                    ? `Active project: ${currentProject.metadata.name}`
+                    ? `Active project: ${currentProject.name}`
                     : 'No active project'
             "
         >
             <FolderOpen :size="14" />
             <span class="project-name">
-                {{ currentProject?.metadata.name || 'No Project' }}
+                {{ currentProject?.name || 'No Project' }}
             </span>
             <ChevronDown :size="12" :class="{ rotated: isOpen }" />
         </button>
@@ -35,7 +35,7 @@
                     <div class="menu-label">Switch Project</div>
                     <button
                         v-for="project in projects"
-                        :key="project.metadata.id"
+                        :key="project.id"
                         class="menu-item project-item"
                         :class="{ active: isCurrentProject(project) }"
                         @click="selectProject(project)"
@@ -43,10 +43,10 @@
                     >
                         <div class="project-item-content">
                             <div class="project-item-name">
-                                {{ project.metadata.name }}
+                                {{ project.name }}
                             </div>
                             <div class="project-item-meta">
-                                {{ project.transactionCount }} transactions
+                                {{ project.createdAt }}
                             </div>
                         </div>
                         <Check
@@ -72,7 +72,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { FolderOpen, ChevronDown, Plus, Check } from 'lucide-vue-next'
 import { useProjectStore } from '@/stores/project'
-import type { ProjectInfo } from '@arachne/api-types'
+import type { Project } from '@arachne/database'
 
 // Project store
 const projectStore = useProjectStore()
@@ -89,15 +89,15 @@ const projectsLoading = computed(() => projectStore.loading)
 
 // Emits
 const emit = defineEmits<{
-    'project-changed': [project: ProjectInfo]
+    'project-changed': [project: Project]
     'create-project': []
 }>()
 
 // Methods
-async function selectProject(project: ProjectInfo) {
+async function selectProject(project: Project) {
     if (loading.value || isCurrentProject(project)) return
 
-    const success = await projectStore.switchProject(project.metadata.id)
+    const success = await projectStore.switchProject(project.id)
     if (success) {
         emit('project-changed', project)
         closeDropdown()
@@ -109,8 +109,8 @@ function createNewProject() {
     emit('create-project')
 }
 
-function isCurrentProject(project: ProjectInfo): boolean {
-    return currentProject.value?.metadata.id === project.metadata.id
+function isCurrentProject(project: Project): boolean {
+    return currentProject.value?.id === project.id
 }
 
 function toggleDropdown() {

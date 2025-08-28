@@ -23,8 +23,9 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { CreateProjectRequest } from '@arachne/api-types'
 import ProjectForm from './ProjectForm.vue'
+import type { ProjectCreateInput } from '@/services/trpc'
+import type { Project } from '@arachne/database'
 
 interface Props {
     show: boolean
@@ -37,10 +38,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
     close: []
-    submit: [data: CreateProjectRequest]
+    submit: [data: ProjectCreateInput]
 }>()
 
-const formData = ref<CreateProjectRequest>({
+const formData = ref<Project>({
+    id: '',
+    createdAt: new Date(),
+    updatedAt: new Date(),
     name: '',
     description: '',
     tags: [],
@@ -65,6 +69,9 @@ watch(
 
 function resetForm() {
     formData.value = {
+        id: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
         name: '',
         description: '',
         tags: [],

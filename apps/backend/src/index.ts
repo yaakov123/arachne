@@ -11,7 +11,7 @@ import { createTransactionAggregatorPlugin } from './plugins/transaction-aggrega
 import { BroadcastService } from './services/broadcast-service'
 import { StorageService } from './services/storage-service'
 import { WsHub } from './ws-hub'
-import { registerApi } from './api'
+import { registerTRPCApi } from './trpc-api'
 import { logger } from './logger'
 import { ProjectService } from './services/project-service'
 import { buildProjectConfiguration } from './services/proxy-configuration-manager'
@@ -141,8 +141,13 @@ async function main() {
         plugins: [transactionAggregatorPlugin],
     })
 
-    // API routes
-    await registerApi(app, {
+    // Health endpoint (traditional REST for monitoring)
+    app.get('/health', async (_req, rep) => {
+        rep.send({ ok: true })
+    })
+
+    // tRPC API routes
+    await registerTRPCApi(app, {
         prefix: BACKEND_API_PREFIX,
         token: BACKEND_TOKEN,
         ca,
@@ -189,5 +194,3 @@ main().catch((err) => {
     console.error(err)
     process.exit(1)
 })
-
-export { main }

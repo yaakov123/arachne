@@ -17,7 +17,7 @@ model Project {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  tags        String?  // JSON array as string
+  tags        Json?
   
   // Settings stored as JSON
   settings     Json

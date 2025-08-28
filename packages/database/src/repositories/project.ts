@@ -7,7 +7,7 @@ import type {
     ProjectCreateInput,
     ProjectFindManyArgs,
     ProjectUpdateInput,
-    ParsedProject,
+    DatabaseProject,
 } from '../types/index'
 
 /**
@@ -20,12 +20,12 @@ export class ProjectRepository {
         this.prisma = prismaClient
     }
 
-    private toParsedProject(project: Project): ParsedProject {
+    private parseProject(project: DatabaseProject): Project {
         const settings = project.settings
         return {
             ...project,
             settings: settings,
-        } as ParsedProject
+        } as Project
     }
 
     /**
@@ -35,20 +35,20 @@ export class ProjectRepository {
         const project = await this.prisma.project.create({
             data,
         })
-        return this.toParsedProject(project)
+        return this.parseProject(project)
     }
 
     /**
      * Find project by ID
      */
-    async findById(id: string): Promise<ParsedProject | null> {
+    async findById(id: string): Promise<Project | null> {
         const project = await this.prisma.project.findUnique({
             where: { id },
         })
         if (!project) {
             return null
         }
-        return this.toParsedProject(project)
+        return this.parseProject(project)
     }
 
     /**
@@ -76,20 +76,20 @@ export class ProjectRepository {
     /**
      * Find all projects with optional filtering and pagination
      */
-    async findMany(options?: ProjectFindManyArgs): Promise<ParsedProject[]> {
+    async findMany(options?: ProjectFindManyArgs): Promise<Project[]> {
         const projects = await this.prisma.project.findMany(options)
-        return projects.map(this.toParsedProject)
+        return projects.map(this.parseProject)
     }
 
     /**
      * Update project by ID
      */
-    async update(id: string, data: ProjectUpdateInput): Promise<ParsedProject> {
+    async update(id: string, data: ProjectUpdateInput): Promise<Project> {
         const project = await this.prisma.project.update({
             where: { id },
             data: data,
         })
-        return this.toParsedProject(project)
+        return this.parseProject(project)
     }
 
     /**
