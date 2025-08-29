@@ -4,7 +4,7 @@ import {
     type ProjectCreateInput,
     type ProjectUpdateInput,
     ProjectRepository,
-    SystemConfigService,
+    SystemConfigRepository,
 } from '@arachne/database'
 
 export interface ProjectServiceOptions {
@@ -20,7 +20,9 @@ interface ProjectServiceEvents {
 export class ProjectService extends EventEmitter<ProjectServiceEvents> {
     private currentProject: string | null = null
     private projectRepository: ProjectRepository = new ProjectRepository()
-    private systemConfigService: SystemConfigService = new SystemConfigService()
+    private systemConfigRepository: SystemConfigRepository =
+        new SystemConfigRepository()
+
     constructor() {
         super()
     }
@@ -59,7 +61,7 @@ export class ProjectService extends EventEmitter<ProjectServiceEvents> {
      */
     async saveActiveProject(projectId: string | null): Promise<void> {
         try {
-            await this.systemConfigService.updateSystemConfig({
+            await this.systemConfigRepository.updateConfig({
                 activeProjectId: projectId,
                 lastUpdated: new Date().toISOString(),
             })

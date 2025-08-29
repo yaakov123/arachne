@@ -26,7 +26,6 @@ export interface BaseEvent {
 export interface DisplayHeader {
     name: string
     value: string
-    sensitive?: boolean // true for auth headers, cookies, etc.
 }
 
 // Enhanced content metadata for better parsing/display

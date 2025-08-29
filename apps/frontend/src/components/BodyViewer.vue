@@ -53,6 +53,8 @@ const props = withDefaults(defineProps<Props>(), {
     editorHeight: '400px',
 })
 
+console.log(props)
+
 // Content type detection
 const isFormContent = computed(() => {
     return props.body?.detectedFormat === 'form'

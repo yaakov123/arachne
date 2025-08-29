@@ -100,7 +100,6 @@ model TransactionHeader {
   headerType            String  // 'request' | 'response'
   name                  String
   value                 String
-  sensitive             Boolean @default(false)
   
   // Relationships
   requestTransaction  Transaction? @relation("RequestHeaders", fields: [requestTransactionId], references: [id], onDelete: Cascade)

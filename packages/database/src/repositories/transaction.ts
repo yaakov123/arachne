@@ -20,7 +20,7 @@ export class TransactionRepository {
      * Create a new transaction with related data
      */
     async create(data: TransactionCreateInput): Promise<Transaction> {
-        return await this.prisma.transaction.create({
+        return this.prisma.transaction.create({
             data,
         })
     }
@@ -29,7 +29,7 @@ export class TransactionRepository {
      * Find transaction by ID
      */
     async findById(id: string): Promise<Transaction | null> {
-        return await this.prisma.transaction.findUnique({
+        return this.prisma.transaction.findUnique({
             where: { id },
         })
     }
@@ -45,7 +45,6 @@ export class TransactionRepository {
                 responseHeaders: true,
                 requestBody: true,
                 responseBody: true,
-                repeaterMeta: true,
             },
         })
     }
@@ -80,14 +79,12 @@ export class TransactionRepository {
             ...options,
             where: {
                 projectId,
-                ...options?.where,
             },
             include: {
                 requestHeaders: true,
                 responseHeaders: true,
                 requestBody: true,
                 responseBody: true,
-                repeaterMeta: true,
                 ...options?.include,
             },
         })

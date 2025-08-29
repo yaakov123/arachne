@@ -92,8 +92,8 @@ export class HostRepository {
         hostname: string,
         method: string,
         path: string
-    ): Promise<void> {
-        await this.upsertEndpoint(projectId, hostname, method, path)
+    ) {
+        return this.upsertEndpoint(projectId, hostname, method, path)
     }
 
     /**

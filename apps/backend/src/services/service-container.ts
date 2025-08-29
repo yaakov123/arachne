@@ -33,12 +33,25 @@ export class ServiceContainer {
         await this._projectService.initialize()
 
         // Services that depend on the core services
-        this._broadcastService = new BroadcastService(this._broadcastEmitter)
-        this._storageService = new StorageService(
-            this._transactionService,
-            this._projectService,
-            this._broadcastEmitter
-        )
+        this._broadcastService = new BroadcastService()
+        this._storageService = new StorageService(this._transactionService)
+
+        this._broadcastEmitter.on('transactionComplete', async (event) => {
+            const projectId = this._projectService.getCurrentProjectId()
+            if (!projectId) {
+                console.warn(
+                    'No active project set, skipping transaction storage for:',
+                    event.id
+                )
+                return
+            }
+            const result = await this._storageService.handleTransactionComplete(
+                projectId,
+                event
+            )
+            this._broadcastService.handleTransactionComplete(event)
+            return result
+        })
 
         // Plugin that emits events
         this._transactionAggregatorPlugin = createTransactionAggregatorPlugin(
@@ -51,9 +64,8 @@ export class ServiceContainer {
      * Clean up all services
      */
     cleanup(): void {
-        this._broadcastService?.cleanup()
-        this._storageService?.cleanup()
         this._projectService?.cleanup()
+        this._broadcastEmitter.removeAllListeners()
     }
 
     // Getters for accessing services

@@ -10,17 +10,6 @@ import { BroadcastEmitter } from '../services/broadcast-emitter'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
 
-// Sensitive headers that should be marked for special handling in UI
-const SENSITIVE_HEADERS = new Set([
-    'authorization',
-    'cookie',
-    'set-cookie',
-    'proxy-authorization',
-    'www-authenticate',
-    'x-api-key',
-    'x-auth-token',
-])
-
 interface TransactionState {
     id: string
     requestStartTime: number
@@ -97,7 +86,6 @@ function parseHeaders(
     return Object.entries(headers).map(([name, value]) => ({
         name,
         value: Array.isArray(value) ? value.join(', ') : value,
-        sensitive: SENSITIVE_HEADERS.has(name.toLowerCase()),
     }))
 }
 

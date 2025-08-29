@@ -28,7 +28,7 @@ export class TransactionService {
         const input = this.toTransactionCreateInput(projectId, host.id, event)
 
         // Record transaction and update host/endpoint analytics in parallel
-        await Promise.all([
+        const result = await Promise.all([
             this.transactionRepository.create(input),
             this.hostRepository.recordTransactionActivity(
                 projectId,
@@ -37,6 +37,8 @@ export class TransactionService {
                 path
             ),
         ])
+
+        return result
     }
 
     async getTransaction(id: string) {
@@ -165,7 +167,6 @@ export class TransactionService {
                     headerType: 'request',
                     name: header.name,
                     value: header.value,
-                    sensitive: header.sensitive || false,
                 })),
             },
 
@@ -175,7 +176,6 @@ export class TransactionService {
                           headerType: 'response',
                           name: header.name,
                           value: header.value,
-                          sensitive: header.sensitive || false,
                       })),
                   }
                 : undefined,

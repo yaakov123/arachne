@@ -6,7 +6,6 @@
                 <span
                     class="item-value"
                     :class="{
-                        sensitive: item.sensitive,
                         muted: item.muted,
                     }"
                 >
@@ -24,7 +23,6 @@
 export interface KeyValueItem {
     key: string
     value: string
-    sensitive?: boolean
     muted?: boolean
 }
 
@@ -79,11 +77,6 @@ withDefaults(defineProps<Props>(), {
     word-break: break-all;
     min-width: 0;
     white-space: pre-wrap;
-}
-
-.item-value.sensitive {
-    color: var(--color-error-600);
-    font-style: italic;
 }
 
 .item-value.muted {

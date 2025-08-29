@@ -9,7 +9,6 @@ import KeyValueViewer, { type KeyValueItem } from './KeyValueViewer.vue'
 interface Header {
     name: string
     value: string
-    sensitive?: boolean
 }
 
 interface Props {
@@ -25,7 +24,6 @@ const headerItems = computed<KeyValueItem[]>(() =>
     props.headers.map((header) => ({
         key: header.name,
         value: header.value,
-        sensitive: header.sensitive,
     }))
 )
 </script>
