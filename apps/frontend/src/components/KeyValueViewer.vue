@@ -9,7 +9,14 @@
                         muted: item.muted,
                     }"
                 >
-                    {{ item.value }}
+                    <slot
+                        name="value"
+                        :item="item"
+                        :key="item.key"
+                        :value="item.value"
+                    >
+                        {{ item.value }}
+                    </slot>
                 </span>
             </div>
         </div>
