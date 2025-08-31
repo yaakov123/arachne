@@ -9,7 +9,7 @@ import type {
     CustomHeaderAuthConfig,
     HeaderAuthPlacement,
     QueryAuthPlacement,
-} from '@arachne/api-types'
+} from '@arachne/database'
 import { logger } from '../logger'
 
 interface ExtractedAuth {

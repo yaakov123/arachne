@@ -1,5 +1,5 @@
+import type { TransactionCompleteEvent } from '@arachne/api-types'
 import type {
-    TransactionCompleteEvent,
     AuthMethodConfig,
     BearerAuthConfig,
     BasicAuthConfig,
@@ -7,8 +7,8 @@ import type {
     JwtAuthConfig,
     CustomHeaderAuthConfig,
     AuthValueSource,
-} from '@arachne/api-types'
-import type { AuthProfile } from '@arachne/database'
+    AuthProfile,
+} from '@arachne/database'
 import { TransactionService } from './transaction-service'
 import { AuthProfileRepository } from '@arachne/database'
 
