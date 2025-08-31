@@ -2,22 +2,10 @@
 
 export type HeaderMap = Record<string, string | string[]>
 
-export type BackendEvent =
-    | RequestEvent
-    | RequestBodyEvent
-    | ResponseHeadEvent
-    | ResponseBodyEvent
-    | ErrorEvent
-    | TransactionCompleteEvent
+export type BackendEvent = ErrorEvent | TransactionCompleteEvent
 
 export interface BaseEvent {
-    type:
-        | 'request'
-        | 'requestBody'
-        | 'responseHead'
-        | 'responseBody'
-        | 'error'
-        | 'transactionComplete'
+    type: 'error' | 'transactionComplete'
     id: string // proxy ctx.id
     ts: string // ISO timestamp
 }
@@ -58,41 +46,6 @@ export interface RequestURL {
     path: string
     query?: string
     fragment?: string
-}
-
-export interface RequestEvent extends BaseEvent {
-    type: 'request'
-    method: string
-    url: RequestURL
-    headers: DisplayHeader[]
-    rawHeaders: HeaderMap // keep for backward compatibility
-    clientIp?: string
-    timestamp: number // Unix timestamp for sorting
-}
-
-export interface RequestBodyEvent extends BaseEvent {
-    type: 'requestBody'
-    content: ContentInfo
-    sample: string // formatted based on content.encoding
-}
-
-export interface ResponseHeadEvent extends BaseEvent {
-    type: 'responseHead'
-    statusCode: number
-    statusMessage?: string
-    headers: DisplayHeader[]
-    rawHeaders: HeaderMap // keep for backward compatibility
-    timing?: {
-        startTime: number // when request was sent
-        responseTime: number // when response headers received
-        duration: number // response time in ms
-    }
-}
-
-export interface ResponseBodyEvent extends BaseEvent {
-    type: 'responseBody'
-    content: ContentInfo
-    sample: string // formatted based on content.encoding
 }
 
 export interface ErrorEvent extends BaseEvent {
