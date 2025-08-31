@@ -2,6 +2,7 @@ import { ProjectService } from './project-service'
 import { TransactionService } from './transaction-service'
 import { BroadcastService } from './broadcast-service'
 import { StorageService } from './storage-service'
+import { AuthProfileService } from './auth-profile-service'
 import { logger } from '../logger'
 
 /**
@@ -13,12 +14,14 @@ export class ServiceContainer {
     private _transactionService: TransactionService
     private _broadcastService: BroadcastService
     private _storageService: StorageService
+    private _authProfileService: AuthProfileService
 
     constructor() {
         this._projectService = new ProjectService()
         this._transactionService = new TransactionService()
         this._broadcastService = new BroadcastService()
         this._storageService = new StorageService(this._transactionService)
+        this._authProfileService = new AuthProfileService()
     }
 
     /**
@@ -58,5 +61,9 @@ export class ServiceContainer {
 
     get storageService(): StorageService {
         return this._storageService
+    }
+
+    get authProfileService(): AuthProfileService {
+        return this._authProfileService
     }
 }

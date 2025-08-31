@@ -2,6 +2,7 @@ import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify'
 import type { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
 import type { ProjectService } from '../services/project-service'
 import type { TransactionService } from '../services/transaction-service'
+import type { AuthProfileService } from '../services/auth-profile-service'
 
 /**
  * tRPC context interface - contains all services and dependencies
@@ -15,6 +16,7 @@ export interface TRPCContext {
     // Services
     projectService: ProjectService
     transactionService: TransactionService
+    authProfileService: AuthProfileService
 
     // Core dependencies
     ca: CertificateAuthority
@@ -31,6 +33,7 @@ export interface TRPCContext {
 export function createTRPCContext(
     projectService: ProjectService,
     transactionService: TransactionService,
+    authProfileService: AuthProfileService,
     ca: CertificateAuthority,
     proxy: MitmProxyServer,
     token?: string
@@ -49,6 +52,7 @@ export function createTRPCContext(
             res,
             projectService,
             transactionService,
+            authProfileService,
             ca,
             proxy,
             token,

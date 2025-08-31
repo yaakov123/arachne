@@ -6,6 +6,7 @@ import {
 import type { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
 import type { ProjectService } from './services/project-service'
 import type { TransactionService } from './services/transaction-service'
+import type { AuthProfileService } from './services/auth-profile-service'
 import { AppRouter, appRouter, createTRPCContext } from './trpc'
 
 interface TRPCApiOptions {
@@ -15,6 +16,7 @@ interface TRPCApiOptions {
     proxy: MitmProxyServer
     projectService: ProjectService
     transactionService: TransactionService
+    authProfileService: AuthProfileService
 }
 
 export async function registerTRPCApi(
@@ -25,6 +27,7 @@ export async function registerTRPCApi(
     const createContext = createTRPCContext(
         opts.projectService,
         opts.transactionService,
+        opts.authProfileService,
         opts.ca,
         opts.proxy,
         opts.token

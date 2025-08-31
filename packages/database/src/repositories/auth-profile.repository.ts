@@ -40,7 +40,7 @@ export class AuthProfileRepository {
      */
     async findByProject(
         projectId: string,
-        options?: Omit<AuthProfileFindManyArgs, 'where'>
+        options?: AuthProfileFindManyArgs
     ): Promise<AuthProfile[]> {
         return this.prisma.authProfile.findMany({
             where: { projectId },

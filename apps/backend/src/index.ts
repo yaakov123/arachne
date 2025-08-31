@@ -192,6 +192,7 @@ async function main() {
         proxy,
         projectService: container.projectService,
         transactionService: container.transactionService,
+        authProfileService: container.authProfileService,
     })
 
     // Start HTTP server
