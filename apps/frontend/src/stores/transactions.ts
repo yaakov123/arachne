@@ -68,6 +68,33 @@ export const useTransactionsStore = defineStore('transactions', () => {
         }
     )
 
+    // Watch for project changes and reconnect websocket
+    watch(
+        () => projectStore.currentProject,
+        async (newProject, oldProject) => {
+            if (newProject?.id !== oldProject?.id) {
+                console.log('Project changed, reconnecting websocket...', {
+                    from: oldProject?.id,
+                    to: newProject?.id,
+                })
+
+                // Clear existing transactions
+                transactions.value = []
+                hostFilteredTransactions.value = []
+                selectedTransaction.value = null
+
+                // Reconnect websocket if we were connected
+                if (isConnected.value) {
+                    disconnect()
+                    if (newProject) {
+                        await connect()
+                        await fetchExistingTransactions()
+                    }
+                }
+            }
+        }
+    )
+
     // Computed
     const currentTransactions = computed(() => {
         // Use host-filtered transactions if a host is selected, otherwise all transactions

@@ -11,6 +11,8 @@ import { logger } from './logger'
 import { buildProjectConfiguration } from './services/proxy-configuration-manager'
 import { ServiceContainer } from './services/service-container'
 import { AppConfig } from './types'
+import { TransactionHandler } from './plugins/transaction-handler.plugin'
+import { AuthExtracterPlugin } from './plugins/auth-extracter.plugin'
 
 // Environment variable utilities
 function envNum(name: string, def: number): number {
@@ -117,7 +119,17 @@ function setupProxyServer(config: AppConfig, container: ServiceContainer) {
         host: config.proxy.host,
         port: config.proxy.port,
         ca,
-        plugins: [container.transactionAggregatorPlugin],
+        plugins: [
+            new TransactionHandler(
+                container.storageService,
+                container.projectService,
+                container.broadcastService
+            ),
+            new AuthExtracterPlugin(
+                container.storageService,
+                container.projectService
+            ),
+        ],
     })
 
     // Set up project change handler

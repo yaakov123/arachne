@@ -31,29 +31,45 @@ export class ProjectService extends EventEmitter<ProjectServiceEvents> {
      * Initialize the project service, creating base directory if needed
      */
     async initialize() {
-        return this.ensureDefaultProject()
-    }
+        // Get the currently active project from system config
+        const config = await this.systemConfigRepository.getConfig()
+        let activeProjectId: string | null = config?.activeProjectId ?? null
 
-    async ensureDefaultProject() {
-        let project = await this.projectRepository.findById('default')
-        if (!project) {
-            const projectCount = await this.projectRepository.count()
-            if (projectCount > 0) return
-            project = await this.projectRepository.create({
-                id: 'default',
-                name: 'Default Project',
-                description: 'Default project for the application',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                settings: {
-                    maxTransactions: 10000,
-                    retentionDays: 30,
-                    hostFilterMode: 'whitelist',
-                    maxBodySize: 10485760,
-                },
-            })
+        let project = null
+
+        if (activeProjectId) {
+            // Check if the active project actually exists
+            project = await this.projectRepository.findById(activeProjectId)
+            if (project) {
+                // Active project exists, nothing more to do
+                await this.saveActiveProject(project.id)
+                return project
+            }
         }
 
+        // If no valid active project, check for any other projects
+        const allProjects = await this.projectRepository.findAll()
+        if (allProjects.length > 0) {
+            // Pick the first available project (not the previously missing one)
+            const fallbackProject = allProjects[0]
+            await this.saveActiveProject(fallbackProject.id)
+            return fallbackProject
+        }
+
+        // No projects exist, create and activate the default project
+        project = await this.projectRepository.create({
+            id: 'default',
+            name: 'Default Project',
+            description: 'Default project for the application',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            settings: {
+                maxTransactions: 10000,
+                retentionDays: 30,
+                hostFilterMode: 'whitelist',
+                maxBodySize: 10485760,
+            },
+        })
         await this.saveActiveProject(project.id)
         return project
     }

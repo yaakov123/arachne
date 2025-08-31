@@ -55,6 +55,14 @@ export class ProjectRepository {
     }
 
     /**
+     * Find all projects
+     */
+    async findAll(): Promise<Project[]> {
+        const projects = await this.prisma.project.findMany()
+        return projects.map(this.parseProject)
+    }
+
+    /**
      * Find project by ID with transaction stats
      */
     async findByIdWithStats(id: string): Promise<ProjectWithStats | null> {

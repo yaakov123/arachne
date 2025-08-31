@@ -1,11 +1,14 @@
-import type { ProxyPlugin } from '@arachne/proxy'
+import type { AfterResponseContext, ProxyPlugin } from '@arachne/proxy'
 import type {
     DisplayHeader,
     ContentInfo,
     RequestURL,
     TransactionData,
+    TransactionCompleteEvent,
 } from '@arachne/api-types'
-import { BroadcastEmitter } from '../services/broadcast-emitter'
+import { StorageService } from '../services/storage-service'
+import { ProjectService } from '../services/project-service'
+import { BroadcastService } from '../services/broadcast-service'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
 
@@ -138,66 +141,81 @@ function getContentEncoding(headers: Record<string, string | string[]>) {
     return headers['content-encoding'] as string | undefined
 }
 
-export function createTransactionAggregatorPlugin(
-    eventEmitter: BroadcastEmitter
-): ProxyPlugin {
-    return {
-        name: 'transaction-aggregator',
+export class TransactionHandler implements ProxyPlugin {
+    readonly name = 'transaction-handler'
+    constructor(
+        private storageService: StorageService,
+        private projectService: ProjectService,
+        private broadcastService: BroadcastService
+    ) {}
 
-        afterResponse(ctx) {
-            // Build complete transaction data
-            const transactionData: TransactionData = {
-                request: {
-                    method: ctx.method,
-                    url: parseURL(ctx.finalUrl),
-                    headers: parseHeaders(ctx.finalHeaders),
-                    rawHeaders: ctx.finalHeaders,
-                    clientIp: ctx.clientIp,
-                    body: ctx.finalBody
-                        ? bodyToContentInfo(
-                              ctx.finalBody,
-                              getContentType(ctx.finalHeaders),
-                              getContentEncoding(ctx.finalHeaders)
-                          )
-                        : undefined,
-                },
+    private buildTransactionData(ctx: AfterResponseContext) {
+        const transactionData: TransactionData = {
+            request: {
+                method: ctx.method,
+                url: parseURL(ctx.finalUrl),
+                headers: parseHeaders(ctx.finalHeaders),
+                rawHeaders: ctx.finalHeaders,
+                clientIp: ctx.clientIp,
+                body: ctx.finalBody
+                    ? bodyToContentInfo(
+                          ctx.finalBody,
+                          getContentType(ctx.finalHeaders),
+                          getContentEncoding(ctx.finalHeaders)
+                      )
+                    : undefined,
+            },
 
-                response: {
-                    statusCode: ctx.finalStatusCode,
-                    statusMessage: ctx.finalStatusMessage,
-                    headers: parseHeaders(ctx.finalResponseHeaders),
-                    rawHeaders: ctx.finalResponseHeaders,
-                    body: ctx.finalResponseBody
-                        ? bodyToContentInfo(
-                              ctx.finalResponseBody,
-                              getContentType(ctx.finalResponseHeaders),
-                              getContentEncoding(ctx.finalResponseHeaders)
-                          )
-                        : undefined,
-                },
+            response: {
+                statusCode: ctx.finalStatusCode,
+                statusMessage: ctx.finalStatusMessage,
+                headers: parseHeaders(ctx.finalResponseHeaders),
+                rawHeaders: ctx.finalResponseHeaders,
+                body: ctx.finalResponseBody
+                    ? bodyToContentInfo(
+                          ctx.finalResponseBody,
+                          getContentType(ctx.finalResponseHeaders),
+                          getContentEncoding(ctx.finalResponseHeaders)
+                      )
+                    : undefined,
+            },
 
-                timing: {
-                    duration: ctx.duration,
-                },
-                summary: {
-                    hasRequestBody: !!ctx.finalBody,
-                    hasResponseBody: !!ctx.finalResponseBody,
-                    requestSize: ctx.finalBody
-                        ? ctx.finalBody.length
-                        : undefined,
-                    responseSize: ctx.finalResponseBody
-                        ? ctx.finalResponseBody.length
-                        : undefined,
-                },
-            }
+            timing: {
+                duration: ctx.duration,
+            },
+            summary: {
+                hasRequestBody: !!ctx.finalBody,
+                hasResponseBody: !!ctx.finalResponseBody,
+                requestSize: ctx.finalBody ? ctx.finalBody.length : undefined,
+                responseSize: ctx.finalResponseBody
+                    ? ctx.finalResponseBody.length
+                    : undefined,
+            },
+        }
 
-            // Emit transaction complete event
-            eventEmitter.emit('transactionComplete', {
-                type: 'transactionComplete',
-                id: ctx.id,
-                ts: nowIso(),
-                transaction: transactionData,
-            })
-        },
+        return transactionData
+    }
+
+    async afterResponse(ctx: AfterResponseContext) {
+        const transactionData = this.buildTransactionData(ctx)
+        const projectId = this.projectService.getCurrentProjectId()
+        if (!projectId) {
+            console.warn(
+                'No active project set, skipping transaction storage for:',
+                ctx.id
+            )
+            return
+        }
+
+        const event: TransactionCompleteEvent = {
+            id: ctx.id,
+            ts: nowIso(),
+            transaction: transactionData,
+            type: 'transactionComplete',
+        }
+
+        await this.storageService.handleTransactionComplete(projectId, event)
+
+        this.broadcastService.handleTransactionComplete(event)
     }
 }
