@@ -17,7 +17,7 @@
                 <CookiesViewer :headers="transaction.requestHeaders" />
             </template>
             <template #raw>
-                <RawViewer :transaction="transaction" />
+                <RawViewer :transaction="transaction" type="request" />
             </template>
         </TabContainer>
     </div>

@@ -10,18 +10,25 @@ import type { FullTransaction } from '@arachne/database'
 
 interface Props {
     transaction?: FullTransaction
+    type?: 'request' | 'response'
 }
 
 const props = defineProps<Props>()
 
 const rawContent = computed(() => {
     if (props.transaction) {
-        // Show both request and response
-        return (
-            formatRequest(props.transaction) +
-            '\n\n' +
-            formatResponse(props.transaction)
-        )
+        if (props.type === 'request') {
+            return formatRequest(props.transaction)
+        } else if (props.type === 'response') {
+            return formatResponse(props.transaction)
+        } else {
+            // Default behavior - show both request and response
+            return (
+                formatRequest(props.transaction) +
+                '\n\n' +
+                formatResponse(props.transaction)
+            )
+        }
     }
     return 'No data available'
 })
@@ -133,6 +140,11 @@ const colorizeHttpContent = (content: string): string => {
     let inResponseBody = false
     let isFirstLine = true
 
+    // Determine if this is a request or response based on the first line
+    const isResponse = lines.length > 0 && lines[0].startsWith('HTTP/')
+    const isRequest =
+        lines.length > 0 && lines[0].match(/^[A-Z]+ .+ HTTP\/\d\.\d$/)
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
 
@@ -144,9 +156,9 @@ const colorizeHttpContent = (content: string): string => {
                     (l, idx) => idx > i && l.trim() !== ''
                 )
                 if (nextNonEmptyIndex !== -1) {
-                    if (lines[0].startsWith('HTTP/')) {
+                    if (isResponse) {
                         inResponseBody = true
-                    } else {
+                    } else if (isRequest) {
                         inRequestBody = true
                     }
                 }
