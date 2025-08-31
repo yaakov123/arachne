@@ -193,6 +193,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
     const onTransaction = (
         event: Omit<Transaction, 'projectId' | 'hostId'>
     ) => {
+        console.log('onTransaction', event)
         if (!projectStore.currentProject) return
         const transaction: Transaction = {
             ...event,

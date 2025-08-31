@@ -69,8 +69,6 @@ const emit = defineEmits<{
     (e: 'close'): void
 }>()
 
-console.log(props.transaction)
-
 const transactionsStore = useTransactionsStore()
 const requestPanel = ref<InstanceType<typeof RequestPanel>>()
 const responsePanel = ref<InstanceType<typeof ResponsePanel>>()

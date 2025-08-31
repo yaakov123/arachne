@@ -60,8 +60,6 @@ model Transaction {
   statusMessage String?
   
   // Timing data
-  startTime    BigInt // Unix timestamp in milliseconds
-  responseTime BigInt? // Unix timestamp in milliseconds  
   duration     Int?    // Duration in milliseconds
   
   // Summary data
@@ -81,7 +79,6 @@ model Transaction {
   responseHeaders TransactionHeader[] @relation("ResponseHeaders")
   requestBody     TransactionBody?    @relation("RequestBody", fields: [requestBodyId], references: [id])
   responseBody    TransactionBody?    @relation("ResponseBody", fields: [responseBodyId], references: [id])
-  repeaterMeta    RepeaterMetadata?
   
   @@index([projectId])
   @@index([hostId])
@@ -139,21 +136,6 @@ model TransactionBody {
   @@map("transaction_bodies")
 }
 
-// Repeater metadata table - tracks repeated requests
-model RepeaterMetadata {
-  id                    String    @id @default(cuid())
-  transactionId         String    @unique
-  source                String    // 'proxy' | 'repeater'
-  originalTransactionId String?   // For repeated requests, links to original
-  repeatedAt            DateTime? // When this was repeated
-  
-  // Relationship
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  
-  @@index([source])
-  @@index([originalTransactionId])
-  @@map("repeater_metadata")
-}
 
 // Active project tracking - replaces active-project.json
 model SystemConfig {

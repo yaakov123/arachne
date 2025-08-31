@@ -4,7 +4,6 @@ import { BroadcastService } from './broadcast-service'
 import { StorageService } from './storage-service'
 import { BroadcastEmitter } from './broadcast-emitter'
 import { createTransactionAggregatorPlugin } from '../plugins/transaction-aggregator-plugin'
-import { AppConfig } from '../types'
 import { logger } from '../logger'
 
 /**
@@ -22,7 +21,7 @@ export class ServiceContainer {
     /**
      * Initialize all services in the correct order
      */
-    async initialize(config: AppConfig): Promise<void> {
+    async initialize(): Promise<void> {
         logger.info('Initializing services')
         // Core services first (no dependencies)
         this._broadcastEmitter = new BroadcastEmitter()
@@ -55,8 +54,7 @@ export class ServiceContainer {
 
         // Plugin that emits events
         this._transactionAggregatorPlugin = createTransactionAggregatorPlugin(
-            this._broadcastEmitter,
-            config.recording.maxBytes
+            this._broadcastEmitter
         )
     }
 

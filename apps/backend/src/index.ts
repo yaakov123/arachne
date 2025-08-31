@@ -92,7 +92,7 @@ async function initializeServices(
     config: AppConfig
 ): Promise<ServiceContainer> {
     const container = new ServiceContainer()
-    await container.initialize(config)
+    await container.initialize()
 
     logger.info('Event-driven architecture initialized', {
         maxSampleBytes: config.recording.maxBytes,

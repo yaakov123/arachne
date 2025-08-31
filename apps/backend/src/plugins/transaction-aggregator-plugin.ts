@@ -162,21 +162,20 @@ export function createTransactionAggregatorPlugin(
                         : undefined,
                 },
 
-                response: ctx.response
-                    ? {
-                          statusCode: ctx.finalStatusCode,
-                          statusMessage: ctx.finalStatusMessage,
-                          headers: parseHeaders(ctx.finalResponseHeaders),
-                          rawHeaders: ctx.finalResponseHeaders,
-                          body: ctx.finalResponseBody
-                              ? bodyToContentInfo(
-                                    ctx.finalResponseBody,
-                                    getContentType(ctx.finalResponseHeaders),
-                                    getContentEncoding(ctx.finalResponseHeaders)
-                                )
-                              : undefined,
-                      }
-                    : undefined,
+                response: {
+                    statusCode: ctx.finalStatusCode,
+                    statusMessage: ctx.finalStatusMessage,
+                    headers: parseHeaders(ctx.finalResponseHeaders),
+                    rawHeaders: ctx.finalResponseHeaders,
+                    body: ctx.finalResponseBody
+                        ? bodyToContentInfo(
+                              ctx.finalResponseBody,
+                              getContentType(ctx.finalResponseHeaders),
+                              getContentEncoding(ctx.finalResponseHeaders)
+                          )
+                        : undefined,
+                },
+
                 timing: {
                     duration: ctx.duration,
                 },
@@ -199,8 +198,6 @@ export function createTransactionAggregatorPlugin(
                 ts: nowIso(),
                 transaction: transactionData,
             })
-
-            // Clean up transaction state
         },
     }
 }

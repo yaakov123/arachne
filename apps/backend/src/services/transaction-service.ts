@@ -148,11 +148,6 @@ export class TransactionService {
             statusCode: response?.statusCode,
             statusMessage: response?.statusMessage,
 
-            // Timing data
-            startTime: BigInt(timing.startTime),
-            responseTime: timing.responseTime
-                ? BigInt(timing.responseTime)
-                : null,
             duration: timing.duration,
 
             // Summary data

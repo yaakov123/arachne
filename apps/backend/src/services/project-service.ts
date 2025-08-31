@@ -37,6 +37,8 @@ export class ProjectService extends EventEmitter<ProjectServiceEvents> {
     async ensureDefaultProject() {
         let project = await this.projectRepository.findById('default')
         if (!project) {
+            const projectCount = await this.projectRepository.count()
+            if (projectCount > 0) return
             project = await this.projectRepository.create({
                 id: 'default',
                 name: 'Default Project',

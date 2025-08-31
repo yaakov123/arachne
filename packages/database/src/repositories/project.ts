@@ -28,6 +28,9 @@ export class ProjectRepository {
         } as Project
     }
 
+    async count(): Promise<number> {
+        return this.prisma.project.count()
+    }
     /**
      * Create a new project
      */

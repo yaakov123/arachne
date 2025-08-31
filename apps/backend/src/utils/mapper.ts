@@ -23,8 +23,6 @@ export function mapTransactionCompleteEventToTransaction(
         hasResponseBody: event.transaction.summary.hasResponseBody,
         requestSize: event.transaction.summary.requestSize || null,
         responseSize: event.transaction.summary.responseSize || null,
-        startTime: BigInt(event.transaction.timing.startTime),
-        responseTime: BigInt(event.transaction.timing.responseTime),
         requestBodyId: null,
         responseBodyId: null,
     }

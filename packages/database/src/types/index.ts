@@ -1,7 +1,6 @@
 import type {
     Prisma,
     Project as DatabaseProject,
-    RepeaterMetadata,
     Transaction,
     TransactionBody,
     TransactionHeader,
@@ -13,7 +12,6 @@ export type {
     Transaction,
     TransactionHeader,
     TransactionBody,
-    RepeaterMetadata,
     SystemConfig,
     Host,
     Endpoint,
@@ -63,7 +61,6 @@ export interface FullTransaction extends Transaction {
     responseHeaders: TransactionHeader[]
     requestBody: TransactionBody | null
     responseBody: TransactionBody | null
-    repeaterMeta: RepeaterMetadata | null
 }
 
 export interface ProjectWithStats extends DatabaseProject {
