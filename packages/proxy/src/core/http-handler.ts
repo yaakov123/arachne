@@ -7,20 +7,21 @@ import {
 } from './utils/ids'
 import { sendHttpErrorResponse } from './error-responses'
 import type { PluginManager } from './plugin-manager'
-import type { RequestContext, ErrorContext } from '../plugins/types'
+import type { ErrorContext } from '../plugins/types'
 import { UrlProcessor } from './url-processor'
-import { ContextBuilder } from './context-builder'
-import { RequestBodyHandler } from './request-body-handler'
-import { ResponseBodyHandler } from './response-body-handler'
+import { ContextAccumulator } from './context-accumulator'
+import { BodyHandler } from './body-handler'
 import { UpstreamHandler } from './upstream-handler'
 import { TunnelHandler } from './tunnel-handler'
 import { logger } from '../logger'
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from './constants'
 import { ProxyConfigStore } from './config-store'
 
+/**
+ * Handles HTTP requests using the new simplified plugin API
+ */
 export class HttpHandler {
-    private requestBodyHandler: RequestBodyHandler
-    private responseBodyHandler: ResponseBodyHandler
+    private bodyHandler: BodyHandler
     private upstreamHandler: UpstreamHandler
     private tunnelHandler: TunnelHandler
 
@@ -29,14 +30,7 @@ export class HttpHandler {
         private onError: (err: unknown, ctx: ErrorContext) => void,
         private configStore: ProxyConfigStore
     ) {
-        this.requestBodyHandler = new RequestBodyHandler(
-            pluginManager,
-            configStore.current.maxBodySize
-        )
-        this.responseBodyHandler = new ResponseBodyHandler(
-            pluginManager,
-            configStore.current.maxBodySize
-        )
+        this.bodyHandler = new BodyHandler(configStore.current.maxBodySize)
         this.upstreamHandler = new UpstreamHandler(onError)
         this.tunnelHandler = new TunnelHandler(onError)
     }
@@ -106,43 +100,49 @@ export class HttpHandler {
                 return
             }
 
-            // Build request context
-            const reqCtx = ContextBuilder.buildRequestContext(
+            // Buffer request body if needed
+            const requestBody = await this.bodyHandler.bufferRequestBody(
+                clientReq
+            )
+
+            // Create context accumulator
+            const contextAccumulator = new ContextAccumulator(
                 fullUrl,
                 clientReq,
                 isHttps,
                 id,
-                correlation.parentId
+                correlation.parentId,
+                requestBody
             )
 
-            // Execute request hook
-            await this.pluginManager.runHook('onRequest', reqCtx)
+            // Execute beforeRequest hooks
+            const beforeRequestCtx =
+                contextAccumulator.buildBeforeRequestContext()
+            const requestBuilder =
+                await this.pluginManager.executeBeforeRequest(beforeRequestCtx)
 
-            // Process request body if needed
-            const { body: requestBodyToSend, updatedHeaders } =
-                await this.requestBodyHandler.processBody(clientReq, reqCtx)
+            // Build afterRequest context and execute hooks
+            const afterRequestCtx =
+                contextAccumulator.buildAfterRequestContext(requestBuilder)
+            await this.pluginManager.executeAfterRequest(afterRequestCtx)
 
-            // Update headers based on body processing
-            if (requestBodyToSend) {
-                this.requestBodyHandler.updateRequestHeaders(
-                    reqCtx.requestOptions.headers,
-                    updatedHeaders
-                )
-            }
+            // Get final request state for upstream
+            const finalRequest = contextAccumulator.getFinalRequestState()
 
-            // Prefer uncompressed upstream responses if we plan to inspect/modify bodies
-            const hasResBodyHook = this.pluginManager.hasHook('onResponseBody')
-            if (hasResBodyHook) {
-                reqCtx.requestOptions.headers['accept-encoding'] = 'identity'
+            // Check if we need to buffer responses (if any response hooks exist)
+            const hasResponseHooks = this.pluginManager.hasResponseHooks()
+
+            // Prefer uncompressed responses if we plan to buffer them
+            if (hasResponseHooks) {
+                finalRequest.headers['accept-encoding'] = 'identity'
             }
 
             // Forward to upstream and handle response
             await this.handleUpstreamRequest(
-                fullUrl,
-                reqCtx,
+                contextAccumulator,
                 clientReq,
                 clientRes,
-                requestBodyToSend,
+                hasResponseHooks,
                 startTime
             )
         } catch (error) {
@@ -205,86 +205,132 @@ export class HttpHandler {
     }
 
     private async handleUpstreamRequest(
-        fullUrl: URL,
-        reqCtx: RequestContext,
+        contextAccumulator: ContextAccumulator,
         clientReq: IncomingMessage,
         clientRes: http.ServerResponse,
-        requestBodyToSend?: Buffer,
+        hasResponseHooks: boolean,
         startTime?: number
     ): Promise<void> {
+        const finalRequest = contextAccumulator.getFinalRequestState()
         try {
+            // Convert final request to request options
+            const requestOptions = {
+                protocol: finalRequest.url.protocol as 'http:' | 'https:',
+                hostname: finalRequest.url.hostname,
+                port:
+                    parseInt(finalRequest.url.port) ||
+                    (finalRequest.url.protocol === 'https:'
+                        ? DEFAULT_HTTPS_PORT
+                        : DEFAULT_HTTP_PORT),
+                path: finalRequest.url.pathname + finalRequest.url.search,
+                method: finalRequest.method,
+                headers: finalRequest.headers,
+            }
+
+            // Send request to upstream
             const upRes = await this.upstreamHandler.sendRequest(
-                fullUrl,
-                reqCtx.requestOptions,
-                reqCtx,
+                finalRequest.url,
+                requestOptions,
+                contextAccumulator.getAfterRequestContext(),
                 clientReq,
-                requestBodyToSend
+                finalRequest.body
             )
-
-            // Build response context
-            const resCtx = ContextBuilder.buildResponseContext(reqCtx, upRes)
-
-            // Execute response hook
-            await this.pluginManager.runHook('onResponse', resCtx)
 
             const statusCode = upRes.statusCode || 502
             const statusMessage = upRes.statusMessage
-            const method = reqCtx.method.toUpperCase()
+            const responseHeaders = this.normalizeHeaders(upRes.headers)
 
-            // Try to process response body
-            const processedBody = await this.responseBodyHandler.processBody(
+            // Buffer response body if we have response hooks
+            const responseBody = await this.bodyHandler.bufferResponseBody(
                 upRes,
-                resCtx,
-                method
+                finalRequest.method,
+                statusCode,
+                hasResponseHooks
             )
 
-            if (processedBody) {
-                // Send buffered response - body was processed
-                // Call onResponseStart hook before sending
-                await this.pluginManager.runHook('onResponseStart', resCtx)
+            if (hasResponseHooks && responseBody !== undefined) {
+                // We have response hooks and buffered body - execute hooks
+                const beforeResponseCtx =
+                    contextAccumulator.buildBeforeResponseContext(
+                        statusCode,
+                        statusMessage,
+                        responseHeaders,
+                        responseBody
+                    )
+                const responseBuilder =
+                    await this.pluginManager.executeBeforeResponse(
+                        beforeResponseCtx
+                    )
+
+                // Get final response state
+                const finalResponse = contextAccumulator.getFinalResponseState()
+
+                // Send buffered response to client
+                const finalHeaders =
+                    this.bodyHandler.prepareHeadersForBufferedContent(
+                        finalResponse.headers,
+                        finalResponse.body?.length || 0
+                    )
 
                 this.upstreamHandler.sendBufferedResponse(
                     clientRes,
-                    statusCode,
-                    statusMessage,
-                    processedBody.headers,
-                    processedBody.body
+                    finalResponse.statusCode,
+                    finalResponse.statusMessage,
+                    finalHeaders,
+                    finalResponse.body || Buffer.alloc(0)
                 )
 
-                // Call completion hook after buffered response is sent
-                await this.pluginManager.runHook('onResponseComplete', resCtx)
-            } else {
-                // Stream original response - no body processing
-                // Call onResponseStart hook before streaming starts
-                await this.pluginManager.runHook('onResponseStart', resCtx)
-
-                const headers =
-                    this.responseBodyHandler.prepareStreamingHeaders(
-                        resCtx.responseHeaders
+                // Execute afterResponse hooks
+                const afterResponseCtx =
+                    contextAccumulator.buildAfterResponseContext(
+                        responseBuilder
                     )
+                await this.pluginManager.executeAfterResponse(afterResponseCtx)
+            } else {
+                // No response hooks or couldn't buffer - stream response directly
+                const streamHeaders =
+                    this.bodyHandler.prepareHeadersForStreaming(responseHeaders)
 
-                // Set up completion hook to fire after streaming finishes
                 this.upstreamHandler.streamResponse(
                     upRes,
                     clientRes,
                     statusCode,
                     statusMessage,
-                    headers,
+                    streamHeaders,
                     async () => {
-                        try {
-                            await this.pluginManager.runHook(
-                                'onResponseComplete',
-                                resCtx
-                            )
-                        } catch (error) {
-                            logger.error(
-                                'Error in onResponseComplete hook',
-                                error,
-                                {
-                                    requestId: resCtx.id,
-                                    component: 'http-handler',
-                                }
-                            )
+                        // If we have response hooks but couldn't buffer, still call them with empty body
+                        if (hasResponseHooks) {
+                            try {
+                                const beforeResponseCtx =
+                                    contextAccumulator.buildBeforeResponseContext(
+                                        statusCode,
+                                        statusMessage,
+                                        responseHeaders,
+                                        undefined // No body available
+                                    )
+                                const responseBuilder =
+                                    await this.pluginManager.executeBeforeResponse(
+                                        beforeResponseCtx
+                                    )
+                                const afterResponseCtx =
+                                    contextAccumulator.buildAfterResponseContext(
+                                        responseBuilder
+                                    )
+                                await this.pluginManager.executeAfterResponse(
+                                    afterResponseCtx
+                                )
+                            } catch (error) {
+                                logger.error(
+                                    'Error in response hooks during streaming',
+                                    error,
+                                    {
+                                        requestId:
+                                            contextAccumulator.buildBeforeRequestContext()
+                                                .id,
+                                        component: 'http-handler',
+                                    }
+                                )
+                            }
                         }
                     }
                 )
@@ -292,13 +338,29 @@ export class HttpHandler {
 
             // Log response
             const duration = startTime ? Date.now() - startTime : undefined
-            logger.logResponse(reqCtx.id, statusCode, duration)
+            logger.logResponse(
+                contextAccumulator.buildBeforeRequestContext().id,
+                statusCode,
+                duration
+            )
         } catch (err) {
             this.upstreamHandler.handleUpstreamError(
                 err as Error,
-                reqCtx,
+                contextAccumulator.getAfterRequestContext(),
                 clientRes
             )
         }
+    }
+
+    private normalizeHeaders(
+        headers: Record<string, string | string[] | undefined>
+    ): Record<string, string | string[]> {
+        const normalized: Record<string, string | string[]> = {}
+        for (const [key, value] of Object.entries(headers)) {
+            if (value !== undefined) {
+                normalized[key] = value
+            }
+        }
+        return normalized
     }
 }

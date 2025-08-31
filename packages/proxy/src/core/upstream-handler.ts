@@ -3,7 +3,7 @@ import https from 'node:https'
 import { URL } from 'node:url'
 import { pipeline } from 'node:stream'
 import { promisify } from 'node:util'
-import type { RequestContext, ErrorContext } from '../plugins/types'
+import type { ErrorContext, AfterRequestContext } from '../plugins/types'
 import { logger } from '../logger'
 
 const pipelineAsync = promisify(pipeline)
@@ -14,7 +14,7 @@ export class UpstreamHandler {
     async sendRequest(
         fullUrl: URL,
         requestOptions: RequestOptions,
-        ctx: RequestContext,
+        ctx: AfterRequestContext,
         clientReq: IncomingMessage,
         requestBodyToSend?: Buffer
     ): Promise<IncomingMessage> {
@@ -69,7 +69,7 @@ export class UpstreamHandler {
 
     handleUpstreamError(
         err: Error,
-        ctx: RequestContext,
+        ctx: AfterRequestContext,
         clientRes: http.ServerResponse
     ): void {
         const responseInfo = {

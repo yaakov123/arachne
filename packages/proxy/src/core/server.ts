@@ -273,6 +273,6 @@ export class MitmProxyServer {
             context: ctx,
         })
 
-        this.pluginManager.runErrorHooks(err, ctx)
+        this.pluginManager.executeOnError(err, ctx)
     }
 }

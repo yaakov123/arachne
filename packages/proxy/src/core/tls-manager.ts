@@ -82,7 +82,7 @@ export class TlsManager {
             return
         }
 
-        await this.pluginManager.runHook('onConnect', ctx)
+        await this.pluginManager.executeOnConnect(ctx)
 
         // Inform client to start TLS handshake through us
         sendConnectSuccessResponse(clientSocket, logger, {
