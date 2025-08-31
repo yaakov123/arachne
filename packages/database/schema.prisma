@@ -25,6 +25,7 @@ model Project {
   // Relationships
   transactions Transaction[]
   hosts        Host[]
+  authProfiles AuthProfile[]
   
   @@map("projects")
 }
@@ -173,11 +174,43 @@ model Endpoint {
   firstSeen   DateTime @default(now())
   lastSeen    DateTime @default(now())
   hits        Int      @default(0)
-  
+
   host        Host @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  
+
   @@unique([hostId, method, path])
   @@index([hostId])
   @@index([method])
   @@map("endpoints")
+}
+
+// Authentication profiles table
+model AuthProfile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  method      String   // 'bearer', 'api-key', 'basic', 'jwt', 'oauth2', 'custom-header', 'custom'
+  enabled     Boolean  @default(true)
+  priority    Int?     @default(100)
+  tags        Json?    // Array of strings for organization
+  
+  // Auth configuration stored as JSON
+  authConfig  Json     // Complete auth method configuration
+  
+  // Conditions for when to apply (stored as JSON)
+  conditions  Json?    // AuthCondition object
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  
+  // Project relationship
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+  @@index([method])
+  @@index([enabled])
+  @@index([priority])
+  @@map("auth_profiles")
 }
