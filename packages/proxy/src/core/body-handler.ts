@@ -157,8 +157,22 @@ export class BodyHandler {
     ): Record<string, string | string[]> {
         const newHeaders = { ...headers }
 
-        // Remove content-length for streaming
-        delete newHeaders['content-length']
+        // Only remove content-length if there's transfer-encoding: chunked
+        // This prevents conflicts as per HTTP/1.1 spec (RFC 2616)
+        const transferEncoding = headers['transfer-encoding']
+        if (transferEncoding) {
+            const encodingValues = Array.isArray(transferEncoding)
+                ? transferEncoding
+                : [transferEncoding]
+
+            const hasChunked = encodingValues.some((value) =>
+                value.toLowerCase().includes('chunked')
+            )
+
+            if (hasChunked) {
+                delete newHeaders['content-length']
+            }
+        }
 
         return newHeaders
     }

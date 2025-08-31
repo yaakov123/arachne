@@ -218,7 +218,16 @@ export async function stopUpstream(upstream: Upstream): Promise<void> {
 
 export async function startProxy(plugins: ProxyPlugin[] = []) {
     const port = await getFreePort()
-    const proxy = new MitmProxyServer({ host: '127.0.0.1', port, plugins })
+    const proxy = new MitmProxyServer({
+        host: '127.0.0.1',
+        port,
+        plugins,
+        config: {
+            hostFilter: ['httpbin.org'],
+            hostFilterMode: 'whitelist',
+            maxBodySize: 10 * 1024 * 1024, // 10MB
+        },
+    })
     await proxy.start()
     return { proxy, host: '127.0.0.1', port }
 }

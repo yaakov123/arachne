@@ -55,7 +55,7 @@ export class PluginManager {
      * Get all registered plugins
      */
     getPlugins(): readonly ProxyPlugin[] {
-        return [...this.plugins]
+        return Object.freeze([...this.plugins])
     }
 
     /**

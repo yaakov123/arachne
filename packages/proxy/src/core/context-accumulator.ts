@@ -158,14 +158,6 @@ export class ContextAccumulator {
         this.finalResponseState = responseBuilder._getFinalState()
         const duration = Date.now() - this.startTime
 
-        // Create a dummy response builder for the afterResponse context (read-only)
-        const dummyResponseBuilder = new ResponseBuilder(
-            this.finalResponseState.statusCode,
-            this.finalResponseState.statusMessage,
-            this.finalResponseState.headers,
-            this.finalResponseState.body
-        )
-
         return {
             ...this.baseContext,
             finalUrl: this.finalRequestState.url,
@@ -176,7 +168,6 @@ export class ContextAccumulator {
             statusMessage: this.responseState.statusMessage,
             responseHeaders: this.responseState.headers,
             responseBody: this.responseState.body,
-            response: dummyResponseBuilder,
             finalStatusCode: this.finalResponseState.statusCode,
             finalStatusMessage: this.finalResponseState.statusMessage,
             finalResponseHeaders: this.finalResponseState.headers,

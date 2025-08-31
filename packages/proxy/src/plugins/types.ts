@@ -78,7 +78,8 @@ export interface BeforeResponseContext extends AfterRequestContext {
 /**
  * Context for afterResponse hook - contains all finalized data and timing
  */
-export interface AfterResponseContext extends BeforeResponseContext {
+export interface AfterResponseContext
+    extends Omit<BeforeResponseContext, 'response'> {
     /** Final response status code (after all modifications) */
     finalStatusCode: number
     /** Final response status message (after all modifications) */

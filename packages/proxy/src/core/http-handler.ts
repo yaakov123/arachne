@@ -263,21 +263,20 @@ export class HttpHandler {
                     )
 
                 // Get final response state
-                const finalResponse = contextAccumulator.getFinalResponseState()
 
                 // Send buffered response to client
                 const finalHeaders =
                     this.bodyHandler.prepareHeadersForBufferedContent(
-                        finalResponse.headers,
-                        finalResponse.body?.length || 0
+                        responseBuilder.getHeaders(),
+                        responseBuilder.getBody()?.length || 0
                     )
 
                 this.upstreamHandler.sendBufferedResponse(
                     clientRes,
-                    finalResponse.statusCode,
-                    finalResponse.statusMessage,
+                    responseBuilder.getStatusCode(),
+                    responseBuilder.getStatusMessage(),
                     finalHeaders,
-                    finalResponse.body || Buffer.alloc(0)
+                    responseBuilder.getBody() || Buffer.alloc(0)
                 )
 
                 // Execute afterResponse hooks

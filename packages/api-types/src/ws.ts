@@ -125,8 +125,6 @@ export interface TransactionResponse {
 }
 
 export interface TransactionTiming {
-    startTime: number
-    responseTime: number
     duration: number
 }
 

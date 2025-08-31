@@ -1,44 +1,13 @@
+import type { ProxyPlugin } from '@arachne/proxy'
 import type {
-    ProxyPlugin,
-    RequestContext,
-    ResponseContext,
-    RequestBodyContext,
-    ResponseBodyContext,
-} from '@arachne/proxy'
-import type { DisplayHeader, ContentInfo, RequestURL } from '@arachne/api-types'
+    DisplayHeader,
+    ContentInfo,
+    RequestURL,
+    TransactionData,
+} from '@arachne/api-types'
 import { BroadcastEmitter } from '../services/broadcast-emitter'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
-
-interface TransactionState {
-    id: string
-    requestStartTime: number
-    responseStartTime?: number
-    // Request data
-    method: string
-    url: RequestURL
-    headers: DisplayHeader[]
-    rawHeaders: Record<string, string | string[]>
-    clientIp?: string
-    requestBody?: {
-        content: ContentInfo
-        sample: string
-    }
-    // Response data
-    statusCode?: number
-    statusMessage?: string
-    responseHeaders?: DisplayHeader[]
-    rawResponseHeaders?: Record<string, string | string[]>
-    responseBody?: {
-        content: ContentInfo
-        sample: string
-    }
-    // Summary stats
-    requestSize?: number
-    responseSize?: number
-    hasRequestBody: boolean
-    hasResponseBody: boolean
-}
 
 function detectContentFormat(
     contentType?: string,
@@ -161,173 +130,65 @@ function nowIso() {
     return new Date().toISOString()
 }
 
-export function createTransactionAggregatorPlugin(
-    eventEmitter: BroadcastEmitter,
-    maxSampleBytes = DEFAULT_MAX
-): ProxyPlugin {
-    const transactions = new Map<string, TransactionState>()
+function getContentType(headers: Record<string, string | string[]>) {
+    return headers['content-type'] as string | undefined
+}
 
+function getContentEncoding(headers: Record<string, string | string[]>) {
+    return headers['content-encoding'] as string | undefined
+}
+
+export function createTransactionAggregatorPlugin(
+    eventEmitter: BroadcastEmitter
+): ProxyPlugin {
     return {
         name: 'transaction-aggregator',
 
-        async onRequest(ctx: RequestContext) {
-            const timestamp = Date.now()
-            const parsedURL = parseURL(ctx.url)
-
-            const parsedHeaders = parseHeaders(ctx.headers)
-
-            // Initialize transaction state
-            transactions.set(ctx.id, {
-                id: ctx.id,
-                requestStartTime: timestamp,
-                method: ctx.method,
-                url: parsedURL,
-                headers: parsedHeaders,
-                rawHeaders: ctx.headers,
-                clientIp: ctx.clientIp,
-                hasRequestBody: false,
-                hasResponseBody: false,
-            })
-
-            // Emit request event
-            eventEmitter.emit('request', {
-                type: 'request',
-                rawHeaders: ctx.headers,
-                id: ctx.id,
-                method: ctx.method,
-                url: parsedURL,
-                headers: parsedHeaders,
-                clientIp: ctx.clientIp,
-                timestamp,
-                ts: nowIso(),
-            })
-        },
-
-        async onResponse(ctx: ResponseContext) {
-            const timestamp = Date.now()
-            const transaction = transactions.get(ctx.id)
-
-            if (!transaction) return
-
-            const parsedHeaders = parseHeaders(ctx.responseHeaders)
-
-            // Update transaction state
-            transaction.responseStartTime = timestamp
-            transaction.statusCode = ctx.statusCode
-            transaction.statusMessage = ctx.statusMessage
-            transaction.responseHeaders = parsedHeaders
-            transaction.rawResponseHeaders = ctx.responseHeaders
-
-            // Emit response event
-            eventEmitter.emit('response', {
-                type: 'responseHead',
-                rawHeaders: ctx.responseHeaders,
-                id: ctx.id,
-                statusCode: ctx.statusCode,
-                statusMessage: ctx.statusMessage,
-                headers: parsedHeaders,
-                timing: {
-                    startTime: transaction.requestStartTime,
-                    responseTime: timestamp,
-                    duration: timestamp - transaction.requestStartTime,
-                },
-                ts: nowIso(),
-            })
-        },
-
-        async onRequestBody(ctx: RequestBodyContext) {
-            const transaction = transactions.get(ctx.id)
-            if (!transaction) return
-
-            const { content, sample } = bodyToContentInfo(
-                ctx.body,
-                ctx.contentType,
-                ctx.contentEncoding,
-                maxSampleBytes
-            )
-
-            // Update transaction state
-            transaction.hasRequestBody = true
-            transaction.requestSize = ctx.body.length
-            transaction.requestBody = { content, sample }
-
-            // Emit request body event
-            eventEmitter.emit('requestBody', {
-                type: 'requestBody',
-                id: ctx.id,
-                content,
-                sample,
-                ts: nowIso(),
-            })
-        },
-
-        async onResponseBody(ctx: ResponseBodyContext) {
-            const transaction = transactions.get(ctx.id)
-            if (!transaction) return
-
-            const { content, sample } = bodyToContentInfo(
-                ctx.body,
-                ctx.contentType,
-                ctx.contentEncoding,
-                maxSampleBytes
-            )
-
-            // Update transaction state
-            transaction.hasResponseBody = true
-            transaction.responseSize = ctx.body.length
-            transaction.responseBody = { content, sample }
-
-            // Emit response body event
-            eventEmitter.emit('responseBody', {
-                type: 'responseBody',
-                id: ctx.id,
-                content,
-                sample,
-                ts: nowIso(),
-            })
-        },
-
-        onResponseComplete(ctx: ResponseContext) {
-            const transaction = transactions.get(ctx.id)
-            if (!transaction) return
-            if (transaction.method === 'OPTIONS') return
-
+        afterResponse(ctx) {
             // Build complete transaction data
-            const transactionData = {
+            const transactionData: TransactionData = {
                 request: {
-                    method: transaction.method,
-                    url: transaction.url,
-                    headers: transaction.headers,
-                    rawHeaders: transaction.rawHeaders,
-                    clientIp: transaction.clientIp,
-                    body: transaction.requestBody,
+                    method: ctx.method,
+                    url: parseURL(ctx.finalUrl),
+                    headers: parseHeaders(ctx.finalHeaders),
+                    rawHeaders: ctx.finalHeaders,
+                    clientIp: ctx.clientIp,
+                    body: ctx.finalBody
+                        ? bodyToContentInfo(
+                              ctx.finalBody,
+                              getContentType(ctx.finalHeaders),
+                              getContentEncoding(ctx.finalHeaders)
+                          )
+                        : undefined,
                 },
-                response: transaction.statusCode
+
+                response: ctx.response
                     ? {
-                          statusCode: transaction.statusCode,
-                          statusMessage: transaction.statusMessage,
-                          headers: transaction.responseHeaders || [],
-                          rawHeaders: transaction.rawResponseHeaders || {},
-                          body: transaction.responseBody,
+                          statusCode: ctx.finalStatusCode,
+                          statusMessage: ctx.finalStatusMessage,
+                          headers: parseHeaders(ctx.finalResponseHeaders),
+                          rawHeaders: ctx.finalResponseHeaders,
+                          body: ctx.finalResponseBody
+                              ? bodyToContentInfo(
+                                    ctx.finalResponseBody,
+                                    getContentType(ctx.finalResponseHeaders),
+                                    getContentEncoding(ctx.finalResponseHeaders)
+                                )
+                              : undefined,
                       }
                     : undefined,
                 timing: {
-                    startTime: transaction.requestStartTime,
-                    responseTime:
-                        transaction.responseStartTime ||
-                        transaction.requestStartTime,
-                    duration:
-                        transaction.responseStartTime &&
-                        transaction.requestStartTime
-                            ? transaction.responseStartTime -
-                              transaction.requestStartTime
-                            : 0,
+                    duration: ctx.duration,
                 },
                 summary: {
-                    requestSize: transaction.requestSize,
-                    responseSize: transaction.responseSize,
-                    hasRequestBody: transaction.hasRequestBody,
-                    hasResponseBody: transaction.hasResponseBody,
+                    hasRequestBody: !!ctx.finalBody,
+                    hasResponseBody: !!ctx.finalResponseBody,
+                    requestSize: ctx.finalBody
+                        ? ctx.finalBody.length
+                        : undefined,
+                    responseSize: ctx.finalResponseBody
+                        ? ctx.finalResponseBody.length
+                        : undefined,
                 },
             }
 
@@ -340,7 +201,6 @@ export function createTransactionAggregatorPlugin(
             })
 
             // Clean up transaction state
-            transactions.delete(ctx.id)
         },
     }
 }
