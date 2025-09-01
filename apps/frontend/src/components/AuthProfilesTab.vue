@@ -386,7 +386,7 @@ onMounted(() => {
 }
 
 .btn-primary:hover {
-    background: var(--primary-color-hover);
+    background: var(--surface-hover);
 }
 
 .modal-overlay {

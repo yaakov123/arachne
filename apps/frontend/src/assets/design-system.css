@@ -533,29 +533,6 @@ strong {
 }
 
 /* ==========================================================================
-   Theme Toggle Utilities
-   ========================================================================== */
-
-.theme-toggle {
-    position: fixed;
-    top: var(--space-lg);
-    right: var(--space-lg);
-    z-index: var(--z-fixed);
-    padding: var(--space-md);
-    background-color: var(--surface-card);
-    border: 1px solid var(--surface-border);
-    border-radius: var(--radius-full);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    box-shadow: var(--shadow-md);
-}
-
-.theme-toggle:hover {
-    background-color: var(--surface-hover);
-    transform: scale(1.05);
-}
-
-/* ==========================================================================
    Responsive Design
    ========================================================================== */
 
@@ -567,36 +544,5 @@ strong {
         --space-lg: 0.75rem;
         --space-xl: 1rem;
         --space-2xl: 1.5rem;
-    }
-
-    .p-dialog {
-        margin: var(--space-lg);
-        max-width: calc(100vw - 2 * var(--space-lg));
-    }
-
-    .p-toast {
-        top: var(--space-lg);
-        right: var(--space-lg);
-        left: var(--space-lg);
-    }
-
-    .p-toast-message {
-        min-width: auto;
-    }
-}
-
-/* ==========================================================================
-   Print Styles
-   ========================================================================== */
-
-@media print {
-    .theme-toggle,
-    .p-toast,
-    .p-dialog-mask {
-        display: none !important;
-    }
-
-    * {
-        box-shadow: none !important;
     }
 }
