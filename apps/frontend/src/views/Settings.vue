@@ -24,6 +24,11 @@
                 <template #certificates>
                     <CertificatesTab />
                 </template>
+
+                <!-- Auth Profiles Tab -->
+                <template #auth-profiles>
+                    <AuthProfilesTab />
+                </template>
             </TabContainer>
         </div>
     </div>
@@ -33,6 +38,7 @@
 import ProjectsTab from '@/components/ProjectsTab.vue'
 import AppearanceTab from '@/components/AppearanceTab.vue'
 import CertificatesTab from '@/components/CertificatesTab.vue'
+import AuthProfilesTab from '@/components/AuthProfilesTab.vue'
 import TabContainer, { type Tab } from '@/components/TabContainer.vue'
 
 // Tab definitions
@@ -48,6 +54,10 @@ const settingsTabs: Tab[] = [
     {
         id: 'certificates',
         label: 'Certificates',
+    },
+    {
+        id: 'auth-profiles',
+        label: 'Auth Profiles',
     },
 ]
 </script>
