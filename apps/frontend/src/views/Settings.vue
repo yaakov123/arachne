@@ -9,7 +9,11 @@
         </div>
 
         <div class="settings-content">
-            <TabContainer :tabs="settingsTabs" default-tab="projects">
+            <TabContainer
+                :tabs="settingsTabs"
+                :default-tab="activeTab"
+                @tab-changed="handleTabChange"
+            >
                 <!-- Projects Tab -->
                 <template #projects>
                     <ProjectsTab />
@@ -35,11 +39,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ProjectsTab from '@/components/ProjectsTab.vue'
 import AppearanceTab from '@/components/AppearanceTab.vue'
 import CertificatesTab from '@/components/CertificatesTab.vue'
 import AuthProfilesTab from '@/components/AuthProfilesTab.vue'
 import TabContainer, { type Tab } from '@/components/TabContainer.vue'
+
+const route = useRoute()
+const router = useRouter()
 
 // Tab definitions
 const settingsTabs: Tab[] = [
@@ -60,6 +69,21 @@ const settingsTabs: Tab[] = [
         label: 'Auth Profiles',
     },
 ]
+
+// Get active tab from URL query parameter or default to 'projects'
+const activeTab = computed(() => {
+    const tabParam = route.query.tab as string
+    const validTab = settingsTabs.find((tab) => tab.id === tabParam)
+    return validTab ? tabParam : 'projects'
+})
+
+// Handle tab change - update URL
+const handleTabChange = (tabId: string) => {
+    router.push({
+        name: 'settings',
+        query: { tab: tabId },
+    })
+}
 </script>
 
 <style scoped>
