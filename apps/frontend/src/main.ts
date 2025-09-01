@@ -6,6 +6,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { useProjectStore } from './stores/project'
 
 // Initialize theme immediately to prevent FOUC
 function initializeTheme() {
@@ -53,4 +54,21 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 
-app.mount('#app')
+// Initialize project store before mounting the app
+async function initializeApp() {
+    try {
+        const projectStore = useProjectStore()
+        await projectStore.initialize()
+        console.log('Project store initialized successfully')
+
+        // Mount the app after project store is initialized
+        app.mount('#app')
+    } catch (error) {
+        console.error('Failed to initialize project store:', error)
+        // Mount the app anyway, even if project initialization fails
+        app.mount('#app')
+    }
+}
+
+// Initialize app with project store first
+initializeApp()

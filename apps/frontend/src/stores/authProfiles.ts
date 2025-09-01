@@ -6,6 +6,7 @@ import {
     type AuthProfileUpdateInput,
 } from '@/services/trpc'
 import type { AuthProfile } from '@arachne/database'
+import { useProjectStore } from './project'
 
 export const useAuthProfilesStore = defineStore('authProfiles', () => {
     // State
@@ -15,6 +16,8 @@ export const useAuthProfilesStore = defineStore('authProfiles', () => {
     const searchQuery = ref('')
     const selectedMethod = ref('')
     const enabledFilter = ref('')
+
+    const projectStore = useProjectStore()
 
     // Computed
     const filteredProfiles = computed(() => {
@@ -51,9 +54,15 @@ export const useAuthProfilesStore = defineStore('authProfiles', () => {
     // Actions
     const loadProfiles = async () => {
         try {
+            console.log(
+                'Loading profiles for project:',
+                projectStore.currentProject?.id
+            )
             isLoading.value = true
             error.value = null
-            const result = await trpc.authProfiles.list.query({})
+            const result = await trpc.authProfiles.list.query({
+                projectId: projectStore.currentProject?.id || '',
+            })
             profiles.value = result.profiles || []
         } catch (err) {
             error.value =

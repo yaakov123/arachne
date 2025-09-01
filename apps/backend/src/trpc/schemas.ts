@@ -286,7 +286,7 @@ export const authProfileParamsSchema = z.object({
 })
 
 export const authProfileFiltersSchema = z.object({
-    projectId: z.string().optional(),
+    projectId: z.string(),
     method: z.string().optional(),
     enabled: z.boolean().optional(),
     tags: z.array(z.string()).optional(),

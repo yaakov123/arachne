@@ -100,7 +100,6 @@ watch(searchQuery, (newQuery) => {
 // Lifecycle
 onMounted(async () => {
     try {
-        await projectStore.initialize()
         // First fetch existing transactions from the current project
         await transactionsStore.fetchExistingTransactions()
         // Then connect to WebSocket for real-time updates

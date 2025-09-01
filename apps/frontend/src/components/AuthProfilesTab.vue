@@ -132,8 +132,8 @@ import ProfileCard from './ProfileCard.vue'
 import AuthProfileForm from './AuthProfileForm.vue'
 
 // Stores
-const authProfilesStore = useAuthProfilesStore()
 const projectStore = useProjectStore()
+const authProfilesStore = useAuthProfilesStore()
 
 // Modal state
 const showCreateModal = ref(false)
