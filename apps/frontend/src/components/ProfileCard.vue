@@ -24,13 +24,13 @@
                 <button class="btn-icon" @click="editProfile" title="Edit">
                     <Edit :size="16" />
                 </button>
-                <Button
+                <button
                     class="btn-icon delete"
                     @click="deleteProfile"
                     title="Delete"
                 >
                     <Trash2 :size="16" />
-                </Button>
+                </button>
             </div>
         </div>
 
