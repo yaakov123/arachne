@@ -114,7 +114,7 @@ function setupProxyServer(config: AppConfig, container: ServiceContainer) {
         : getDefaultCertStoreOptions()
     const ca = new CertificateAuthority({ store })
 
-    // Create proxy instance with the single transaction aggregator plugin
+    // Create proxy instance with plugins
     const proxy = new MitmProxyServer({
         host: config.proxy.host,
         port: config.proxy.port,

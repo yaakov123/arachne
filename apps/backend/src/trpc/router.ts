@@ -8,6 +8,7 @@ import { subscriptionsRouter } from './routers/subscriptions'
 import { transactionsRouter } from './routers/transactions'
 import { hostsRouter } from './routers/hosts'
 import { authProfilesRouter } from './routers/auth-profiles'
+import { apiInventoryRouter } from './routers/api-inventory.router'
 
 /**
  * Main tRPC router that combines all sub-routers
@@ -22,6 +23,7 @@ export const appRouter = router({
     transactions: transactionsRouter,
     hosts: hostsRouter,
     authProfiles: authProfilesRouter,
+    apiInventory: apiInventoryRouter,
 })
 
 export type AppRouter = typeof appRouter
