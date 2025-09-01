@@ -10,11 +10,17 @@
                     : 'No active project'
             "
         >
-            <FolderOpen :size="14" />
-            <span class="project-name">
-                {{ currentProject?.name || 'No Project' }}
-            </span>
-            <ChevronDown :size="12" :class="{ rotated: isOpen }" />
+            <FolderOpen :size="16" class="project-icon" />
+            <div class="project-content">
+                <span class="project-name">
+                    {{ currentProject?.name || 'No Project' }}
+                </span>
+                <ChevronDown
+                    :size="12"
+                    :class="{ rotated: isOpen }"
+                    class="chevron"
+                />
+            </div>
         </button>
 
         <div v-if="isOpen" class="project-menu">
@@ -163,23 +169,24 @@ defineExpose({
 <style scoped>
 .project-dropdown {
     position: relative;
-    display: inline-block;
+    display: block;
+    width: 100%;
 }
 
 .project-trigger {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.5rem;
+    width: 100%;
+    padding: 0.75rem;
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--text-color, #495057);
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s ease;
-    min-width: 140px;
-    max-width: 200px;
+    margin: 0 0.5rem;
+    white-space: nowrap;
 }
 
 .project-trigger:hover {
@@ -192,6 +199,30 @@ defineExpose({
     cursor: not-allowed;
 }
 
+.project-icon {
+    flex-shrink: 0;
+    color: var(--primary-color, #3b82f6);
+}
+
+.project-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1;
+    margin-left: 0.75rem;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.3s ease;
+    min-width: 0;
+}
+
+/* Show content when parent sidebar is hovered */
+.project-dropdown:hover .project-content,
+.project-dropdown.sidebar-expanded .project-content {
+    opacity: 1;
+    transform: translateX(0);
+}
+
 .project-name {
     flex: 1;
     white-space: nowrap;
@@ -199,31 +230,59 @@ defineExpose({
     text-overflow: ellipsis;
     text-align: left;
     font-weight: 500;
+    min-width: 0;
 }
 
-.project-trigger svg:last-child {
+.chevron {
+    flex-shrink: 0;
+    margin-left: 0.5rem;
     transition: transform 0.2s ease;
     color: var(--text-color-secondary, #6c757d);
 }
 
-.project-trigger svg:last-child.rotated {
+.chevron.rotated {
     transform: rotate(180deg);
 }
 
 .project-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    margin-top: 0.25rem;
+    position: fixed;
+    top: 50%;
+    left: 220px;
+    transform: translateY(-50%);
     background: var(--surface-card, #ffffff);
     border: 1px solid var(--surface-border, #dee2e6);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 1001;
     min-width: 280px;
+    max-width: 320px;
     max-height: 400px;
     overflow-y: auto;
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50%) translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
+    }
+}
+
+/* Adjust menu position when sidebar is collapsed */
+@media (max-width: 768px) {
+    .project-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        transform: none;
+        margin-top: 0.25rem;
+        min-width: 260px;
+    }
 }
 
 .menu-section {

@@ -121,7 +121,7 @@ onUnmounted(() => {
 <style scoped>
 .logger-view {
     display: flex;
-    height: calc(100vh - 32px);
+    height: 100vh;
     width: 100%;
     background: var(--surface-ground);
 }

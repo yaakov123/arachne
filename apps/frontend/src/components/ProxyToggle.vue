@@ -1,31 +1,24 @@
 <template>
     <div class="proxy-toggle">
-        <div class="proxy-status">
-            <span
-                class="status-dot"
-                :class="{ running: proxyRunning, stopped: !proxyRunning }"
-            ></span>
-            <span class="status-text">{{ proxyRunning ? 'On' : 'Off' }}</span>
-        </div>
-        <label
-            class="switch"
+        <button
+            class="power-button"
+            :class="{
+                on: proxyRunning,
+                off: !proxyRunning,
+                loading: proxyLoading,
+            }"
             :title="proxyRunning ? 'Stop Proxy' : 'Start Proxy'"
+            :disabled="proxyLoading"
+            @click="toggleProxy"
         >
-            <input
-                type="checkbox"
-                :checked="proxyRunning"
-                :disabled="proxyLoading"
-                @change="toggleProxy"
-                class="switch-input"
-            />
-            <span class="switch-slider" :class="{ loading: proxyLoading }">
-                <span v-if="proxyLoading" class="loading-spinner"></span>
-            </span>
-        </label>
+            <Power :size="16" class="power-icon" />
+            <span v-if="proxyLoading" class="loading-spinner"></span>
+        </button>
     </div>
 </template>
 
 <script setup lang="ts">
+import { Power } from 'lucide-vue-next'
 import { useProxy } from '@/composables/useProxy'
 
 const { proxyLoading, proxyRunning, toggleProxy } = useProxy()
@@ -35,110 +28,74 @@ const { proxyLoading, proxyRunning, toggleProxy } = useProxy()
 .proxy-toggle {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-}
-
-.proxy-status {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    transition: background-color 0.2s ease;
-}
-
-.status-dot.running {
-    background-color: #10b981;
-}
-
-.status-dot.stopped {
-    background-color: #6b7280;
-}
-
-.status-text {
-    font-weight: 500;
-    color: var(--text-color-secondary, #6b7280);
-    min-width: 20px;
-}
-
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 2.25rem;
-    height: 1.25rem;
-    cursor: pointer;
-}
-
-.switch-input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.switch-slider {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--surface-border, #e5e7eb);
-    border-radius: 1.25rem;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
     justify-content: center;
 }
 
-.switch-slider:before {
-    position: absolute;
-    content: '';
-    height: 0.875rem;
-    width: 0.875rem;
-    left: 0.1875rem;
-    background-color: var(--surface-card, #ffffff);
-    border-radius: 50%;
+.power-button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: transparent;
 }
 
-.switch-input:checked + .switch-slider {
-    background-color: #10b981;
+.power-button:hover {
+    background-color: var(--surface-hover, #f8f9fa);
+    transform: scale(1.05);
 }
 
-.switch-input:checked + .switch-slider:before {
-    transform: translateX(1rem);
+.power-button:active {
+    transform: scale(0.95);
 }
 
-.switch-input:disabled + .switch-slider {
-    opacity: 0.6;
+.power-button:disabled {
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
-.switch:hover .switch-input:not(:disabled) + .switch-slider {
-    background-color: var(--surface-hover, #f3f4f6);
+.power-button:disabled:hover {
+    transform: none;
+    background: transparent;
 }
 
-.switch:hover .switch-input:checked:not(:disabled) + .switch-slider {
-    background-color: #059669;
+/* Power button states */
+.power-button.on .power-icon {
+    color: #10b981; /* Green when on */
+}
+
+.power-button.off .power-icon {
+    color: #6b7280; /* Gray when off */
+}
+
+.power-button.on:hover .power-icon {
+    color: #059669; /* Darker green on hover when on */
+}
+
+.power-button.off:hover .power-icon {
+    color: #374151; /* Darker gray on hover when off */
+}
+
+.power-icon {
+    transition: color 0.2s ease;
 }
 
 .loading-spinner {
-    width: 10px;
-    height: 10px;
-    border: 1px solid transparent;
-    border-top: 1px solid #6b7280;
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 2px solid transparent;
+    border-top: 2px solid var(--text-color-secondary, #6b7280);
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    position: absolute;
-    z-index: 10;
 }
 
-.switch-slider.loading:before {
+.power-button.loading .power-icon {
     opacity: 0.3;
 }
 
