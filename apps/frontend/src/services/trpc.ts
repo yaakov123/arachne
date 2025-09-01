@@ -15,6 +15,10 @@ type RouterOutput = inferRouterOutputs<AppRouter>
 export type ProjectCreateInput = RouterInput['projects']['create']
 export type ProjectUpdateInput = RouterInput['projects']['update']
 
+export type AuthProfileCreateInput = RouterInput['authProfiles']['create']
+export type AuthProfileUpdateInput =
+    RouterInput['authProfiles']['update']['data']
+
 export type HostWithTransactionCount = RouterOutput['hosts']['list']
 
 export function isProjectCreateInput(

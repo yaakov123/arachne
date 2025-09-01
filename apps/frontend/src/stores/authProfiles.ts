@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { trpc } from '@/services/trpc'
+import {
+    trpc,
+    type AuthProfileCreateInput,
+    type AuthProfileUpdateInput,
+} from '@/services/trpc'
 import type { AuthProfile } from '@arachne/database'
 
 export const useAuthProfilesStore = defineStore('authProfiles', () => {
@@ -63,7 +67,7 @@ export const useAuthProfilesStore = defineStore('authProfiles', () => {
         }
     }
 
-    const createProfile = async (profileData: any) => {
+    const createProfile = async (profileData: AuthProfileCreateInput) => {
         try {
             isLoading.value = true
             error.value = null
@@ -82,7 +86,10 @@ export const useAuthProfilesStore = defineStore('authProfiles', () => {
         }
     }
 
-    const updateProfile = async (id: string, updateData: any) => {
+    const updateProfile = async (
+        id: string,
+        updateData: AuthProfileUpdateInput
+    ) => {
         try {
             isLoading.value = true
             error.value = null
