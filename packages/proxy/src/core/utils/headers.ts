@@ -129,7 +129,7 @@ export function isHostIgnored(
 export function shouldIgnoreHost(
     hostname: string,
     hostFilter?: string[],
-    hostFilterMode: 'blacklist' | 'whitelist' = 'blacklist'
+    hostFilterMode: 'blacklist' | 'whitelist' = 'whitelist'
 ): boolean {
     logger.info('shouldIgnoreHost', {
         hostname,

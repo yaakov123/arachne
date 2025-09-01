@@ -8,10 +8,8 @@
 
 :root {
     /* Layout Variables */
-    --topbar-height: 32px;
-    --sidebar-height: calc(100vh - 32px);
+    --sidebar-height: calc(100vh);
     --sidebar-width: 300px;
-    --sidebar-top: var(--topbar-height);
 
     /* Spacing Scale */
     --space-xs: 0.25rem; /* 4px */
