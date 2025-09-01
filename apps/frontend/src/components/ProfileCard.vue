@@ -24,13 +24,13 @@
                 <button class="btn-icon" @click="editProfile" title="Edit">
                     <Edit :size="16" />
                 </button>
-                <button
+                <Button
                     class="btn-icon delete"
                     @click="deleteProfile"
                     title="Delete"
                 >
                     <Trash2 :size="16" />
-                </button>
+                </Button>
             </div>
         </div>
 
@@ -100,6 +100,7 @@ import {
     Calendar,
 } from 'lucide-vue-next'
 import type { AuthProfile } from '@arachne/database'
+import { Button } from './ui'
 
 // Props
 interface Props {
@@ -187,8 +188,8 @@ const deleteProfile = () => {
 .profile-method {
     display: inline-block;
     padding: 0.25rem 0.5rem;
-    background: var(--primary-color-alpha);
-    color: var(--primary-color);
+    background: var(--primary-color);
+    color: var(--primary-color-text);
     border-radius: 0.25rem;
     font-size: 0.75rem;
     font-weight: 500;

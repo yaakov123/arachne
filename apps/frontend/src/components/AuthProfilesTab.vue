@@ -9,10 +9,12 @@
                 </p>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" @click="showCreateModal = true">
-                    <Plus :size="16" />
+                <Button variant="primary" @click="showCreateModal = true">
+                    <template #icon-left>
+                        <Plus :size="16" />
+                    </template>
                     New Profile
-                </button>
+                </Button>
             </div>
         </div>
 
@@ -21,34 +23,36 @@
             <div class="filters-section">
                 <div class="search-box">
                     <Search class="search-icon" :size="18" />
-                    <input
+                    <Input
                         v-model="authProfilesStore.searchQuery"
-                        type="text"
                         placeholder="Search auth profiles..."
-                        class="search-input"
                     />
                 </div>
                 <div class="filter-controls">
-                    <select
+                    <Select
                         v-model="authProfilesStore.selectedMethod"
                         class="filter-select"
-                    >
-                        <option value="">All Methods</option>
-                        <option value="bearer">Bearer Token</option>
-                        <option value="api-key">API Key</option>
-                        <option value="basic">Basic Auth</option>
-                        <option value="jwt">JWT</option>
-                        <option value="oauth2">OAuth 2.0</option>
-                        <option value="custom">Custom</option>
-                    </select>
-                    <select
+                        :options="[
+                            { label: 'All Methods', value: '' },
+                            { label: 'Bearer Token', value: 'bearer' },
+                            { label: 'API Key', value: 'api-key' },
+                            { label: 'Basic Auth', value: 'basic' },
+                            { label: 'JWT', value: 'jwt' },
+                            { label: 'OAuth 2.0', value: 'oauth2' },
+                            { label: 'Custom', value: 'custom' },
+                        ]"
+                        placeholder="All Methods"
+                    />
+                    <Select
                         v-model="authProfilesStore.enabledFilter"
                         class="filter-select"
-                    >
-                        <option value="">All Profiles</option>
-                        <option value="enabled">Enabled Only</option>
-                        <option value="disabled">Disabled Only</option>
-                    </select>
+                        :options="[
+                            { label: 'All Profiles', value: '' },
+                            { label: 'Enabled Only', value: 'enabled' },
+                            { label: 'Disabled Only', value: 'disabled' },
+                        ]"
+                        placeholder="All Profiles"
+                    />
                 </div>
             </div>
 
@@ -68,13 +72,10 @@
                     <p>
                         Create your first authentication profile to get started
                     </p>
-                    <button
-                        class="btn btn-primary"
-                        @click="showCreateModal = true"
-                    >
+                    <Button variant="primary" @click="showCreateModal = true">
                         <Plus :size="16" />
                         Create Auth Profile
-                    </button>
+                    </Button>
                 </div>
 
                 <div v-else class="profiles-grid">
@@ -105,9 +106,11 @@
                                 : 'Create Auth Profile'
                         }}
                     </h3>
-                    <button class="btn-close" @click="closeModals">
-                        <X :size="16" />
-                    </button>
+                    <Button class="btn-close" @click="closeModals">
+                        <template #icon-left>
+                            <X :size="16" />
+                        </template>
+                    </Button>
                 </div>
                 <div class="modal-content">
                     <AuthProfileForm
@@ -130,6 +133,7 @@ import { useProjectStore } from '@/stores/project'
 import type { AuthProfile } from '@arachne/database'
 import ProfileCard from './ProfileCard.vue'
 import AuthProfileForm from './AuthProfileForm.vue'
+import { Button, Input, Select } from './ui'
 
 // Stores
 const projectStore = useProjectStore()
@@ -297,22 +301,6 @@ onMounted(() => {
     gap: 1rem;
 }
 
-.filter-select {
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    background: var(--input-bg);
-    color: var(--text-color);
-    font-size: 0.875rem;
-    min-width: 120px;
-}
-
-.filter-select:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px var(--primary-color-alpha);
-}
-
 .profiles-list {
     flex: 1;
     overflow-y: auto;
@@ -365,28 +353,6 @@ onMounted(() => {
     display: grid;
     gap: 1.5rem;
     grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-}
-
-.btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.btn-primary {
-    background: var(--primary-color);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: var(--surface-hover);
 }
 
 .modal-overlay {
