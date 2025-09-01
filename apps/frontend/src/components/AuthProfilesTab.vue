@@ -110,8 +110,12 @@
                     </button>
                 </div>
                 <div class="modal-content">
-                    <p>Auth profile form coming soon...</p>
-                    <!-- TODO: Implement auth profile form -->
+                    <AuthProfileForm
+                        :profile="editingProfile"
+                        :is-submitting="authProfilesStore.isLoading"
+                        @submit="handleFormSubmit"
+                        @cancel="closeModals"
+                    />
                 </div>
             </div>
         </div>
@@ -122,11 +126,14 @@
 import { ref, onMounted } from 'vue'
 import { Plus, Search, Shield, X, Loader2 } from 'lucide-vue-next'
 import { useAuthProfilesStore } from '@/stores/authProfiles'
+import { useProjectStore } from '@/stores/project'
 import type { AuthProfile } from '@arachne/database'
 import ProfileCard from './ProfileCard.vue'
+import AuthProfileForm from './AuthProfileForm.vue'
 
-// Store
+// Stores
 const authProfilesStore = useAuthProfilesStore()
+const projectStore = useProjectStore()
 
 // Modal state
 const showCreateModal = ref(false)
@@ -166,6 +173,35 @@ const closeModals = () => {
     showCreateModal.value = false
     showEditModal.value = false
     editingProfile.value = null
+}
+
+const handleFormSubmit = async (formData: any) => {
+    try {
+        if (editingProfile.value) {
+            // Update existing profile
+            await authProfilesStore.updateProfile(
+                editingProfile.value.id,
+                formData
+            )
+        } else {
+            // Create new profile - add projectId
+            const createData = {
+                ...formData,
+                projectId: projectStore.currentProject?.id,
+            }
+
+            if (!createData.projectId) {
+                throw new Error('No current project selected')
+            }
+
+            await authProfilesStore.createProfile(createData)
+        }
+        closeModals()
+        // TODO: Show success toast
+    } catch (error) {
+        console.error('Failed to save auth profile:', error)
+        // TODO: Show error toast
+    }
 }
 
 // Lifecycle
@@ -369,11 +405,13 @@ onMounted(() => {
 .modal {
     background: var(--surface-card);
     border-radius: 0.75rem;
-    max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
+    max-width: 800px;
+    width: 95%;
+    max-height: 90vh;
     overflow: hidden;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-header {
@@ -410,6 +448,8 @@ onMounted(() => {
 }
 
 .modal-content {
+    flex: 1;
+    overflow-y: auto;
     padding: 2rem;
 }
 
