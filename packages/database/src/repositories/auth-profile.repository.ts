@@ -1,10 +1,11 @@
 import { getPrismaClient } from '../client'
 import type {
-    AuthProfile,
     PrismaClient,
     AuthProfileCreateInput,
     AuthProfileFindManyArgs,
     AuthProfileUpdateInput,
+    DatabaseAuthProfile,
+    AuthProfile,
 } from '../types/index'
 
 /**
@@ -17,22 +18,31 @@ export class AuthProfileRepository {
         this.prisma = prismaClient
     }
 
+    private parseAuthProfile(authProfile: DatabaseAuthProfile): AuthProfile {
+        return authProfile as unknown as AuthProfile
+    }
     /**
      * Create a new auth profile
      */
     async create(data: AuthProfileCreateInput): Promise<AuthProfile> {
-        return this.prisma.authProfile.create({
-            data,
-        })
+        return this.prisma.authProfile
+            .create({
+                data,
+            })
+            .then(this.parseAuthProfile)
     }
 
     /**
      * Find auth profile by ID
      */
     async findById(id: string): Promise<AuthProfile | null> {
-        return this.prisma.authProfile.findUnique({
+        const authProfile = await this.prisma.authProfile.findUnique({
             where: { id },
         })
+        if (!authProfile) {
+            return null
+        }
+        return this.parseAuthProfile(authProfile)
     }
 
     /**
@@ -42,23 +52,26 @@ export class AuthProfileRepository {
         projectId: string,
         options?: AuthProfileFindManyArgs
     ): Promise<AuthProfile[]> {
-        return this.prisma.authProfile.findMany({
+        const authProfiles = await this.prisma.authProfile.findMany({
             where: { projectId },
             ...options,
         })
+        return authProfiles.map(this.parseAuthProfile)
     }
 
     /**
      * Find enabled auth profiles for a project, ordered by priority
      */
     async findEnabledByProject(projectId: string): Promise<AuthProfile[]> {
-        return this.prisma.authProfile.findMany({
-            where: {
-                projectId,
-                enabled: true,
-            },
-            orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
-        })
+        return this.prisma.authProfile
+            .findMany({
+                where: {
+                    projectId,
+                    enabled: true,
+                },
+                orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+            })
+            .then((profiles) => profiles.map(this.parseAuthProfile))
     }
 
     /**
@@ -68,14 +81,16 @@ export class AuthProfileRepository {
         projectId: string,
         method: string
     ): Promise<AuthProfile[]> {
-        return this.prisma.authProfile.findMany({
-            where: {
-                projectId,
-                method,
-                enabled: true,
-            },
-            orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
-        })
+        return this.prisma.authProfile
+            .findMany({
+                where: {
+                    projectId,
+                    method,
+                    enabled: true,
+                },
+                orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+            })
+            .then((profiles) => profiles.map(this.parseAuthProfile))
     }
 
     /**
@@ -85,26 +100,32 @@ export class AuthProfileRepository {
         id: string,
         data: AuthProfileUpdateInput
     ): Promise<AuthProfile> {
-        return this.prisma.authProfile.update({
-            where: { id },
-            data,
-        })
+        return this.prisma.authProfile
+            .update({
+                where: { id },
+                data,
+            })
+            .then(this.parseAuthProfile)
     }
 
     /**
      * Delete auth profile by ID
      */
-    async delete(id: string): Promise<AuthProfile> {
-        return this.prisma.authProfile.delete({
+    async delete(id: string): Promise<string> {
+        await this.prisma.authProfile.delete({
             where: { id },
         })
+
+        return id
     }
 
     /**
      * Find all auth profiles with optional filtering and pagination
      */
     async findMany(options?: AuthProfileFindManyArgs): Promise<AuthProfile[]> {
-        return this.prisma.authProfile.findMany(options)
+        return this.prisma.authProfile
+            .findMany(options)
+            .then((profiles) => profiles.map(this.parseAuthProfile))
     }
 
     /**

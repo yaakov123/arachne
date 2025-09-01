@@ -151,14 +151,14 @@ const deleteProfile = () => {
 <style scoped>
 .profile-card {
     background: var(--card-bg);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--surface-border);
     border-radius: 0.75rem;
     padding: 1.5rem;
     transition: all 0.2s ease;
 }
 
 .profile-card:hover {
-    border-color: var(--primary-color);
+    border-color: var(--surface-border);
     box-shadow: 0 4px 12px var(--shadow-color);
 }
 

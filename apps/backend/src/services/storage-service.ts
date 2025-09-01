@@ -57,7 +57,7 @@ export class StorageService {
             name,
             description,
             method,
-            authConfig: config as any, // JSON field in database
+            authConfig: JSON.parse(JSON.stringify(config)), // Serialize for JSON field
             enabled: true,
             priority: Math.round((options.confidence || 0.5) * 100), // Convert confidence to priority
             tags: ['auto-extracted'],

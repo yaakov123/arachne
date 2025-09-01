@@ -106,11 +106,11 @@ export const authProfilesRouter = router({
                     name: input.name,
                     description: input.description,
                     method: input.method,
-                    authConfig: input.authConfig as any,
-                    conditions: input.conditions as any,
+                    authConfig: input.authConfig,
+                    conditions: input.conditions,
                     priority: input.priority,
                     enabled: input.enabled,
-                    tags: input.tags as any,
+                    tags: input.tags,
                     project: {
                         connect: { id: input.projectId },
                     },
@@ -168,9 +168,9 @@ export const authProfilesRouter = router({
                 // Transform data to handle JSON fields
                 const updateData = {
                     ...input.data,
-                    authConfig: input.data.authConfig as any,
-                    conditions: input.data.conditions as any,
-                    tags: input.data.tags as any,
+                    authConfig: input.data.authConfig,
+                    conditions: input.data.conditions,
+                    tags: input.data.tags,
                 }
 
                 const profile = await ctx.authProfileService.updateAuthProfile(

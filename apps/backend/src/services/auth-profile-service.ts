@@ -229,11 +229,11 @@ export class AuthProfileService {
             name,
             description: existing.description,
             method: existing.method,
-            authConfig: existing.authConfig as any,
-            conditions: existing.conditions as any,
+            authConfig: JSON.parse(JSON.stringify(existing.authConfig)),
+            conditions: JSON.parse(JSON.stringify(existing.conditions)),
             priority: existing.priority,
             enabled: false, // Start disabled by default
-            tags: existing.tags as any,
+            tags: JSON.parse(JSON.stringify(existing.tags)),
             project: {
                 connect: { id: existing.projectId },
             },
