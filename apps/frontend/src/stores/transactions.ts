@@ -1,9 +1,19 @@
 import { defineStore } from 'pinia'
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, readonly } from 'vue'
 import { trpc } from '@/services/trpc'
 import type { FullTransaction, Transaction } from '@arachne/database'
 import { useProjectStore } from './project'
 import { useHostsStore } from './hosts'
+
+// Define the transaction filter interface
+interface TransactionFilters {
+    projectId: string
+    hostId?: string
+    searchQuery?: string
+    limit?: number
+    offset?: number
+    includeRelatedData?: boolean
+}
 
 export const useTransactionsStore = defineStore('transactions', () => {
     // State
@@ -11,6 +21,15 @@ export const useTransactionsStore = defineStore('transactions', () => {
     const selectedTransaction = ref<FullTransaction | null>(null)
     const isLoading = ref(false)
     const isConnected = ref(false)
+
+    // Centralized filter state
+    const currentFilters = ref<Omit<TransactionFilters, 'projectId'>>({
+        limit: 100,
+        offset: 0,
+        includeRelatedData: false,
+    })
+
+    // Legacy state for backward compatibility (will be removed)
     const searchQuery = ref('')
     const searchResults = ref<Transaction[]>([])
     const isSearching = ref(false)
@@ -24,36 +43,70 @@ export const useTransactionsStore = defineStore('transactions', () => {
     const projectStore = useProjectStore()
     const hostsStore = useHostsStore()
 
-    // Helper functions for host filtering
-    const fetchTransactionsByHost = async (hostId: string) => {
+    // Centralized filtering function
+    const fetchFilteredTransactions = async (
+        filters?: Partial<Omit<TransactionFilters, 'projectId'>>
+    ) => {
         const currentProject = projectStore.currentProject
         if (!currentProject) {
             console.warn('No active project to fetch transactions for')
             return
         }
 
-        isLoadingHostFiltered.value = true
-        try {
-            const result = await trpc.transactions.getByHost.query({
-                projectId: currentProject.id,
-                hostId: hostId,
-                limit: 100, // Fetch large batch for now
-                offset: 0,
-                includeRelatedData: false,
-            })
+        // Update current filters with new values
+        if (filters) {
+            currentFilters.value = { ...currentFilters.value, ...filters }
+        }
 
-            hostFilteredTransactions.value = result.transactions
+        const fullFilters: TransactionFilters = {
+            projectId: currentProject.id,
+            ...currentFilters.value,
+        }
+
+        isLoading.value = true
+        try {
+            const result = await trpc.transactions.getFiltered.query(
+                fullFilters
+            )
+            transactions.value = result.transactions
         } catch (error) {
-            console.error('Failed to fetch transactions by host:', error)
+            console.error('Failed to fetch filtered transactions:', error)
             throw error
         } finally {
-            isLoadingHostFiltered.value = false
+            isLoading.value = false
         }
     }
 
+    // Update search query and trigger filtering
+    const updateSearchQuery = (query: string) => {
+        searchQuery.value = query
+        const searchQuery_clean = query.trim() || undefined
+        fetchFilteredTransactions({ searchQuery: searchQuery_clean, offset: 0 })
+    }
+
+    // Update host filter and trigger filtering
+    const updateHostFilter = (hostId: string | null) => {
+        fetchFilteredTransactions({ hostId: hostId || undefined, offset: 0 })
+    }
+
+    // Clear all filters
+    const clearAllFilters = () => {
+        searchQuery.value = ''
+        currentFilters.value = {
+            limit: 100,
+            offset: 0,
+            includeRelatedData: false,
+        }
+        fetchFilteredTransactions()
+    }
+
+    // Legacy helper functions (kept for backward compatibility)
+    const fetchTransactionsByHost = async (hostId: string) => {
+        updateHostFilter(hostId)
+    }
+
     const clearHostFilter = () => {
-        hostFilteredTransactions.value = []
-        isLoadingHostFiltered.value = false
+        updateHostFilter(null)
     }
 
     // Watch for host selection changes
@@ -61,11 +114,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
         () => hostsStore.selectedHost,
         async (newHost, oldHost) => {
             if (newHost !== oldHost) {
-                if (newHost) {
-                    await fetchTransactionsByHost(newHost)
-                } else {
-                    clearHostFilter()
-                }
+                updateHostFilter(newHost)
             }
         }
     )
@@ -80,17 +129,17 @@ export const useTransactionsStore = defineStore('transactions', () => {
                     to: newProject?.id,
                 })
 
-                // Clear existing transactions
+                // Clear existing transactions and filters
                 transactions.value = []
-                hostFilteredTransactions.value = []
                 selectedTransaction.value = null
+                clearAllFilters()
 
                 // Reconnect websocket if we were connected
                 if (isConnected.value) {
                     disconnect()
                     if (newProject) {
                         await connect()
-                        await fetchExistingTransactions()
+                        await fetchFilteredTransactions()
                     }
                 }
             }
@@ -98,56 +147,24 @@ export const useTransactionsStore = defineStore('transactions', () => {
     )
 
     // Computed
-    const currentTransactions = computed(() => {
-        // If there's a search query, use search results
-        if (searchQuery.value.trim()) {
-            return searchResults.value
-        }
-
-        // Use host-filtered transactions if a host is selected, otherwise all transactions
-        return hostsStore.selectedHost
-            ? hostFilteredTransactions.value
-            : transactions.value
-    })
-
     const filteredTransactions = computed(() => {
-        // With backend search, we don't need client-side filtering
-        return currentTransactions.value
+        // With centralized filtering, all filtering is done on the backend
+        return transactions.value
     })
 
     const isCurrentlyLoading = computed(() => {
-        if (searchQuery.value.trim()) {
-            return isSearching.value
-        }
+        return isLoading.value
+    })
 
-        return hostsStore.selectedHost
-            ? isLoadingHostFiltered.value
-            : isLoading.value
+    // Legacy computed properties (kept for backward compatibility)
+    const currentTransactions = computed(() => {
+        return transactions.value
     })
 
     // Actions
     const fetchExistingTransactions = async () => {
-        const currentProject = projectStore.currentProject
-        if (!currentProject) {
-            console.warn('No active project to fetch transactions for')
-            return
-        }
-
-        isLoading.value = true
-        try {
-            const result = await trpc.projects.getTransactions.query({
-                id: currentProject.id,
-                pagination: { offset: 0, limit: 100 }, // Fetch large batch for now
-            })
-
-            // Transform database transactions to TransactionWithMeta
-            transactions.value = result.transactions
-        } catch (error) {
-            console.error('Failed to fetch existing transactions:', error)
-            throw error
-        } finally {
-            isLoading.value = false
-        }
+        // Use the centralized filtering approach
+        await fetchFilteredTransactions()
     }
 
     const connect = async () => {
@@ -204,39 +221,9 @@ export const useTransactionsStore = defineStore('transactions', () => {
         selectedTransaction.value = null
     }
 
-    const updateSearchQuery = (query: string) => {
-        searchQuery.value = query
-        if (query.trim()) {
-            performSearch(query)
-        } else {
-            searchResults.value = []
-        }
-    }
-
+    // Legacy search method (kept for backward compatibility)
     const performSearch = async (query: string) => {
-        const currentProject = projectStore.currentProject
-        if (!currentProject) {
-            console.warn('No active project to search transactions for')
-            return
-        }
-
-        isSearching.value = true
-        try {
-            const result = await trpc.transactions.search.query({
-                projectId: currentProject.id,
-                query: query,
-                limit: 100,
-                offset: 0,
-                hostId: hostsStore.selectedHost || undefined,
-            })
-
-            searchResults.value = result.transactions
-        } catch (error) {
-            console.error('Failed to search transactions:', error)
-            searchResults.value = []
-        } finally {
-            isSearching.value = false
-        }
+        updateSearchQuery(query)
     }
 
     // Helper functions
@@ -263,6 +250,9 @@ export const useTransactionsStore = defineStore('transactions', () => {
         selectedTransaction,
         isLoading,
         isConnected,
+        currentFilters: readonly(currentFilters),
+
+        // Legacy state (backward compatibility)
         searchQuery,
         searchResults,
         isSearching,
@@ -270,19 +260,26 @@ export const useTransactionsStore = defineStore('transactions', () => {
         isLoadingHostFiltered,
 
         // Computed
-        currentTransactions,
         filteredTransactions,
         isCurrentlyLoading,
+        currentTransactions, // legacy
 
         // Actions
         fetchExistingTransactions,
+        fetchFilteredTransactions,
+        updateSearchQuery,
+        updateHostFilter,
+        clearAllFilters,
+
+        // Legacy actions (backward compatibility)
         fetchTransactionsByHost,
         clearHostFilter,
+        performSearch,
+
+        // Core actions
         connect,
         disconnect,
         selectTransaction,
         clearSelectedTransaction,
-        updateSearchQuery,
-        performSearch,
     }
 })

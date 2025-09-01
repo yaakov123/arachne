@@ -1,5 +1,15 @@
 import { router, publicProcedure, z } from '../init'
 
+// Define the unified filter schema
+const transactionFiltersSchema = z.object({
+    projectId: z.string(),
+    hostId: z.string().optional(),
+    searchQuery: z.string().optional(),
+    limit: z.number().min(1).max(100).default(50),
+    offset: z.number().min(0).default(0),
+    includeRelatedData: z.boolean().default(false),
+})
+
 export const transactionsRouter = router({
     getFullTransaction: publicProcedure
         .input(z.object({ id: z.string() }))
@@ -10,6 +20,17 @@ export const transactionsRouter = router({
             return { transaction }
         }),
 
+    // New unified filtering endpoint
+    getFiltered: publicProcedure
+        .input(transactionFiltersSchema)
+        .query(async ({ ctx, input }) => {
+            const transactions =
+                await ctx.transactionService.getFilteredTransactions(input)
+            return { transactions }
+        }),
+
+    // Legacy endpoints - kept for backward compatibility
+    // TODO: Deprecate these endpoints in favor of getFiltered
     getByHost: publicProcedure
         .input(
             z.object({
@@ -50,6 +71,7 @@ export const transactionsRouter = router({
             return { count }
         }),
 
+    // TODO: Deprecate this endpoint in favor of getFiltered
     search: publicProcedure
         .input(
             z.object({

@@ -111,6 +111,68 @@ export class TransactionService {
     }
 
     /**
+     * Get filtered transactions using a unified filtering approach
+     */
+    async getFilteredTransactions(filters: {
+        projectId: string
+        hostId?: string
+        searchQuery?: string
+        limit?: number
+        offset?: number
+        includeRelatedData?: boolean
+    }): Promise<Transaction[]> {
+        const {
+            projectId,
+            hostId,
+            searchQuery,
+            limit = 50,
+            offset = 0,
+            includeRelatedData = false,
+        } = filters
+
+        // If there's a search query, use search functionality
+        if (searchQuery && searchQuery.trim()) {
+            return this.transactionRepository.searchTransactions(
+                projectId,
+                searchQuery,
+                {
+                    limit,
+                    offset,
+                    hostId,
+                }
+            )
+        }
+
+        // If hostId is specified, filter by host
+        if (hostId) {
+            return this.getTransactionsByHost(projectId, hostId, {
+                limit,
+                offset,
+                includeRelatedData,
+            })
+        }
+
+        // Default: return all transactions for the project
+        const findOptions = {
+            orderBy: { timestamp: 'desc' as const },
+            take: limit,
+            skip: offset,
+        }
+
+        if (includeRelatedData) {
+            return this.transactionRepository.findByProjectWithAllRelatedData(
+                projectId,
+                findOptions
+            )
+        } else {
+            return this.transactionRepository.findByProject(
+                projectId,
+                findOptions
+            )
+        }
+    }
+
+    /**
      * Search transactions by query string
      */
     async searchTransactions(
