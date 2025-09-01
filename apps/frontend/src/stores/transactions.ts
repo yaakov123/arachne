@@ -12,6 +12,8 @@ export const useTransactionsStore = defineStore('transactions', () => {
     const isLoading = ref(false)
     const isConnected = ref(false)
     const searchQuery = ref('')
+    const searchResults = ref<Transaction[]>([])
+    const isSearching = ref(false)
     const hostFilteredTransactions = ref<Transaction[]>([])
     const isLoadingHostFiltered = ref(false)
 
@@ -97,6 +99,11 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
     // Computed
     const currentTransactions = computed(() => {
+        // If there's a search query, use search results
+        if (searchQuery.value.trim()) {
+            return searchResults.value
+        }
+
         // Use host-filtered transactions if a host is selected, otherwise all transactions
         return hostsStore.selectedHost
             ? hostFilteredTransactions.value
@@ -104,30 +111,15 @@ export const useTransactionsStore = defineStore('transactions', () => {
     })
 
     const filteredTransactions = computed(() => {
-        const sourceTransactions = currentTransactions.value
-
-        if (!searchQuery.value.trim()) {
-            return sourceTransactions
-        }
-
-        const query = searchQuery.value.toLowerCase()
-        return sourceTransactions.filter((transaction) => {
-            // Search in URL, path, method, status, headers
-            const url = transaction.urlFull.toLowerCase()
-            const path = transaction.urlPath.toLowerCase()
-            const method = transaction.method.toLowerCase()
-            const status = transaction.statusCode?.toString() || ''
-
-            return (
-                url.includes(query) ||
-                path.includes(query) ||
-                method.includes(query) ||
-                status.includes(query)
-            )
-        })
+        // With backend search, we don't need client-side filtering
+        return currentTransactions.value
     })
 
     const isCurrentlyLoading = computed(() => {
+        if (searchQuery.value.trim()) {
+            return isSearching.value
+        }
+
         return hostsStore.selectedHost
             ? isLoadingHostFiltered.value
             : isLoading.value
@@ -214,6 +206,37 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
     const updateSearchQuery = (query: string) => {
         searchQuery.value = query
+        if (query.trim()) {
+            performSearch(query)
+        } else {
+            searchResults.value = []
+        }
+    }
+
+    const performSearch = async (query: string) => {
+        const currentProject = projectStore.currentProject
+        if (!currentProject) {
+            console.warn('No active project to search transactions for')
+            return
+        }
+
+        isSearching.value = true
+        try {
+            const result = await trpc.transactions.search.query({
+                projectId: currentProject.id,
+                query: query,
+                limit: 100,
+                offset: 0,
+                hostId: hostsStore.selectedHost || undefined,
+            })
+
+            searchResults.value = result.transactions
+        } catch (error) {
+            console.error('Failed to search transactions:', error)
+            searchResults.value = []
+        } finally {
+            isSearching.value = false
+        }
     }
 
     // Helper functions
@@ -241,6 +264,8 @@ export const useTransactionsStore = defineStore('transactions', () => {
         isLoading,
         isConnected,
         searchQuery,
+        searchResults,
+        isSearching,
         hostFilteredTransactions,
         isLoadingHostFiltered,
 
@@ -258,5 +283,6 @@ export const useTransactionsStore = defineStore('transactions', () => {
         selectTransaction,
         clearSelectedTransaction,
         updateSearchQuery,
+        performSearch,
     }
 })

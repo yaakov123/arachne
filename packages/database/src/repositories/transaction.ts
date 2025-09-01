@@ -199,6 +199,72 @@ export class TransactionRepository {
     }
 
     /**
+     * Search transactions by query string (searches URL, path, method, status)
+     */
+    async searchTransactions(
+        projectId: string,
+        query: string,
+        options?: {
+            limit?: number
+            offset?: number
+            hostId?: string
+        }
+    ): Promise<Transaction[]> {
+        const searchQuery = query.toLowerCase()
+        const numericQuery = parseInt(searchQuery)
+        const isNumericQuery = !isNaN(numericQuery)
+
+        const orConditions: Array<{
+            urlFull?: { contains: string }
+            urlPath?: { contains: string }
+            method?: { contains: string }
+            statusCode?: { equals: number }
+        }> = [
+            {
+                urlFull: {
+                    contains: searchQuery,
+                },
+            },
+            {
+                urlPath: {
+                    contains: searchQuery,
+                },
+            },
+            {
+                method: {
+                    contains: searchQuery,
+                },
+            },
+        ]
+
+        // Only add statusCode condition if the query is numeric
+        if (isNumericQuery) {
+            orConditions.push({
+                statusCode: {
+                    equals: numericQuery,
+                },
+            })
+        }
+
+        const whereClause = {
+            projectId,
+            AND: [
+                {
+                    OR: orConditions,
+                },
+            ],
+            ...(options?.hostId && { hostId: options.hostId }),
+        }
+
+        return await this.prisma.transaction.findMany({
+            where: whereClause,
+            orderBy: { timestamp: 'desc' },
+            take: options?.limit || 100,
+            skip: options?.offset || 0,
+        })
+    }
+
+    /**
      * Batch create transactions for better performance
      */
     async createMany(transactions: TransactionCreateInput[]): Promise<number> {

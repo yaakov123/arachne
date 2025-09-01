@@ -49,4 +49,28 @@ export const transactionsRouter = router({
                 )
             return { count }
         }),
+
+    search: publicProcedure
+        .input(
+            z.object({
+                projectId: z.string(),
+                query: z.string(),
+                limit: z.number().min(1).max(100).default(50),
+                offset: z.number().min(0).default(0),
+                hostId: z.string().optional(),
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            const transactions =
+                await ctx.transactionService.searchTransactions(
+                    input.projectId,
+                    input.query,
+                    {
+                        limit: input.limit,
+                        offset: input.offset,
+                        hostId: input.hostId,
+                    }
+                )
+            return { transactions }
+        }),
 })

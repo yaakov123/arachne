@@ -110,6 +110,40 @@ export class TransactionService {
         }
     }
 
+    /**
+     * Search transactions by query string
+     */
+    async searchTransactions(
+        projectId: string,
+        query: string,
+        options?: {
+            limit?: number
+            offset?: number
+            hostId?: string
+        }
+    ): Promise<Transaction[]> {
+        if (!query.trim()) {
+            // If no query, return regular transactions
+            if (options?.hostId) {
+                return this.getTransactionsByHost(projectId, options.hostId, {
+                    limit: options.limit,
+                    offset: options.offset,
+                })
+            } else {
+                return this.transactionRepository.findByProject(projectId, {
+                    take: options?.limit || 100,
+                    skip: options?.offset || 0,
+                })
+            }
+        }
+
+        return this.transactionRepository.searchTransactions(
+            projectId,
+            query,
+            options
+        )
+    }
+
     toTransactionCreateInput(
         projectId: string,
         hostId: string,

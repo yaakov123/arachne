@@ -89,7 +89,7 @@ const debouncedSearch = (query: string) => {
 
     searchTimeout = setTimeout(() => {
         transactionsStore.updateSearchQuery(query)
-    }, 500) // 150ms debounce delay
+    }, 500) // 500ms debounce delay
 }
 
 // Watch for search changes and update the store with debouncing
