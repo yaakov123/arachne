@@ -21,10 +21,6 @@ export type SystemConfigCreateInput = Prisma.SystemConfigCreateInput
 export type SystemConfigUpdateInput = Prisma.SystemConfigUpdateInput
 export type SystemConfigFindManyArgs = Prisma.SystemConfigFindManyArgs
 
-export type AuthProfileCreateInput = Prisma.AuthProfileCreateInput
-export type AuthProfileUpdateInput = Prisma.AuthProfileUpdateInput
-export type AuthProfileFindManyArgs = Prisma.AuthProfileFindManyArgs
-
 export type JsonObject = Prisma.JsonObject
 
 export * from './transaction'

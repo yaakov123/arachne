@@ -1,3 +1,5 @@
+import type { AuthProfile as DatabaseAuthProfile, Prisma } from '@prisma/client'
+
 /**
  * Authentication Profile Types
  *
@@ -5,6 +7,11 @@
  * should be placed in HTTP requests. This allows users to configure
  * authentication strategies that can be automatically applied to requests.
  */
+
+// Repository input types
+export type AuthProfileCreateInput = Prisma.AuthProfileCreateInput
+export type AuthProfileUpdateInput = Prisma.AuthProfileUpdateInput
+export type AuthProfileFindManyArgs = Prisma.AuthProfileFindManyArgs
 
 /**
  * Supported authentication methods
@@ -258,31 +265,23 @@ export type AuthMethodConfig =
     | CustomAuthConfig
 
 /**
- * Complete authentication profile
+ * Complete authentication profile (transformed from database)
  */
-export interface AuthProfile {
-    /** Unique identifier for the profile */
-    id: string
-    /** Human-readable name */
-    name: string
-    /** Optional description */
-    description?: string
-    /** Authentication method and configuration */
-    auth: AuthMethodConfig
-    /** Conditions for when to apply this auth */
+export type AuthProfile = Omit<
+    DatabaseAuthProfile,
+    'authConfig' | 'conditions' | 'tags' | 'priority'
+> & {
+    authConfig: AuthMethodConfig
     conditions?: AuthCondition
-    /** Priority when multiple profiles match (higher = more priority) */
-    priority?: number
-    /** Whether this profile is enabled */
-    enabled?: boolean
-    /** Tags for organization */
-    tags?: string[]
-    /** Creation and modification timestamps */
-    metadata?: {
-        createdAt?: string
-        updatedAt?: string
-        createdBy?: string
-    }
+    tags: string[]
+    priority: number
+}
+
+/**
+ * Auth profile with additional computed fields
+ */
+export interface AuthProfileWithStats extends DatabaseAuthProfile {
+    _count?: Record<string, number>
 }
 
 /**
@@ -401,3 +400,6 @@ export function isCustomAuth(
 ): config is CustomAuthConfig {
     return config.method === 'custom'
 }
+
+// Export the database type for direct use when needed
+export type { AuthProfile as DatabaseAuthProfile } from '@prisma/client'

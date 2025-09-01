@@ -22,7 +22,7 @@
     );
     gap: var(--traffic-grid-gap, var(--space-md));
     padding: var(--space-md) var(--space-sm) var(--space-md) 0;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--surface-card);
     backdrop-filter: blur(12px);
     border-bottom: 2px solid var(--surface-border);
     font-size: var(--text-sm);
