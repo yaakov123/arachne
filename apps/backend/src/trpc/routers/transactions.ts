@@ -24,9 +24,11 @@ export const transactionsRouter = router({
     getFiltered: publicProcedure
         .input(transactionFiltersSchema)
         .query(async ({ ctx, input }) => {
-            const transactions =
-                await ctx.transactionService.getFilteredTransactions(input)
-            return { transactions }
+            const result =
+                await ctx.transactionService.getFilteredTransactionsWithCount(
+                    input
+                )
+            return result
         }),
 
     // Legacy endpoints - kept for backward compatibility

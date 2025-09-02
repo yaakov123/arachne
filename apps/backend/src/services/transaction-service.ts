@@ -111,6 +111,66 @@ export class TransactionService {
     }
 
     /**
+     * Get filtered transactions with total count for pagination
+     */
+    async getFilteredTransactionsWithCount(filters: {
+        projectId: string
+        hostId?: string
+        searchQuery?: string
+        limit?: number
+        offset?: number
+        includeRelatedData?: boolean
+    }): Promise<{
+        transactions: Transaction[]
+        total: number
+        hasMore: boolean
+    }> {
+        const { limit = 50, offset = 0 } = filters
+
+        // Get transactions and total count in parallel for better performance
+        const [transactions, total] = await Promise.all([
+            this.getFilteredTransactions(filters),
+            this.getFilteredTransactionsCount(filters),
+        ])
+
+        const hasMore = offset + limit < total
+
+        return {
+            transactions,
+            total,
+            hasMore,
+        }
+    }
+
+    /**
+     * Get count of filtered transactions
+     */
+    async getFilteredTransactionsCount(filters: {
+        projectId: string
+        hostId?: string
+        searchQuery?: string
+    }): Promise<number> {
+        const { projectId, hostId, searchQuery } = filters
+
+        // If there's a search query, count search results
+        if (searchQuery && searchQuery.trim()) {
+            return this.transactionRepository.countSearchTransactions(
+                projectId,
+                searchQuery,
+                { hostId }
+            )
+        }
+
+        // If hostId is specified, count by host
+        if (hostId) {
+            return this.getTransactionCountByHost(projectId, hostId)
+        }
+
+        // Default: count all transactions for the project
+        return this.getTransactionCount(projectId)
+    }
+
+    /**
      * Get filtered transactions using a unified filtering approach
      */
     async getFilteredTransactions(filters: {

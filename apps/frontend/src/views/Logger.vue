@@ -34,6 +34,17 @@
                     </div>
                 </div>
                 <TrafficList />
+                <Pagination
+                    v-if="transactionsStore.totalTransactions > 0"
+                    :pagination-info="transactionsStore.paginationInfo"
+                    :can-go-to-previous="transactionsStore.canGoToPreviousPage"
+                    :can-go-to-next="transactionsStore.canGoToNextPage"
+                    :is-loading="transactionsStore.isPaginationLoading"
+                    @go-to-page="transactionsStore.goToPage"
+                    @next-page="transactionsStore.nextPage"
+                    @previous-page="transactionsStore.previousPage"
+                    @update-page-size="transactionsStore.updatePageSize"
+                />
             </div>
             <template v-if="transactionsStore.selectedTransaction">
                 <Resizer
@@ -64,6 +75,7 @@ import HostsSidebar from '../components/HostsSidebar.vue'
 import TrafficList from '../components/TrafficList.vue'
 import RequestResponseViewer from '../components/RequestResponseViewer.vue'
 import Resizer from '../components/Resizer.vue'
+import Pagination from '../components/Pagination.vue'
 import { useTransactionsStore } from '../stores/transactions'
 import { useProjectStore } from '../stores/project'
 import { useHostsStore } from '../stores/hosts'

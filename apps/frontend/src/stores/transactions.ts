@@ -20,14 +20,21 @@ export const useTransactionsStore = defineStore('transactions', () => {
     const transactions = ref<Transaction[]>([])
     const selectedTransaction = ref<FullTransaction | null>(null)
     const isLoading = ref(false)
+    const isPaginationLoading = ref(false)
     const isConnected = ref(false)
 
     // Centralized filter state
     const currentFilters = ref<Omit<TransactionFilters, 'projectId'>>({
-        limit: 100,
+        limit: 50, // Reduced for pagination
         offset: 0,
         includeRelatedData: false,
     })
+
+    // Pagination state
+    const totalTransactions = ref(0)
+    const hasMoreTransactions = ref(false)
+    const currentPage = ref(1)
+    const pageSize = ref(50)
 
     // Legacy state for backward compatibility (will be removed)
     const searchQuery = ref('')
@@ -63,41 +70,93 @@ export const useTransactionsStore = defineStore('transactions', () => {
             ...currentFilters.value,
         }
 
-        isLoading.value = true
+        // Use pagination loading for page changes, regular loading for filter changes
+        const isPageChange = filters?.offset !== undefined && filters.offset > 0
+        if (isPageChange) {
+            isPaginationLoading.value = true
+        } else {
+            isLoading.value = true
+        }
+
         try {
             const result = await trpc.transactions.getFiltered.query(
                 fullFilters
             )
             transactions.value = result.transactions
+            totalTransactions.value = result.total
+            hasMoreTransactions.value = result.hasMore
         } catch (error) {
             console.error('Failed to fetch filtered transactions:', error)
             throw error
         } finally {
             isLoading.value = false
+            isPaginationLoading.value = false
         }
     }
 
-    // Update search query and trigger filtering
+    // Helper function to reset pagination
+    const resetPagination = () => {
+        currentPage.value = 1
+        currentFilters.value.offset = 0
+    }
+
+    // Update search query and trigger filtering (resets pagination)
     const updateSearchQuery = (query: string) => {
         searchQuery.value = query
         const searchQuery_clean = query.trim() || undefined
+        resetPagination()
         fetchFilteredTransactions({ searchQuery: searchQuery_clean, offset: 0 })
     }
 
-    // Update host filter and trigger filtering
+    // Update host filter and trigger filtering (resets pagination)
     const updateHostFilter = (hostId: string | null) => {
+        resetPagination()
         fetchFilteredTransactions({ hostId: hostId || undefined, offset: 0 })
     }
 
     // Clear all filters
     const clearAllFilters = () => {
         searchQuery.value = ''
+        resetPagination()
         currentFilters.value = {
-            limit: 100,
+            limit: pageSize.value,
             offset: 0,
             includeRelatedData: false,
         }
         fetchFilteredTransactions()
+    }
+
+    // Pagination functions
+    const goToPage = (page: number) => {
+        if (page < 1) return
+
+        const maxPage = Math.ceil(totalTransactions.value / pageSize.value)
+        if (page > maxPage && maxPage > 0) return
+
+        currentPage.value = page
+        const offset = (page - 1) * pageSize.value
+        fetchFilteredTransactions({ offset })
+    }
+
+    const nextPage = () => {
+        if (hasMoreTransactions.value) {
+            goToPage(currentPage.value + 1)
+        }
+    }
+
+    const previousPage = () => {
+        if (currentPage.value > 1) {
+            goToPage(currentPage.value - 1)
+        }
+    }
+
+    const updatePageSize = (newPageSize: number) => {
+        if (newPageSize < 1 || newPageSize > 100) return // Validation
+
+        pageSize.value = newPageSize
+        resetPagination()
+        currentFilters.value.limit = newPageSize
+        fetchFilteredTransactions({ limit: newPageSize, offset: 0 })
     }
 
     // Legacy helper functions (kept for backward compatibility)
@@ -154,6 +213,39 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
     const isCurrentlyLoading = computed(() => {
         return isLoading.value
+    })
+
+    // Pagination computed properties
+    const totalPages = computed(() => {
+        return Math.ceil(totalTransactions.value / pageSize.value)
+    })
+
+    const canGoToPreviousPage = computed(() => {
+        return currentPage.value > 1
+    })
+
+    const canGoToNextPage = computed(() => {
+        return hasMoreTransactions.value
+    })
+
+    const paginationInfo = computed(() => {
+        const start =
+            totalTransactions.value === 0
+                ? 0
+                : (currentPage.value - 1) * pageSize.value + 1
+        const end = Math.min(
+            currentPage.value * pageSize.value,
+            totalTransactions.value
+        )
+
+        return {
+            start,
+            end,
+            total: totalTransactions.value,
+            currentPage: currentPage.value,
+            totalPages: totalPages.value,
+            pageSize: pageSize.value,
+        }
     })
 
     // Legacy computed properties (kept for backward compatibility)
@@ -241,7 +333,27 @@ export const useTransactionsStore = defineStore('transactions', () => {
     }
 
     const handleTransactionComplete = (transaction: Transaction) => {
-        transactions.value.unshift(transaction)
+        // Only add new transactions if we're on the first page and not filtering by search or host
+        // This prevents pagination issues when new transactions arrive
+        const isOnFirstPage = currentPage.value === 1
+        const hasActiveFilters =
+            (currentFilters.value.searchQuery &&
+                currentFilters.value.searchQuery.trim()) ||
+            currentFilters.value.hostId
+
+        if (isOnFirstPage && !hasActiveFilters) {
+            transactions.value.unshift(transaction)
+            // Update total count
+            totalTransactions.value += 1
+
+            // If we exceed page size, remove the last item to maintain consistent page size
+            if (transactions.value.length > pageSize.value) {
+                transactions.value.pop()
+            }
+        } else {
+            // Just update the total count for pagination accuracy
+            totalTransactions.value += 1
+        }
     }
 
     return {
@@ -249,8 +361,15 @@ export const useTransactionsStore = defineStore('transactions', () => {
         transactions,
         selectedTransaction,
         isLoading,
+        isPaginationLoading: readonly(isPaginationLoading),
         isConnected,
         currentFilters: readonly(currentFilters),
+
+        // Pagination state
+        totalTransactions: readonly(totalTransactions),
+        hasMoreTransactions: readonly(hasMoreTransactions),
+        currentPage: readonly(currentPage),
+        pageSize: readonly(pageSize),
 
         // Legacy state (backward compatibility)
         searchQuery,
@@ -262,6 +381,10 @@ export const useTransactionsStore = defineStore('transactions', () => {
         // Computed
         filteredTransactions,
         isCurrentlyLoading,
+        totalPages,
+        canGoToPreviousPage,
+        canGoToNextPage,
+        paginationInfo,
         currentTransactions, // legacy
 
         // Actions
@@ -270,6 +393,13 @@ export const useTransactionsStore = defineStore('transactions', () => {
         updateSearchQuery,
         updateHostFilter,
         clearAllFilters,
+
+        // Pagination actions
+        goToPage,
+        nextPage,
+        previousPage,
+        updatePageSize,
+        resetPagination,
 
         // Legacy actions (backward compatibility)
         fetchTransactionsByHost,

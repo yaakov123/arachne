@@ -210,6 +210,49 @@ export class TransactionRepository {
             hostId?: string
         }
     ): Promise<Transaction[]> {
+        const whereClause = this.buildSearchWhereClause(
+            projectId,
+            query,
+            options?.hostId
+        )
+
+        return await this.prisma.transaction.findMany({
+            where: whereClause,
+            orderBy: { timestamp: 'desc' },
+            take: options?.limit || 100,
+            skip: options?.offset || 0,
+        })
+    }
+
+    /**
+     * Count search transactions by query string with filters
+     */
+    async countSearchTransactions(
+        projectId: string,
+        query: string,
+        options?: {
+            hostId?: string
+        }
+    ): Promise<number> {
+        const whereClause = this.buildSearchWhereClause(
+            projectId,
+            query,
+            options?.hostId
+        )
+
+        return await this.prisma.transaction.count({
+            where: whereClause,
+        })
+    }
+
+    /**
+     * Build where clause for search transactions (shared between search and count)
+     */
+    private buildSearchWhereClause(
+        projectId: string,
+        query: string,
+        hostId?: string
+    ) {
         const searchQuery = query.toLowerCase()
         const numericQuery = parseInt(searchQuery)
         const isNumericQuery = !isNaN(numericQuery)
@@ -246,22 +289,15 @@ export class TransactionRepository {
             })
         }
 
-        const whereClause = {
+        return {
             projectId,
             AND: [
                 {
                     OR: orConditions,
                 },
             ],
-            ...(options?.hostId && { hostId: options.hostId }),
+            ...(hostId && { hostId }),
         }
-
-        return await this.prisma.transaction.findMany({
-            where: whereClause,
-            orderBy: { timestamp: 'desc' },
-            take: options?.limit || 100,
-            skip: options?.offset || 0,
-        })
     }
 
     /**
