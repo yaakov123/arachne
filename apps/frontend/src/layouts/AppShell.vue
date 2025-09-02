@@ -12,6 +12,14 @@
                     <BarChart3 :size="16" class="nav-icon" />
                     <span class="nav-label">Traffic</span>
                 </RouterLink>
+                <RouterLink
+                    to="/request-editor"
+                    class="nav-item"
+                    title="Request Editor"
+                >
+                    <Edit :size="16" class="nav-icon" />
+                    <span class="nav-label">Editor</span>
+                </RouterLink>
                 <RouterLink to="/settings" class="nav-item" title="Settings">
                     <Settings :size="16" class="nav-icon" />
                     <span class="nav-label">Settings</span>
@@ -34,7 +42,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { Settings, BarChart3 } from 'lucide-vue-next'
+import { Settings, BarChart3, Edit } from 'lucide-vue-next'
 import ProxyToggle from '@/components/ProxyToggle.vue'
 import { useProjectStore } from '@/stores/project'
 

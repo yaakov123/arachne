@@ -39,6 +39,11 @@
             :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
             @click="hideContextMenu"
         >
+            <div class="context-menu-item" @click="sendToEditor">
+                <Edit :size="14" />
+                Send to Editor
+            </div>
+            <div class="context-menu-separator"></div>
             <div class="context-menu-item" @click="copyUrl">
                 <Link :size="14" />
                 Copy URL
@@ -53,7 +58,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Link, Terminal } from 'lucide-vue-next'
+import { Link, Terminal, Edit } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import { useTransactionsStore } from '../stores/transactions'
 import { getMethodClass, getStatusTextColor } from '../utils/http-colors'
 import type { Transaction } from '@arachne/database'
@@ -69,8 +75,9 @@ const emit = defineEmits<{
     select: [transaction: Transaction]
 }>()
 
-// Get store instance
+// Get store instance and router
 const store = useTransactionsStore()
+const router = useRouter()
 
 // Context menu state
 const contextMenuVisible = ref(false)
@@ -95,6 +102,14 @@ const showContextMenu = (event: MouseEvent) => {
 
 const hideContextMenu = () => {
     contextMenuVisible.value = false
+}
+
+const sendToEditor = () => {
+    // Navigate to request editor with transaction data
+    router.push({
+        name: 'request-editor',
+        query: { transactionId: props.transaction.id.toString() },
+    })
 }
 
 const copyUrl = () => {

@@ -69,11 +69,16 @@ model Transaction {
   hasRequestBody  Boolean  @default(false)
   hasResponseBody Boolean  @default(false)
   
+  // Metadata
+  metadataType    String?  // 'request-editor', etc. - for future extensibility
 
   
   // Body foreign keys
   requestBodyId   String?
   responseBodyId  String?
+  
+  // Metadata foreign keys
+  requestEditorMetadataId String? @unique
 
   // Relationships
   requestHeaders  TransactionHeader[] @relation("RequestHeaders")
@@ -81,12 +86,16 @@ model Transaction {
   requestBody     TransactionBody?    @relation("RequestBody", fields: [requestBodyId], references: [id])
   responseBody    TransactionBody?    @relation("ResponseBody", fields: [responseBodyId], references: [id])
   
+  // Metadata relationships
+  requestEditorMetadata RequestEditorMetadata? @relation(fields: [requestEditorMetadataId], references: [id])
+  
   @@index([projectId])
   @@index([hostId])
   @@index([timestamp])
   @@index([urlHost])
   @@index([method])
   @@index([statusCode])
+  @@index([metadataType])
   @@map("transactions")
 }
 
@@ -181,6 +190,31 @@ model Endpoint {
   @@index([hostId])
   @@index([method])
   @@map("endpoints")
+}
+
+// Request Editor Metadata table - stores additional data for requests sent via Request Editor
+model RequestEditorMetadata {
+  id              String   @id @default(cuid())
+  
+  // Original form data from the request editor
+  originalUrl     String   // URL as entered in the editor (before query param processing)
+  originalMethod  String   // Method as selected in the editor
+  
+  // Editor state when request was sent
+  activeRequestTab  String?  // Which tab was active: 'headers', 'body', 'params'
+  bodyType         String?  // 'json', 'text', 'form', 'xml'
+  
+  // User notes and context
+  userNotes       String?  // Optional user notes about this request
+  tags            Json?    // Array of strings for organization
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  
+  // Relationship back to transaction (one-to-one via Transaction.requestEditorMetadataId)
+  transaction     Transaction?
+  
+  @@map("request_editor_metadata")
 }
 
 // Authentication profiles table

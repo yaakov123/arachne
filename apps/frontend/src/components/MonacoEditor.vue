@@ -41,6 +41,7 @@ if (typeof window !== 'undefined') {
 
 const emit = defineEmits<{
     error: []
+    'update:content': [content: string]
 }>()
 
 interface Props {
@@ -98,6 +99,13 @@ const initEditor = async () => {
             hideCursorInOverviewRuler: true,
             overviewRulerLanes: 0,
         })
+
+        // Add content change listener for v-model support
+        if (!props.readOnly) {
+            editor.onDidChangeModelContent(() => {
+                emit('update:content', editor!.getValue())
+            })
+        }
     } catch (error) {
         console.error('Failed to initialize Monaco editor:', error)
         emit('error')

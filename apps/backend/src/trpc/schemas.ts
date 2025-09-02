@@ -293,3 +293,30 @@ export const authProfileFiltersSchema = z.object({
     limit: z.number().min(1).max(100).default(20),
     offset: z.number().min(0).default(0),
 })
+
+// HTTP Request schemas
+export const httpHeaderSchema = z.object({
+    name: z.string(),
+    value: z.string(),
+})
+
+export const httpQueryParamSchema = z.object({
+    name: z.string(),
+    value: z.string(),
+})
+
+export const sendHttpRequestSchema = z.object({
+    method: z.enum([
+        'GET',
+        'POST',
+        'PUT',
+        'PATCH',
+        'DELETE',
+        'HEAD',
+        'OPTIONS',
+    ]),
+    url: z.string().url('Invalid URL format'),
+    headers: z.array(httpHeaderSchema).optional(),
+    body: z.string().optional(),
+    queryParams: z.array(httpQueryParamSchema).optional(),
+})
