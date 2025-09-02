@@ -1,8 +1,8 @@
-import { ProjectService } from './project-service'
-import { TransactionService } from './transaction-service'
-import { BroadcastService } from './broadcast-service'
-import { StorageService } from './storage-service'
-import { AuthProfileService } from './auth-profile-service'
+import { ProjectService } from './project.service'
+import { TransactionService } from './transaction.service'
+import { BroadcastService } from './broadcast.service'
+import { StorageService } from './storage.service'
+import { AuthProfileService } from './auth-profile.service'
 import { logger } from '../logger'
 
 /**

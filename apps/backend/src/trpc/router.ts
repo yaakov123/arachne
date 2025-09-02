@@ -1,13 +1,13 @@
 import { router } from './init'
-import { healthRouter } from './routers/health'
-import { certRouter } from './routers/cert'
-import { projectsRouter } from './routers/projects'
-import { proxyRouter } from './routers/proxy'
-import { caRouter } from './routers/ca'
-import { subscriptionsRouter } from './routers/subscriptions'
-import { transactionsRouter } from './routers/transactions'
-import { hostsRouter } from './routers/hosts'
-import { authProfilesRouter } from './routers/auth-profiles'
+import { healthRouter } from './routers/health.router'
+import { certRouter } from './routers/cert.router'
+import { projectsRouter } from './routers/projects.router'
+import { proxyRouter } from './routers/proxy.router'
+import { caRouter } from './routers/ca.router'
+import { subscriptionsRouter } from './routers/subscriptions.router'
+import { transactionsRouter } from './routers/transactions.router'
+import { hostsRouter } from './routers/hosts.router'
+import { authProfilesRouter } from './routers/auth-profiles.router'
 
 /**
  * Main tRPC router that combines all sub-routers

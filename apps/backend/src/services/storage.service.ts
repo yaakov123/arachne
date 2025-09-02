@@ -9,7 +9,7 @@ import type {
     AuthValueSource,
     AuthProfile,
 } from '@arachne/database'
-import { TransactionService } from './transaction-service'
+import { TransactionService } from './transaction.service'
 import { AuthProfileRepository } from '@arachne/database'
 
 export class StorageService {

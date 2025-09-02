@@ -8,7 +8,7 @@ import {
 } from '@arachne/proxy'
 import { registerTRPCApi } from './trpc-api'
 import { logger } from './logger'
-import { buildProjectConfiguration } from './services/proxy-configuration-manager'
+import { buildProjectConfiguration } from './services/proxy-configuration.service'
 import { ServiceContainer } from './services/service-container'
 import { AppConfig } from './types'
 import { TransactionHandler } from './plugins/transaction-handler.plugin'

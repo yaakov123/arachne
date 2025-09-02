@@ -1,6 +1,6 @@
 import { AfterRequestContext, ProxyPlugin } from '@arachne/proxy'
-import { StorageService } from '../services/storage-service'
-import { ProjectService } from '../services/project-service'
+import { StorageService } from '../services/storage.service'
+import { ProjectService } from '../services/project.service'
 import type {
     AuthMethodConfig,
     BearerAuthConfig,

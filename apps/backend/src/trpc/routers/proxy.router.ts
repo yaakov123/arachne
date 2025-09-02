@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../init'
-import { buildProjectConfiguration } from '../../services/proxy-configuration-manager'
+import { buildProjectConfiguration } from '../../services/proxy-configuration.service'
 
 export const proxyRouter = router({
     // Start proxy

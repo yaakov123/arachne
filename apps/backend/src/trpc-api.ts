@@ -4,9 +4,9 @@ import {
     FastifyTRPCPluginOptions,
 } from '@trpc/server/adapters/fastify'
 import type { CertificateAuthority, MitmProxyServer } from '@arachne/proxy'
-import type { ProjectService } from './services/project-service'
-import type { TransactionService } from './services/transaction-service'
-import type { AuthProfileService } from './services/auth-profile-service'
+import type { ProjectService } from './services/project.service'
+import type { TransactionService } from './services/transaction.service'
+import type { AuthProfileService } from './services/auth-profile.service'
 import { AppRouter, appRouter, createTRPCContext } from './trpc'
 
 interface TRPCApiOptions {

@@ -6,9 +6,9 @@ import type {
     TransactionData,
     TransactionCompleteEvent,
 } from '@arachne/api-types'
-import { StorageService } from '../services/storage-service'
-import { ProjectService } from '../services/project-service'
-import { BroadcastService } from '../services/broadcast-service'
+import { StorageService } from '../services/storage.service'
+import { ProjectService } from '../services/project.service'
+import { BroadcastService } from '../services/broadcast.service'
 
 const DEFAULT_MAX = 1024 * 1024 * 1024 // 1GB sample cap
 
